@@ -1,8 +1,11 @@
 #include <config.h>
+#include <iniparser.h>
 #include <stdio.h>
 
-void main(char **argv, int argc)
+#include "logger.h"
+
+int main(int argc, char **argv)
 {
-	printf("Hello world");
+	log_write(LEVEL_WARNING, "Hello world");
 	return 1;
 }
