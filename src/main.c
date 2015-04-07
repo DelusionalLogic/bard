@@ -93,23 +93,28 @@ static const char* const TypeStr[] = {
 	"running",
 };
 
+#define NAME_MAX 255
+#define COMMAND_MAX 1024
+#define REGEX_MAX 1024
+#define FORMAT_MAX 255
+#define LASTOUT_MAX 1024
 struct Unit {
-	char name[255];
+	char name[NAME_MAX];
 	enum UnitType type;
-	char command[1024];
+	char command[COMMAND_MAX];
 	unsigned long lastCmdOut;
 
 	bool hasRegex;
-	char regex[1024];
+	char regex[REGEX_MAX];
 	bool isCompiled;
 	regex_t regexComp;
 
 	bool advancedFormat;
-	char format[255];
+	char format[FORMAT_MAX];
 
 	int interval;
 	time_t nextRun;
-	char lastOut[1024];
+	char lastOut[LASTOUT_MAX];
 };
 
 struct UnitSearch {
@@ -157,7 +162,32 @@ unsigned long hashString(unsigned char *str)
 	return hash;
 }
 
+struct PatternMatch{
+	size_t startPos;
+	size_t endPos;
+};
+
 #define MAX_MATCH 24
+#define LOOKUP_MAX 10
+char* getNext(const char* curPos, int* index, const char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
+{
+	char* curMin = strstr(curPos, lookups[0]);
+	*index = 0;
+	char* thisPos = NULL;
+	for(size_t i = 1; i < lookupsLen; i++)
+	{
+		thisPos = strstr(curPos, lookups[i]);
+		if(thisPos == NULL)
+			continue;
+		if(curMin == NULL || thisPos < curMin)
+		{
+			curMin = thisPos;
+			*index = i;
+		}
+	}
+	return curMin;
+}
+
 void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t outSize)
 {
 	if(unit->hasRegex)
@@ -170,11 +200,47 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 		}
 		size_t maxMatch = MAX_MATCH;
 		regmatch_t matches[MAX_MATCH];
+		printf("%s on %s\n", unit->regex, input);
 		if(regexec(&unit->regexComp, input, maxMatch, matches, 0))
 			log_write(LEVEL_ERROR, "Error matching");
 
 		if(!unit->advancedFormat)
 		{
+			printf("Matching: %s\n", unit->format);
+			char lookupmem[MAX_MATCH*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
+			char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
+			int numMatches = -1;
+			for(int i = 0; i < MAX_MATCH; i++)
+			{
+				regmatch_t* match = &matches[i];
+				if(match->rm_so != -1)
+					numMatches = i;
+
+				snprintf(lookup[i], LOOKUP_MAX, "$%d", i); //This should probably be computed at compiletime
+				//TODO: Error checking
+			}	 
+			size_t formatLen = strlen(unit->format);
+			const char* curPos = unit->format;
+			const char* prevPos = NULL;
+			char* outPos = output;
+			while(curPos < unit->format + formatLen)
+			{
+				printf("Looking for next token in %s\n", curPos);
+				prevPos = curPos;
+				int index = 0;
+				curPos = getNext(curPos, &index, lookup, LOOKUP_MAX);
+
+				if(curPos == NULL)
+					break;
+
+				strncpy(outPos, prevPos, curPos - prevPos);
+				outPos += curPos - prevPos;
+
+				regmatch_t match = matches[index];
+				strncpy(outPos, input + match.rm_so, match.rm_eo - match.rm_so);
+				outPos += match.rm_eo - match.rm_so;
+				curPos++;
+			}
 		}
 	}
 }
@@ -186,11 +252,17 @@ void executeUnit(struct Unit* unit)
 	FILE* f = (FILE*)popen(unit->command, "r");
 	char buff[1024];
 	fgets(buff, 1024, f);
+	pclose(f);
 	unsigned long cmdOut = hashString((unsigned char*)buff);
 	if(cmdOut == unit->lastCmdOut)
 		return;
 	unit->lastCmdOut = cmdOut;
-	printf("%s", buff);
+
+	char outBuff[1024];
+
+	formatStrUnit(unit, buff, outBuff, 1024);
+
+	printf("%s", outBuff);
 }
 
 int main(int argc, char **argv)
@@ -220,7 +292,7 @@ int main(int argc, char **argv)
 		struct Unit unit = {0};
 
 		char* name = iniparser_getstring(conf, "unit:name", "UNDEFINED");
-		if(strlen(name) >= 255)
+		if(strlen(name) >= NAME_MAX)
 		{
 			log_write(LEVEL_ERROR, "Unit name length greater than max");
 			continue;
@@ -234,13 +306,44 @@ int main(int argc, char **argv)
 				unit.type = i;
 		}	
 
-		char* command = iniparser_getstring(conf, "display:command", "");
-		if(strlen(command) >= 1024)
+		char* command = iniparser_getstring(conf, "display:command", NULL);
+		if(strlen(command) >= COMMAND_MAX)
 		{
 			log_write(LEVEL_ERROR, "Unit command length greater than max");
 			continue;
 		}
 		strcpy(unit.command, command);
+
+		char* regex = iniparser_getstring(conf, "display:regex", NULL);
+		if(regex == NULL)
+		{
+			log_write(LEVEL_INFO, "No regex set");
+			unit.hasRegex = false;
+		}else if(strlen(regex) >= REGEX_MAX){
+			log_write(LEVEL_ERROR, "Regex length greather than max");	
+			continue;
+		}else{
+			unit.hasRegex = true;
+			strcpy(unit.regex, regex);
+		}
+
+		char* format = iniparser_getstring(conf, "display:format", NULL);
+		if(format == NULL)
+		{
+			log_write(LEVEL_INFO, "No format string set");
+			if(unit.hasRegex)
+			{
+				log_write(LEVEL_ERROR, "Unit has regex but no information on how to format it");
+				continue;
+			}
+		}else if(strlen(format) >= FORMAT_MAX){
+			log_write(LEVEL_ERROR, "Format length greather than max");
+			continue;
+		}else{
+			strcpy(unit.format, format);
+		}
+
+		unit.advancedFormat = iniparser_getboolean(conf, "display:advFormat", false);
 
 		unit.interval = iniparser_getint(conf, "display:interval", 10);
 
