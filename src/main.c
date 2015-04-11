@@ -9,6 +9,8 @@
 #include <dirent.h>
 #include <time.h>
 
+#include "unit.h"
+#include "configparser.h"
 #include "logger.h"
 #include "vector.h"
 #include "linkedlist.h"
@@ -80,42 +82,6 @@ void getFiles(const char* path, Vector* nameList)
 	}	
 	vector_qsort(nameList, fileSort);
 }
-
-enum UnitType{
-	UNIT_POLL,
-	UNIT_RUNNING,
-};
-
-#define UNITTYPE_LENGTH ((int)UNIT_RUNNING+1)
-
-static const char* const TypeStr[] = {
-	"poll",
-	"running",
-};
-
-#define NAME_MAX 255
-#define COMMAND_MAX 1024
-#define REGEX_MAX 1024
-#define FORMAT_MAX 255
-#define LASTOUT_MAX 1024
-struct Unit {
-	char name[NAME_MAX];
-	enum UnitType type;
-	char command[COMMAND_MAX];
-	unsigned long lastCmdOut;
-
-	bool hasRegex;
-	char regex[REGEX_MAX];
-	bool isCompiled;
-	regex_t regexComp;
-
-	bool advancedFormat;
-	char format[FORMAT_MAX];
-
-	int interval;
-	time_t nextRun;
-	char lastOut[LASTOUT_MAX];
-};
 
 struct UnitSearch {
 	struct Unit* unit;
@@ -285,72 +251,25 @@ int main(int argc, char **argv)
 
 	time_t curTime = time(NULL); 
 
+	struct ConfigParser parser;
+	struct ConfigParserEntry entries[] = {
+		{name = "unit:name", type = TYPE_STRING, set_int = unit_setName, default_string = "UNDEF"},
+		{name = NULL},
+	};
+	cp_init(&parser, entries);
+
 	for(size_t i = 0; i < vector_size(&files); i++)
 	{
 		printf("%s\n", *(char**)vector_get(&files, i));
 		dictionary *conf = iniparser_load(*(char**)vector_get(&files, i));
 		struct Unit unit = {0};
 
-		char* name = iniparser_getstring(conf, "unit:name", "UNDEFINED");
-		if(strlen(name) >= NAME_MAX)
-		{
-			log_write(LEVEL_ERROR, "Unit name length greater than max");
-			continue;
-		}
-		strcpy(unit.name, name);
-
-		char* type = iniparser_getstring(conf, "unit:type", "poll");
-		for(int i = 0; i < UNITTYPE_LENGTH; i++)
-		{
-			if(!strcasecmp(TypeStr[i], type))
-				unit.type = i;
-		}	
-
-		char* command = iniparser_getstring(conf, "display:command", NULL);
-		if(strlen(command) >= COMMAND_MAX)
-		{
-			log_write(LEVEL_ERROR, "Unit command length greater than max");
-			continue;
-		}
-		strcpy(unit.command, command);
-
-		char* regex = iniparser_getstring(conf, "display:regex", NULL);
-		if(regex == NULL)
-		{
-			log_write(LEVEL_INFO, "No regex set");
-			unit.hasRegex = false;
-		}else if(strlen(regex) >= REGEX_MAX){
-			log_write(LEVEL_ERROR, "Regex length greather than max");	
-			continue;
-		}else{
-			unit.hasRegex = true;
-			strcpy(unit.regex, regex);
-		}
-
-		char* format = iniparser_getstring(conf, "display:format", NULL);
-		if(format == NULL)
-		{
-			log_write(LEVEL_INFO, "No format string set");
-			if(unit.hasRegex)
-			{
-				log_write(LEVEL_ERROR, "Unit has regex but no information on how to format it");
-				continue;
-			}
-		}else if(strlen(format) >= FORMAT_MAX){
-			log_write(LEVEL_ERROR, "Format length greather than max");
-			continue;
-		}else{
-			strcpy(unit.format, format);
-		}
-
-		unit.advancedFormat = iniparser_getboolean(conf, "display:advFormat", false);
-
-		unit.interval = iniparser_getint(conf, "display:interval", 10);
-
-		unit.nextRun = curTime + unit.interval;
+		cp_load(&parser, *(char**)vector_get(&files, i), &unit);
+		printf("%s\n", unit.name);
 
 		vector_putBack(&units, &unit);
 	}
+	cp_free(&parser);
 
 	vector_delete(&files);
 
