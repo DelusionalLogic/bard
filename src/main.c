@@ -11,6 +11,7 @@
 
 #include "unit.h"
 #include "configparser.h"
+#include "workmanager.h"
 #include "logger.h"
 #include "vector.h"
 #include "linkedlist.h"
@@ -83,22 +84,6 @@ void getFiles(const char* path, Vector* nameList)
 	vector_qsort(nameList, fileSort);
 }
 
-struct UnitSearch {
-	struct Unit* unit;
-	int slot;
-};
-
-bool FindSlot(void* elem, void* userdata)
-{
-	struct Unit* unit = *(struct Unit**)elem;
-	struct UnitSearch* s = (struct UnitSearch*)userdata;
-	if(unit->nextRun > s->unit->nextRun)
-		return false;
-
-	s->slot++;
-	return true;
-}
-
 bool PrintUnit(void* elem, void* userdata)
 {
 	struct Unit* unit = *(struct Unit**)elem;
@@ -106,15 +91,6 @@ bool PrintUnit(void* elem, void* userdata)
 	log_write(LEVEL_INFO, unit->name);
 
 	return true;
-}
-
-void insertWork(LinkedList* workList, struct Unit* unit)
-{
-	struct UnitSearch search;
-	search.unit = unit;
-	search.slot = 0;
-	ll_foreach(workList, FindSlot, &search);
-	ll_insert(workList, search.slot, &search.unit);
 }
 
 unsigned long hashString(unsigned char *str)
@@ -133,7 +109,7 @@ struct PatternMatch{
 	size_t endPos;
 };
 
-#define MAX_MATCH 24
+/*#define MAX_MATCH 24
 #define LOOKUP_MAX 10
 char* getNext(const char* curPos, int* index, const char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
 {
@@ -210,11 +186,13 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 		}
 	}
 }
-
-void executeUnit(struct Unit* unit)
+*/
+bool executeUnit(struct Unit* unit)
 {
 	printf("[%ld] %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+	return true;
 
+	/*
 	FILE* f = (FILE*)popen(unit->command, "r");
 	char buff[1024];
 	fgets(buff, 1024, f);
@@ -229,6 +207,7 @@ void executeUnit(struct Unit* unit)
 	formatStrUnit(unit, buff, outBuff, 1024);
 
 	printf("%s", outBuff);
+	*/
 }
 
 int main(int argc, char **argv)
@@ -253,8 +232,9 @@ int main(int argc, char **argv)
 
 	struct ConfigParser parser;
 	struct ConfigParserEntry entries[] = {
-		{name = "unit:name", type = TYPE_STRING, set_int = unit_setName, default_string = "UNDEF"},
-		{name = NULL},
+		{ .name = "unit:name", .type = TYPE_STRING, .set_str = (bool (*)(void*, char*))unit_setName, .default_string = "UNDEF"},
+		{ .name = "display:interval", .type = TYPE_INT, .set_int = (bool (*)(void*, int))unit_setInterval, .default_int = 10},
+		{.name = NULL},
 	};
 	cp_init(&parser, entries);
 
@@ -273,35 +253,12 @@ int main(int argc, char **argv)
 
 	vector_delete(&files);
 
-	LinkedList work;
-	ll_init(&work, sizeof(struct Unit*));
+	struct WorkManager wm;
+	workmanager_init(&wm, &units);
 
-	for(size_t i = 0; i < vector_size(&units); i++)
-	{
-		struct Unit* unit = (struct Unit*)vector_get(&units, i);
-		insertWork(&work, unit);
-	}
+	workmanager_run(&wm, executeUnit);
 
-	ll_foreach(&work, PrintUnit, NULL);
-
-	{
-		while(ll_size(&work) != 0)
-		{
-			time_t curTime = time(NULL);
-
-			struct Unit* next = *(struct Unit**)ll_get(&work, 0);
-			sleep(next->nextRun-curTime);
-			curTime = time(NULL);
-
-			ll_remove(&work, 0);
-			executeUnit(next);
-			next->nextRun = curTime + next->interval;
-			insertWork(&work, next);
-		}
-	}
-
-	ll_delete(&work);
-
+	workmanager_free(&wm);
 	vector_delete(&units);
 
 

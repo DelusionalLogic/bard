@@ -23,6 +23,8 @@ void vector_remove(Vector* vector, size_t count);
 void vector_clear(Vector* vector);
 void vector_qsort(Vector* vector, int (*compar)(const void *, const void*));
 
+void vector_foreach(Vector* vector, bool (*callback)(void* elem, void* userdata), void* userdata);
+
 size_t vector_size(Vector* vector);
 
 #endif

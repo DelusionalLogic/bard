@@ -70,6 +70,16 @@ void vector_qsort(Vector* vector, int (*compar)(const void *, const void*))
 	qsort(vector->data, vector->size, vector->elementSize, compar);
 }
 
+void vector_foreach(Vector* vector, bool (*callback)(void* elem, void* userdata), void* userdata)
+{
+	for(size_t i = 0; i < vector->size; i++)
+	{
+		void* elem = vector->data + (vector->elementSize * i);
+		if(!callback(elem, userdata))
+			break;
+	}
+}
+
 size_t vector_size(Vector* vector)
 {
 	return vector->size;
