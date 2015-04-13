@@ -5,7 +5,9 @@
 #include <iniparser.h>
 #include "unit.h"
 
-#define PTR_SET(NAME, TYPE) bool (*NAME)(void*, TYPE)
+#define	StringConfigEntry(NAME, CB, DEFAULT) { .name = NAME, .type = TYPE_STRING, .set_str = (bool (*)(void*, char*))CB, .default_string = DEFAULT }
+#define	IntConfigEntry(NAME, CB, DEFAULT) { .name = NAME, .type = TYPE_INT, .set_int = (bool (*)(void*, int))CB, .default_int = DEFAULT }
+#define	BoolConfigEntry(NAME, CB, DEFAULT) { .name = NAME, .type = TYPE_BOOL, .set_str = (bool (*)(void*, bool))CB, .default_bool = DEFAULT }
 
 enum EntryType {
 	TYPE_BOOL,
@@ -13,6 +15,7 @@ enum EntryType {
 	TYPE_STRING,
 };
 
+#define PTR_SET(NAME, TYPE) bool (*NAME)(void*, TYPE)
 struct ConfigParserEntry {
 	char* name;
 	enum EntryType type;
@@ -27,6 +30,7 @@ struct ConfigParserEntry {
 		char* default_string;
 	};
 };
+#undef PTR_SET
 
 struct ConfigParser {
 	dictionary* conf;

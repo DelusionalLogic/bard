@@ -228,12 +228,10 @@ int main(int argc, char **argv)
 	Vector units;
 	vector_init(&units, sizeof(struct Unit), 10);
 
-	time_t curTime = time(NULL); 
-
 	struct ConfigParser parser;
 	struct ConfigParserEntry entries[] = {
-		{ .name = "unit:name", .type = TYPE_STRING, .set_str = (bool (*)(void*, char*))unit_setName, .default_string = "UNDEF"},
-		{ .name = "display:interval", .type = TYPE_INT, .set_int = (bool (*)(void*, int))unit_setInterval, .default_int = 10},
+		StringConfigEntry("unit:name", unit_setName, "UNDEF"),
+		IntConfigEntry("display:interval", unit_setInterval, 10),
 		{.name = NULL},
 	};
 	cp_init(&parser, entries);
