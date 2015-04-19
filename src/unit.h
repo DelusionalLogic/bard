@@ -32,10 +32,10 @@ void unit_init(struct Unit* unit);
 void unit_free(struct Unit* unit);
 
 bool unit_setName(struct Unit* unit, const char* name);
-void unit_setType(struct Unit* unit, const enum UnitType type);
+bool unit_setType(struct Unit* unit, const enum UnitType type);
 bool unit_setCommand(struct Unit* unit, const char* command);
 bool unit_setRegex(struct Unit* unit, const char* regex);
 bool unit_setFormat(struct Unit* unit, const char* format);
-void unit_setInterval(struct Unit* unit, const int interval);
+bool unit_setInterval(struct Unit* unit, const int interval);
 
 #endif

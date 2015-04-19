@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <dirent.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "unit.h"
 #include "configparser.h"
@@ -187,27 +188,45 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 	}
 }
 */
+
 bool executeUnit(struct Unit* unit)
 {
 	printf("[%ld] %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
-	return true;
 
-	/*
 	FILE* f = (FILE*)popen(unit->command, "r");
-	char buff[1024];
-	fgets(buff, 1024, f);
+	Vector buff;
+	vector_init(&buff, sizeof(char), 32);
+	ssize_t readLen;
+	char null = '\0';
+
+
+	char chunk[32];
+	while((readLen = fread(chunk, 1, 32, f))>0)
+		vector_putListBack(&buff, chunk, readLen);
+
+	if(buff.data[buff.size-1] == '\n')
+		buff.data[buff.size-1] = '\0';
+	else
+		vector_putBack(&buff, &null);
+		
 	pclose(f);
-	unsigned long cmdOut = hashString((unsigned char*)buff);
-	if(cmdOut == unit->lastCmdOut)
-		return;
-	unit->lastCmdOut = cmdOut;
 
 	char outBuff[1024];
+//	formatStrUnit(unit, buff, outBuff, 1024);
 
-	formatStrUnit(unit, buff, outBuff, 1024);
+	printf("%s\n", buff.data);
+	vector_delete(&buff);
+	return true;
+}
 
-	printf("%s", outBuff);
-	*/
+bool parseType(struct Unit* unit, const char* type)
+{
+	for(int i = 0; i < UNITTYPE_LENGTH; i++)
+	{
+		if(!strcasecmp(TypeStr[i], type))
+			return unit_setType(unit, (const enum UnitType)i);
+	}
+	return false;
 }
 
 int main(int argc, char **argv)
@@ -230,7 +249,12 @@ int main(int argc, char **argv)
 
 	struct ConfigParser parser;
 	struct ConfigParserEntry entries[] = {
-		StringConfigEntry("unit:name", unit_setName, "UNDEF"),
+		StringConfigEntry("unit:name", unit_setName, NULL),
+		StringConfigEntry("unit:type", parseType, TypeStr[UNIT_POLL]),
+
+		StringConfigEntry("display:command", unit_setCommand, NULL),
+		StringConfigEntry("display:regex", unit_setRegex, NULL),
+		StringConfigEntry("display:format", unit_setFormat, NULL),
 		IntConfigEntry("display:interval", unit_setInterval, 10),
 		{.name = NULL},
 	};
@@ -242,8 +266,10 @@ int main(int argc, char **argv)
 		dictionary *conf = iniparser_load(*(char**)vector_get(&files, i));
 		struct Unit unit = {0};
 
-		cp_load(&parser, *(char**)vector_get(&files, i), &unit);
-		printf("%s\n", unit.name);
+		if(!cp_load(&parser, *(char**)vector_get(&files, i), &unit)) {
+			printf("Error parsing config for %s\n", unit.name);
+			exit(1);
+		}
 
 		vector_putBack(&units, &unit);
 	}
