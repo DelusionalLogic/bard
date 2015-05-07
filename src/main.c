@@ -1,5 +1,4 @@
 #include <config.h>
-#include <regex.h>
 #include <iniparser.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,6 +10,7 @@
 #include <unistd.h>
 
 #include "unit.h"
+#include "formatter.h"
 #include "configparser.h"
 #include "workmanager.h"
 #include "logger.h"
@@ -77,7 +77,6 @@ void getFiles(const char* path, Vector* nameList)
 		vector_putListBack(&name, path, strlen(path));
 		vector_putBack(&name, &slash);
 		vector_putListBack(&name, ent->d_name, strlen(ent->d_name)+1);
-		printf("%s\n", name.data);
 
 		vector_putBack(nameList, &name.data);
 		//Name is not destroyed because we want to keep the buffer around
@@ -189,9 +188,11 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 }
 */
 
+struct Formatter formatter;
+
 bool executeUnit(struct Unit* unit)
 {
-	printf("[%ld] %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
 	FILE* f = (FILE*)popen(unit->command, "r");
 	Vector buff;
@@ -212,9 +213,8 @@ bool executeUnit(struct Unit* unit)
 	pclose(f);
 
 	char outBuff[1024];
-//	formatStrUnit(unit, buff, outBuff, 1024);
+	formatter_format(&formatter, unit, buff.data, outBuff, 1024);
 
-	printf("%s\n", buff.data);
 	vector_delete(&buff);
 	return true;
 }
@@ -233,12 +233,15 @@ int main(int argc, char **argv)
 {
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+	formatter_init(&formatter);
+
 	if(arguments.configDir == NULL)
 	{
 		log_write(LEVEL_ERROR, "Config directory required");
 		exit(0);
 	}
-	log_write(LEVEL_INFO, arguments.configDir);
+	log_write(LEVEL_INFO, "Reading configs from %s", arguments.configDir);
 
 	Vector files;
 	vector_init(&files, sizeof(char*), 5);
@@ -250,7 +253,7 @@ int main(int argc, char **argv)
 	struct ConfigParser parser;
 	struct ConfigParserEntry entries[] = {
 		StringConfigEntry("unit:name", unit_setName, NULL),
-		StringConfigEntry("unit:type", parseType, TypeStr[UNIT_POLL]),
+		StringConfigEntry("unit:type", parseType, (char*)TypeStr[UNIT_POLL]),
 
 		StringConfigEntry("display:command", unit_setCommand, NULL),
 		StringConfigEntry("display:regex", unit_setRegex, NULL),
@@ -263,11 +266,12 @@ int main(int argc, char **argv)
 	for(size_t i = 0; i < vector_size(&files); i++)
 	{
 		printf("%s\n", *(char**)vector_get(&files, i));
-		dictionary *conf = iniparser_load(*(char**)vector_get(&files, i));
+		char* file = *(char**)vector_get(&files, i);
+		dictionary *conf = iniparser_load(file);
 		struct Unit unit = {0};
 
 		if(!cp_load(&parser, *(char**)vector_get(&files, i), &unit)) {
-			printf("Error parsing config for %s\n", unit.name);
+			log_write(LEVEL_ERROR, "Couldn't parse config %s", file);
 			exit(1);
 		}
 

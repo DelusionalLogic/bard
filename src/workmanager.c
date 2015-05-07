@@ -38,7 +38,6 @@ void workmanager_free(struct WorkManager* manager) {
 }
 
 void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* unit)) {
-	printf("I'm running\n");
 	while(true)
 	{
 		struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);

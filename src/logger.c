@@ -1,5 +1,6 @@
 #include "logger.h"
 #include <stdio.h>
+#include <stdarg.h>
 
 static const char *const LevelNames[] = {
 	"Info",
@@ -12,7 +13,11 @@ static const char* LevelStr(const LOG_Level level)
 	return LevelNames[level];
 }
 
-void log_write(LOG_Level level, const char* message)
+void log_write(LOG_Level level, const char* format, ...)
 {
-	printf("[%s] %s\n", LevelStr(level), message);
+	printf("[%s]", LevelStr(level));
+	va_list args;
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
 }

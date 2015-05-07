@@ -7,6 +7,6 @@ typedef enum {
 	LEVEL_ERROR,
 } LOG_Level;
 
-void log_write(LOG_Level level, const char* message);
+void log_write(LOG_Level level, const char* format, ...);
 
 #endif

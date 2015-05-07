@@ -101,7 +101,7 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_bard_OBJECTS = main.$(OBJEXT) logger.$(OBJEXT) vector.$(OBJEXT) \
 	linkedlist.$(OBJEXT) unit.$(OBJEXT) configparser.$(OBJEXT) \
-	workmanager.$(OBJEXT) sortedlist.$(OBJEXT)
+	workmanager.$(OBJEXT) sortedlist.$(OBJEXT) formatter.$(OBJEXT)
 bard_OBJECTS = $(am_bard_OBJECTS)
 bard_DEPENDENCIES =
 AM_V_P = $(am__v_P_@AM_V@)
@@ -247,7 +247,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-bard_SOURCES = main.c logger.c vector.c linkedlist.c unit.c configparser.c workmanager.c sortedlist.c
+bard_SOURCES = main.c logger.c vector.c linkedlist.c unit.c configparser.c workmanager.c sortedlist.c formatter.c
 bard_LDADD = -liniparser
 all: all-am
 
@@ -336,6 +336,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/configparser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/formatter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linkedlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/logger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
