@@ -73,7 +73,7 @@ void getFiles(const char* path, Vector* nameList)
 		vector_putListBack(&name, path, strlen(path));
 		vector_putBack(&name, &slash);
 		vector_putListBack(&name, ent->d_name, strlen(ent->d_name)+1);
-		printf("%s\n", name.data);
+		log_write(LEVEL_INFO, "%s", name.data);
 
 		vector_putBack(nameList, &name.data);
 		//Name is not destroyed because we want to keep the buffer around
@@ -169,7 +169,7 @@ struct PatternMatch{
 
 #define MAX_MATCH 24
 #define LOOKUP_MAX 10
-char* getNext(const char* curPos, int* index, const char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
+char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
 {
 	char* curMin = strstr(curPos, lookups[0]);
 	*index = 0;
@@ -200,13 +200,13 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 		}
 		size_t maxMatch = MAX_MATCH;
 		regmatch_t matches[MAX_MATCH];
-		printf("%s on %s\n", unit->regex, input);
+		log_write(LEVEL_INFO, "%s on %s", unit->regex, input);
 		if(regexec(&unit->regexComp, input, maxMatch, matches, 0))
 			log_write(LEVEL_ERROR, "Error matching");
 
 		if(!unit->advancedFormat)
 		{
-			printf("Matching: %s\n", unit->format);
+			log_write(LEVEL_INFO, "Matching: %s", unit->format);
 			char lookupmem[MAX_MATCH*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
 			char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
 			int numMatches = -1;
@@ -225,7 +225,7 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 			char* outPos = output;
 			while(curPos < unit->format + formatLen)
 			{
-				printf("Looking for next token in %s\n", curPos);
+				log_write(LEVEL_INFO, "Looking for next token in %s", curPos);
 				prevPos = curPos;
 				int index = 0;
 				curPos = getNext(curPos, &index, lookup, LOOKUP_MAX);
@@ -239,7 +239,7 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 				regmatch_t match = matches[index];
 				strncpy(outPos, input + match.rm_so, match.rm_eo - match.rm_so);
 				outPos += match.rm_eo - match.rm_so;
-				curPos++;
+				curPos += strlen(lookup[index]);
 			}
 		}
 	}
@@ -247,7 +247,7 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 
 void executeUnit(struct Unit* unit)
 {
-	printf("[%ld] %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+	log_write(LEVEL_INFO, "%s (%s, %s)", unit->name, unit->command, TypeStr[unit->type]);
 
 	FILE* f = (FILE*)popen(unit->command, "r");
 	char buff[1024];
@@ -262,7 +262,7 @@ void executeUnit(struct Unit* unit)
 
 	formatStrUnit(unit, buff, outBuff, 1024);
 
-	printf("%s", outBuff);
+	printf("%s\n", outBuff);
 }
 
 int main(int argc, char **argv)
@@ -274,7 +274,7 @@ int main(int argc, char **argv)
 		log_write(LEVEL_ERROR, "Config directory required");
 		exit(0);
 	}
-	log_write(LEVEL_INFO, arguments.configDir);
+	log_write(LEVEL_INFO, "Reading config from %s", arguments.configDir);
 
 	Vector files;
 	vector_init(&files, sizeof(char*), 5);
@@ -287,9 +287,9 @@ int main(int argc, char **argv)
 
 	for(size_t i = 0; i < vector_size(&files); i++)
 	{
-		printf("%s\n", *(char**)vector_get(&files, i));
+		log_write(LEVEL_INFO, "%s", *(char**)vector_get(&files, i));
 		dictionary *conf = iniparser_load(*(char**)vector_get(&files, i));
-		struct Unit unit = {0};
+		struct Unit unit = { 0 };
 
 		char* name = iniparser_getstring(conf, "unit:name", "UNDEFINED");
 		if(strlen(name) >= NAME_MAX)
