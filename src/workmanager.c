@@ -1,6 +1,7 @@
 #include "workmanager.h"
 #include <time.h>
 #include <unistd.h>
+#include "logger.h"
 
 struct UnitContainer {
 	time_t nextRun;
@@ -27,14 +28,17 @@ static bool vecAddUnit(void* elem, void* userdata) {
 	return true;
 }
 
-void workmanager_init(struct WorkManager* manager, Vector* vec) {
+void workmanager_init(struct WorkManager* manager) {
 	sl_init(&manager->list, sizeof(struct UnitContainer), unitPlaceComp);
-	struct AddUnitData data = { .list = &manager->list };
-	vector_foreach(vec, vecAddUnit, &data);
 }
 
 void workmanager_free(struct WorkManager* manager) {
 	sl_free(&manager->list);
+}
+
+void workmanager_addUnits(struct WorkManager* manager, Vector* vec) {
+	struct AddUnitData data = { .list = &manager->list };
+	vector_foreach(vec, vecAddUnit, &data);
 }
 
 void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* unit)) {
@@ -48,7 +52,7 @@ void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* u
 
 		if(!execute(container->unit))
 			break;
-
+		
 		curTime = time(NULL);
 		container->nextRun = curTime + container->unit->interval;
 		sl_reorder(&manager->list, 0);

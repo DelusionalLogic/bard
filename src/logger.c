@@ -15,9 +15,9 @@ static const char* LevelStr(const LOG_Level level)
 
 void log_write(LOG_Level level, const char* format, ...)
 {
-	printf("[%s]", LevelStr(level));
+	fprintf(stderr, "[%s]", LevelStr(level));
 	va_list args;
 	va_start(args, format);
-	vprintf(format, args);
+	vfprintf(stderr, format, args);
 	va_end(args);
 }

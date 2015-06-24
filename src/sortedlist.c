@@ -52,7 +52,7 @@ void sl_reorder(struct SortedList* list, size_t index) {
 	ll_foreach(&list->list, findPlace, &data);
 	//Reinsert at new position
 	cur = list->list.first;
-	for(size_t i = 0; i < index; i++)
+	for(size_t i = 0; i < data.slot; i++)
 	{
 		prev = cur;
 		cur = cur->next;

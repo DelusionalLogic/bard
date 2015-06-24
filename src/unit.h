@@ -15,6 +15,7 @@ static const char* const TypeStr[] = {
 };
 
 struct Unit {
+	/* Config File */
 	char* name;
 	enum UnitType type;
 	char* command;
@@ -26,6 +27,13 @@ struct Unit {
 	char* format;
 
 	int interval;
+
+	/* Processing info */
+	/* Command buffering */
+	unsigned long hash;
+
+	/* Final output */
+	char output[1024];
 };
 
 void unit_init(struct Unit* unit);

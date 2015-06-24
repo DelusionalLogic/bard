@@ -1,4 +1,5 @@
 #include <config.h>
+#include <signal.h>
 #include <iniparser.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include "formatter.h"
 #include "configparser.h"
 #include "workmanager.h"
+#include "output.h"
 #include "logger.h"
 #include "vector.h"
 #include "linkedlist.h"
@@ -189,11 +191,13 @@ void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t ou
 */
 
 struct Formatter formatter;
+struct Output outputter;
 
 bool executeUnit(struct Unit* unit)
 {
 	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
+	/* Execute process */
 	FILE* f = (FILE*)popen(unit->command, "r");
 	Vector buff;
 	vector_init(&buff, sizeof(char), 32);
@@ -201,6 +205,7 @@ bool executeUnit(struct Unit* unit)
 	char null = '\0';
 
 
+	/* Read output */
 	char chunk[32];
 	while((readLen = fread(chunk, 1, 32, f))>0)
 		vector_putListBack(&buff, chunk, readLen);
@@ -212,10 +217,22 @@ bool executeUnit(struct Unit* unit)
 		
 	pclose(f);
 
+	/* Don't process things we already have processed */
+	unsigned long newHash = hashString(buff.data);
+	if(unit->hash == newHash)
+		return true;
+	unit->hash = newHash;
+
+	/* Format the output for the bar */
 	char outBuff[1024];
 	formatter_format(&formatter, unit, buff.data, outBuff, 1024);
-
 	vector_delete(&buff);
+
+	strncpy(unit->output, outBuff, 1024);
+
+	log_write(LEVEL_INFO, "EXEC %p\n", unit->output);
+	out_print(&outputter);
+
 	return true;
 }
 
@@ -229,19 +246,31 @@ bool parseType(struct Unit* unit, const char* type)
 	return false;
 }
 
+void pipe_handler(int signal) {
+	//Handle pipes being ready. We want to tell the conditional that it can read
+	log_write(LEVEL_INFO, "Data ready on a pipe");
+}
+
 int main(int argc, char **argv)
 {
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
+	//Set signal handler for the async pipes
+	if(signal(SIGIO, pipe_handler) == SIG_ERR) {
+		log_write(LEVEL_ERROR, "Could not set signal handler SIGIO");
+		exit(1);
+	}
+
 	formatter_init(&formatter);
+	out_init(&outputter);
 
 	if(arguments.configDir == NULL)
 	{
 		log_write(LEVEL_ERROR, "Config directory required");
 		exit(0);
 	}
-	log_write(LEVEL_INFO, "Reading configs from %s", arguments.configDir);
+	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 
 	Vector files;
 	vector_init(&files, sizeof(char*), 5);
@@ -265,10 +294,10 @@ int main(int argc, char **argv)
 
 	for(size_t i = 0; i < vector_size(&files); i++)
 	{
-		printf("%s\n", *(char**)vector_get(&files, i));
+		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(&files, i));
 		char* file = *(char**)vector_get(&files, i);
-		dictionary *conf = iniparser_load(file);
 		struct Unit unit = {0};
+		unit_init(&unit);
 
 		if(!cp_load(&parser, *(char**)vector_get(&files, i), &unit)) {
 			log_write(LEVEL_ERROR, "Couldn't parse config %s", file);
@@ -281,13 +310,19 @@ int main(int argc, char **argv)
 
 	vector_delete(&files);
 
+	out_insert(&outputter, ALIGN_LEFT, &units);
+
 	struct WorkManager wm;
-	workmanager_init(&wm, &units);
+	workmanager_init(&wm);
+	workmanager_addUnits(&wm, &units);
 
 	workmanager_run(&wm, executeUnit);
 
 	workmanager_free(&wm);
 	vector_delete(&units);
+
+	out_free(&outputter);
+	formatter_free(&formatter);
 
 
 	return 0;
