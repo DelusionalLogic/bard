@@ -4,7 +4,7 @@
 #include "unit.h"
 
 void out_init(struct Output* output) {
-	for(int i = ALIGN_FIRST; i < ALIGN_LAST; i++) {
+	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
 		vector_init(&output->out[i], sizeof(char*), 10);
 	}
 }
@@ -41,6 +41,7 @@ static bool vecPrintUnit(void* elem, void* userdata) {
 
 void out_print(struct Output* output) {
 	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
+		printf("%s", AlignStr[i]);
 		vector_foreach(&output->out[i], vecPrintUnit, NULL);
 	}
 	printf("\n");

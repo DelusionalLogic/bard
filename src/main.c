@@ -56,6 +56,19 @@ int fileSort(const void* e1, const void* e2)
 	return strcmp((char*)e1, (char*)e2);	
 }
 
+char* pathAppend(const char* path, const char* path2) {
+	size_t pathLen = strlen(path);
+	size_t additionalSpace = 0;
+	if(path[pathLen-1] != '/')
+		additionalSpace = 1;
+	char* newPath = malloc(pathLen + strlen(path2) + additionalSpace + 1);
+	strcpy(newPath, path);
+	if(additionalSpace)
+		newPath[pathLen] = '/';
+	strcpy(newPath + pathLen + additionalSpace, path2);
+	return newPath;
+}
+
 //nameList is a vector of string (char*)
 void getFiles(const char* path, Vector* nameList)
 {
@@ -251,6 +264,27 @@ void pipe_handler(int signal) {
 	log_write(LEVEL_INFO, "Data ready on a pipe");
 }
 
+void loadUnits(Vector* units, struct ConfigParser* parser, const char* path) {
+	Vector files;
+	vector_init(&files, sizeof(char*), 5);
+	getFiles(path, &files);
+	for(size_t i = 0; i < vector_size(&files); i++)
+	{
+		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(&files, i));
+		char* file = *(char**)vector_get(&files, i);
+		struct Unit unit = {0};
+		unit_init(&unit);
+
+		if(!cp_load(parser, *(char**)vector_get(&files, i), &unit)) {
+			log_write(LEVEL_ERROR, "Couldn't parse config %s", file);
+			exit(1);
+		}
+
+		vector_putBack(units, &unit);
+	}
+	vector_delete(&files);
+}
+
 int main(int argc, char **argv)
 {
 	struct arguments arguments = {0};
@@ -272,12 +306,12 @@ int main(int argc, char **argv)
 	}
 	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 
-	Vector files;
-	vector_init(&files, sizeof(char*), 5);
-	getFiles(arguments.configDir, &files);
-
-	Vector units;
-	vector_init(&units, sizeof(struct Unit), 10);
+	Vector left;
+	Vector center;
+	Vector right;
+	vector_init(&left, sizeof(struct Unit), 10);
+	vector_init(&center, sizeof(struct Unit), 10);
+	vector_init(&right, sizeof(struct Unit), 10);
 
 	struct ConfigParser parser;
 	struct ConfigParserEntry entries[] = {
@@ -292,34 +326,28 @@ int main(int argc, char **argv)
 	};
 	cp_init(&parser, entries);
 
-	for(size_t i = 0; i < vector_size(&files); i++)
-	{
-		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(&files, i));
-		char* file = *(char**)vector_get(&files, i);
-		struct Unit unit = {0};
-		unit_init(&unit);
+	loadUnits(&left, &parser, pathAppend(arguments.configDir, "left"));
+	loadUnits(&center, &parser, pathAppend(arguments.configDir, "center"));
+	loadUnits(&right, &parser, pathAppend(arguments.configDir, "right"));
 
-		if(!cp_load(&parser, *(char**)vector_get(&files, i), &unit)) {
-			log_write(LEVEL_ERROR, "Couldn't parse config %s", file);
-			exit(1);
-		}
-
-		vector_putBack(&units, &unit);
-	}
 	cp_free(&parser);
-
-	vector_delete(&files);
-
-	out_insert(&outputter, ALIGN_LEFT, &units);
+	
+	out_insert(&outputter, ALIGN_LEFT, &left);
+	out_insert(&outputter, ALIGN_CENTER, &center);
+	out_insert(&outputter, ALIGN_RIGHT, &right);
 
 	struct WorkManager wm;
 	workmanager_init(&wm);
-	workmanager_addUnits(&wm, &units);
+	workmanager_addUnits(&wm, &left);
+	workmanager_addUnits(&wm, &center);
+	workmanager_addUnits(&wm, &right);
 
 	workmanager_run(&wm, executeUnit);
 
 	workmanager_free(&wm);
-	vector_delete(&units);
+	vector_delete(&left);
+	vector_delete(&center);
+	vector_delete(&right);
 
 	out_free(&outputter);
 	formatter_free(&formatter);

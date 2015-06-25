@@ -1,6 +1,12 @@
 #ifndef ALIGN_H
 #define ALIGN_H
 
+static const char* const AlignStr[] = {
+	"%{l}",
+	"%{c}",
+	"%{r}",
+};
+
 enum Align {
 	ALIGN_LEFT,
 	ALIGN_CENTER,
