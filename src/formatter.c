@@ -8,6 +8,11 @@ struct RegBuff {
 	char* key;
 	regex_t regex;
 };
+bool regBuffFree(void* elem, void* userdata) {
+	struct RegBuff* element = (struct RegBuff*)elem;
+	regfree(&element->regex);
+	return true;
+}
 
 void formatter_init(struct Formatter* formatter)
 {
@@ -16,6 +21,7 @@ void formatter_init(struct Formatter* formatter)
 
 void formatter_free(struct Formatter* formatter)
 {
+	ll_foreach(&formatter->bufferList, regBuffFree, NULL);
 	ll_delete(&formatter->bufferList);
 }
 

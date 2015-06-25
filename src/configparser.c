@@ -5,8 +5,6 @@ void cp_init(struct ConfigParser* parser, struct ConfigParserEntry entry[]) {
 	parser->entries = entry;
 }
 void cp_free(struct ConfigParser* parser) {
-	if(parser->conf != NULL)
-		iniparser_freedict(parser->conf);
 }
 
 static bool set_bool(struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
@@ -20,7 +18,7 @@ static bool set_int(struct ConfigParser* parser, struct ConfigParserEntry* entry
 }
 
 static bool set_str(struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
-	char* val = iniparser_getstring(parser->conf, entry->name, entry->default_string);
+	const char* val = iniparser_getstring(parser->conf, entry->name, entry->default_string);
 	return entry->set_str(obj, val);
 }
 
@@ -50,8 +48,9 @@ bool cp_load(struct ConfigParser* parser, const char* file, void* obj) {
 				return false;
 		}
 		if(!status)
-			return false;
+			break;
 		i++;
 	}
+	iniparser_freedict(parser->conf);
 	return status;
 }

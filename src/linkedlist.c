@@ -12,7 +12,7 @@ void ll_init(LinkedList* list, size_t elementSize)
 void ll_delete(LinkedList* list)
 {
 	list->elementSize = 0x72727272;
-	for(size_t i = 0; i < list->length; i++)
+	while(list->length > 0)
 		ll_remove(list, 0);
 }
 

@@ -3,7 +3,8 @@
 #include "logger.h"
 #include "unit.h"
 
-void out_init(struct Output* output) {
+void out_init(struct Output* output, struct Conf* conf) {
+	output->conf = conf;
 	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
 		vector_init(&output->out[i], sizeof(char*), 10);
 	}
@@ -33,16 +34,25 @@ void out_insert(struct Output* output, enum Align side, Vector* units) {
 	vector_foreach(units, vecAddUnit, &data);
 }
 
+struct PrintUnitData {
+	bool first;
+	char* sep;
+};
 static bool vecPrintUnit(void* elem, void* userdata) {
+	struct PrintUnitData* data = (struct PrintUnitData*)userdata;
 	char** unit = (char**)elem;
+	if(!data->first)
+		printf("%s", data->sep);
 	printf("%s", *unit);
+	data->first = false;
 	return true;
 }
 
 void out_print(struct Output* output) {
 	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
 		printf("%s", AlignStr[i]);
-		vector_foreach(&output->out[i], vecPrintUnit, NULL);
+		struct PrintUnitData data = { .first = true, .sep = output->conf->separator };
+		vector_foreach(&output->out[i], vecPrintUnit, &data);
 	}
 	printf("\n");
 }

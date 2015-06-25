@@ -18,6 +18,7 @@
 #include "logger.h"
 #include "vector.h"
 #include "linkedlist.h"
+#include "conf.h"
 
 const char* argp_program_version = PACKAGE_STRING;
 const char* argp_program_bug_address = PACKAGE_BUGREPORT;
@@ -96,7 +97,18 @@ void getFiles(const char* path, Vector* nameList)
 		vector_putBack(nameList, &name.data);
 		//Name is not destroyed because we want to keep the buffer around
 	}	
+	free(dir);
 	vector_qsort(nameList, fileSort);
+}
+
+bool freePtr(void* elem, void* userdata) {
+	char** data = (char**) elem;
+	free(*data);
+}
+
+bool freeUnit(void* elem, void* userdata) {
+	struct Unit* unit = (struct Unit*)elem;
+	unit_free(unit);
 }
 
 bool PrintUnit(void* elem, void* userdata)
@@ -232,8 +244,10 @@ bool executeUnit(struct Unit* unit)
 
 	/* Don't process things we already have processed */
 	unsigned long newHash = hashString(buff.data);
-	if(unit->hash == newHash)
+	if(unit->hash == newHash) {
+		vector_delete(&buff);
 		return true;
+	}
 	unit->hash = newHash;
 
 	/* Format the output for the bar */
@@ -282,6 +296,7 @@ void loadUnits(Vector* units, struct ConfigParser* parser, const char* path) {
 
 		vector_putBack(units, &unit);
 	}
+	vector_foreach(&files, freePtr, NULL);
 	vector_delete(&files);
 }
 
@@ -297,7 +312,6 @@ int main(int argc, char **argv)
 	}
 
 	formatter_init(&formatter);
-	out_init(&outputter);
 
 	if(arguments.configDir == NULL)
 	{
@@ -306,6 +320,20 @@ int main(int argc, char **argv)
 	}
 	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 
+	struct ConfigParser globalParser;
+	struct ConfigParserEntry globalEntries[] = {
+		StringConfigEntry("display:separator", conf_setSeparator, ""),
+		{.name = NULL},
+	};
+	cp_init(&globalParser, globalEntries);
+
+	struct Conf conf;
+	conf_init(&conf);
+	
+	char* globalPath = pathAppend(arguments.configDir, "bard.conf");
+	cp_load(&globalParser, globalPath, &conf);
+	free(globalPath);
+
 	Vector left;
 	Vector center;
 	Vector right;
@@ -313,7 +341,7 @@ int main(int argc, char **argv)
 	vector_init(&center, sizeof(struct Unit), 10);
 	vector_init(&right, sizeof(struct Unit), 10);
 
-	struct ConfigParser parser;
+	struct ConfigParser unitParser;
 	struct ConfigParserEntry entries[] = {
 		StringConfigEntry("unit:name", unit_setName, NULL),
 		StringConfigEntry("unit:type", parseType, (char*)TypeStr[UNIT_POLL]),
@@ -324,14 +352,21 @@ int main(int argc, char **argv)
 		IntConfigEntry("display:interval", unit_setInterval, 10),
 		{.name = NULL},
 	};
-	cp_init(&parser, entries);
+	cp_init(&unitParser, entries);
 
-	loadUnits(&left, &parser, pathAppend(arguments.configDir, "left"));
-	loadUnits(&center, &parser, pathAppend(arguments.configDir, "center"));
-	loadUnits(&right, &parser, pathAppend(arguments.configDir, "right"));
+	char* unitPath = pathAppend(arguments.configDir, "left");
+	loadUnits(&left, &unitParser, unitPath);
+	free(unitPath);
+	unitPath = pathAppend(arguments.configDir, "center");
+	loadUnits(&center, &unitParser, unitPath);
+	free(unitPath);
+	unitPath = pathAppend(arguments.configDir, "right");
+	loadUnits(&right, &unitParser, unitPath);
+	free(unitPath);
 
-	cp_free(&parser);
+	cp_free(&unitParser);
 	
+	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
 	out_insert(&outputter, ALIGN_LEFT, &left);
 	out_insert(&outputter, ALIGN_CENTER, &center);
 	out_insert(&outputter, ALIGN_RIGHT, &right);
@@ -342,11 +377,17 @@ int main(int argc, char **argv)
 	workmanager_addUnits(&wm, &center);
 	workmanager_addUnits(&wm, &right);
 
-	workmanager_run(&wm, executeUnit);
+	workmanager_run(&wm, executeUnit); //Blocks until the program should exit
 
 	workmanager_free(&wm);
+
+	vector_foreach(&left, freeUnit, NULL);
 	vector_delete(&left);
+
+	vector_foreach(&center, freeUnit, NULL);
 	vector_delete(&center);
+
+	vector_foreach(&right, freeUnit, NULL);
 	vector_delete(&right);
 
 	out_free(&outputter);
