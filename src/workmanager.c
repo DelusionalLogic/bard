@@ -41,10 +41,10 @@ void workmanager_addUnits(struct WorkManager* manager, Vector* vec) {
 	vector_foreach(vec, vecAddUnit, &data);
 }
 
-void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* unit)) {
+void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* unit), bool (*render)()) {
+	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
 	while(true)
 	{
-		struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
 
 		time_t curTime = time(NULL);
 		if(container->nextRun >= curTime)
@@ -56,5 +56,8 @@ void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* u
 		curTime = time(NULL);
 		container->nextRun = curTime + container->unit->interval;
 		sl_reorder(&manager->list, 0);
+		container = (struct UnitContainer*)sl_get(&manager->list, 0);
+		if(container->nextRun != curTime)
+			render();
 	}
 }

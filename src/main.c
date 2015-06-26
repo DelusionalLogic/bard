@@ -257,10 +257,13 @@ bool executeUnit(struct Unit* unit)
 
 	strncpy(unit->output, outBuff, 1024);
 
-	log_write(LEVEL_INFO, "EXEC %p\n", unit->output);
-	out_print(&outputter);
-
 	return true;
+}
+
+bool render() {
+	char* out = out_format(&outputter);
+	printf("%s\n", out);
+	free(out);
 }
 
 bool parseType(struct Unit* unit, const char* type)
@@ -377,7 +380,7 @@ int main(int argc, char **argv)
 	workmanager_addUnits(&wm, &center);
 	workmanager_addUnits(&wm, &right);
 
-	workmanager_run(&wm, executeUnit); //Blocks until the program should exit
+	workmanager_run(&wm, executeUnit, render); //Blocks until the program should exit
 
 	workmanager_free(&wm);
 

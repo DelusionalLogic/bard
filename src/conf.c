@@ -11,7 +11,6 @@ void conf_free(struct Conf* conf) {
 }
 
 bool conf_setSeparator(struct Conf* conf, const char* sep) {
-		printf("\n\n!%s!\n\n\n",sep);
 		free(conf->separator);
 		if(sep == NULL) {
 			conf->separator = NULL;

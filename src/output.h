@@ -15,6 +15,6 @@ void out_free(struct Output* output);
 
 void out_insert(struct Output* output, enum Align side, Vector* units);
 
-void out_print(struct Output* output);
+char* out_format(struct Output* output);
 
 #endif
