@@ -97,7 +97,7 @@ void getFiles(const char* path, Vector* nameList)
 		vector_putBack(nameList, &name.data);
 		//Name is not destroyed because we want to keep the buffer around
 	}	
-	free(dir);
+	closedir(dir);
 	vector_qsort(nameList, fileSort);
 }
 
