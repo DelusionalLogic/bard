@@ -264,6 +264,7 @@ bool render() {
 	char* out = out_format(&outputter);
 	printf("%s\n", out);
 	free(out);
+	fflush(stdout);
 }
 
 bool parseType(struct Unit* unit, const char* type)
