@@ -1,12 +1,12 @@
+#define _GNU_SOURCE
 #include <config.h>
 #include <signal.h>
 #include <iniparser.h>
 #include <stdio.h>
-#include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <argp.h>
 #include <stdbool.h>
-#include <dirent.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -19,6 +19,8 @@
 #include "vector.h"
 #include "linkedlist.h"
 #include "conf.h"
+#include "color.h"
+#include "fs.h"
 
 const char* argp_program_version = PACKAGE_STRING;
 const char* argp_program_bug_address = PACKAGE_BUGREPORT;
@@ -52,55 +54,6 @@ static error_t parse_opt(int key, char* arg, struct argp_state *state)
 
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
-int fileSort(const void* e1, const void* e2)
-{
-	return strcmp((char*)e1, (char*)e2);	
-}
-
-char* pathAppend(const char* path, const char* path2) {
-	size_t pathLen = strlen(path);
-	size_t additionalSpace = 0;
-	if(path[pathLen-1] != '/')
-		additionalSpace = 1;
-	char* newPath = malloc(pathLen + strlen(path2) + additionalSpace + 1);
-	strcpy(newPath, path);
-	if(additionalSpace)
-		newPath[pathLen] = '/';
-	strcpy(newPath + pathLen + additionalSpace, path2);
-	return newPath;
-}
-
-//nameList is a vector of string (char*)
-void getFiles(const char* path, Vector* nameList)
-{
-	DIR* dir;
-	struct dirent *ent;
-	char slash = '/';
-
-	if((dir = opendir(path)) == NULL)
-	{
-		log_write(LEVEL_ERROR, "Couldn't open directory");
-		exit(1);
-	}
-	while((ent = readdir(dir)) != NULL)
-	{
-		if(ent->d_name[0] == '.') 
-			continue;
-		if(ent->d_type != DT_REG && ent->d_type != DT_LNK)
-			continue;
-		Vector name;
-		vector_init(&name, sizeof(char), 100);
-		vector_putListBack(&name, path, strlen(path));
-		vector_putBack(&name, &slash);
-		vector_putListBack(&name, ent->d_name, strlen(ent->d_name)+1);
-
-		vector_putBack(nameList, &name.data);
-		//Name is not destroyed because we want to keep the buffer around
-	}	
-	closedir(dir);
-	vector_qsort(nameList, fileSort);
-}
-
 bool freePtr(void* elem, void* userdata) {
 	char** data = (char**) elem;
 	free(*data);
@@ -109,6 +62,12 @@ bool freePtr(void* elem, void* userdata) {
 bool freeUnit(void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	unit_free(unit);
+}
+
+//Foreach callback to call parsecolor on all elements of a vector
+bool color_parseEach(void* elem, void* userdata) {
+	struct Unit* unit = (struct Unit*)elem;
+	return color_parseColor(unit);
 }
 
 bool PrintUnit(void* elem, void* userdata)
@@ -164,7 +123,7 @@ bool executeUnit(struct Unit* unit)
 	pclose(f);
 
 	/* Don't process things we already have processed */
-	unsigned long newHash = hashString(buff.data);
+	unsigned long newHash = hashString((unsigned char*)buff.data);
 	if(unit->hash == newHash) {
 		vector_delete(&buff);
 		return true;
@@ -236,15 +195,14 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	formatter_init(&formatter);
-
 	if(arguments.configDir == NULL)
 	{
 		log_write(LEVEL_ERROR, "Config directory required");
 		exit(0);
 	}
-	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 
+
+	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 	struct ConfigParser globalParser;
 	struct ConfigParserEntry globalEntries[] = {
 		StringConfigEntry("display:separator", conf_setSeparator, ""),
@@ -290,6 +248,14 @@ int main(int argc, char **argv)
 	free(unitPath);
 
 	cp_free(&unitParser);
+
+	//Input color information
+	color_init(arguments.configDir);
+	vector_foreach(&left, color_parseEach, NULL);
+	vector_foreach(&center, color_parseEach, NULL);
+	vector_foreach(&right, color_parseEach, NULL);
+
+	formatter_init(&formatter);
 	
 	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
 	out_insert(&outputter, ALIGN_LEFT, &left);
