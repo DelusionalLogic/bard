@@ -11,7 +11,8 @@ void ll_init(LinkedList* list, size_t elementSize)
 
 void ll_delete(LinkedList* list)
 {
-	for(size_t i = 0; i < list->length; i++)
+	list->elementSize = 0x72727272;
+	while(list->length > 0)
 		ll_remove(list, 0);
 }
 
@@ -26,11 +27,11 @@ static struct llElement* construct(size_t elementSize, void* data)
 	return elem;
 }
 
-int ll_insert(LinkedList* list, size_t index, void* data)
+void* ll_insert(LinkedList* list, size_t index, void* data)
 {
 	struct llElement* elem = construct(list->elementSize, data);
 	if(elem == NULL)
-		return 1;
+		return NULL;
 
 	struct llElement* prev = NULL;
 	struct llElement* cur = list->first;
@@ -46,7 +47,7 @@ int ll_insert(LinkedList* list, size_t index, void* data)
 	elem->next = cur;
 	list->length++;
 
-	return 0;
+	return elem->data;
 }
 
 void* ll_get(LinkedList* list, size_t index)

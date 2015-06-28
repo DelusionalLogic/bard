@@ -1,5 +1,5 @@
 #include <config.h>
-#include <regex.h>
+#include <signal.h>
 #include <iniparser.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,10 +8,17 @@
 #include <stdbool.h>
 #include <dirent.h>
 #include <time.h>
+#include <unistd.h>
 
+#include "unit.h"
+#include "formatter.h"
+#include "configparser.h"
+#include "workmanager.h"
+#include "output.h"
 #include "logger.h"
 #include "vector.h"
 #include "linkedlist.h"
+#include "conf.h"
 
 const char* argp_program_version = PACKAGE_STRING;
 const char* argp_program_bug_address = PACKAGE_BUGREPORT;
@@ -50,6 +57,19 @@ int fileSort(const void* e1, const void* e2)
 	return strcmp((char*)e1, (char*)e2);	
 }
 
+char* pathAppend(const char* path, const char* path2) {
+	size_t pathLen = strlen(path);
+	size_t additionalSpace = 0;
+	if(path[pathLen-1] != '/')
+		additionalSpace = 1;
+	char* newPath = malloc(pathLen + strlen(path2) + additionalSpace + 1);
+	strcpy(newPath, path);
+	if(additionalSpace)
+		newPath[pathLen] = '/';
+	strcpy(newPath + pathLen + additionalSpace, path2);
+	return newPath;
+}
+
 //nameList is a vector of string (char*)
 void getFiles(const char* path, Vector* nameList)
 {
@@ -73,64 +93,22 @@ void getFiles(const char* path, Vector* nameList)
 		vector_putListBack(&name, path, strlen(path));
 		vector_putBack(&name, &slash);
 		vector_putListBack(&name, ent->d_name, strlen(ent->d_name)+1);
-		log_write(LEVEL_INFO, "%s", name.data);
 
 		vector_putBack(nameList, &name.data);
 		//Name is not destroyed because we want to keep the buffer around
 	}	
+	closedir(dir);
 	vector_qsort(nameList, fileSort);
 }
 
-enum UnitType{
-	UNIT_POLL,
-	UNIT_RUNNING,
-};
+bool freePtr(void* elem, void* userdata) {
+	char** data = (char**) elem;
+	free(*data);
+}
 
-#define UNITTYPE_LENGTH ((int)UNIT_RUNNING+1)
-
-static const char* const TypeStr[] = {
-	"poll",
-	"running",
-};
-
-#define NAME_MAX 255
-#define COMMAND_MAX 1024
-#define REGEX_MAX 1024
-#define FORMAT_MAX 255
-#define LASTOUT_MAX 1024
-struct Unit {
-	char name[NAME_MAX];
-	enum UnitType type;
-	char command[COMMAND_MAX];
-	unsigned long lastCmdOut;
-
-	bool hasRegex;
-	char regex[REGEX_MAX];
-	bool isCompiled;
-	regex_t regexComp;
-
-	bool advancedFormat;
-	char format[FORMAT_MAX];
-
-	int interval;
-	time_t nextRun;
-	char lastOut[LASTOUT_MAX];
-};
-
-struct UnitSearch {
-	struct Unit* unit;
-	int slot;
-};
-
-bool FindSlot(void* elem, void* userdata)
-{
-	struct Unit* unit = *(struct Unit**)elem;
-	struct UnitSearch* s = (struct UnitSearch*)userdata;
-	if(unit->nextRun > s->unit->nextRun)
-		return false;
-
-	s->slot++;
-	return true;
+bool freeUnit(void* elem, void* userdata) {
+	struct Unit* unit = (struct Unit*)elem;
+	unit_free(unit);
 }
 
 bool PrintUnit(void* elem, void* userdata)
@@ -140,15 +118,6 @@ bool PrintUnit(void* elem, void* userdata)
 	log_write(LEVEL_INFO, unit->name);
 
 	return true;
-}
-
-void insertWork(LinkedList* workList, struct Unit* unit)
-{
-	struct UnitSearch search;
-	search.unit = unit;
-	search.slot = 0;
-	ll_foreach(workList, FindSlot, &search);
-	ll_insert(workList, search.slot, &search.unit);
 }
 
 unsigned long hashString(unsigned char *str)
@@ -167,223 +136,187 @@ struct PatternMatch{
 	size_t endPos;
 };
 
-#define MAX_MATCH 24
-#define LOOKUP_MAX 10
-char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
+struct Formatter formatter;
+struct Output outputter;
+
+bool executeUnit(struct Unit* unit)
 {
-	char* curMin = strstr(curPos, lookups[0]);
-	*index = 0;
-	char* thisPos = NULL;
-	for(size_t i = 1; i < lookupsLen; i++)
-	{
-		thisPos = strstr(curPos, lookups[i]);
-		if(thisPos == NULL)
-			continue;
-		if(curMin == NULL || thisPos < curMin)
-		{
-			curMin = thisPos;
-			*index = i;
-		}
-	}
-	return curMin;
-}
+	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
-void formatStrUnit(struct Unit* unit, const char* input, char* output, size_t outSize)
-{
-	if(unit->hasRegex)
-	{
-		if(!unit->isCompiled)
-		{
-			if(regcomp(&unit->regexComp, unit->regex, REG_EXTENDED))
-				log_write(LEVEL_ERROR, "Could not compile regex");
-			unit->isCompiled = true;
-		}
-		size_t maxMatch = MAX_MATCH;
-		regmatch_t matches[MAX_MATCH];
-		log_write(LEVEL_INFO, "%s on %s", unit->regex, input);
-		if(regexec(&unit->regexComp, input, maxMatch, matches, 0))
-			log_write(LEVEL_ERROR, "Error matching");
-
-		if(!unit->advancedFormat)
-		{
-			log_write(LEVEL_INFO, "Matching: %s", unit->format);
-			char lookupmem[MAX_MATCH*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
-			char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
-			int numMatches = -1;
-			for(int i = 0; i < MAX_MATCH; i++)
-			{
-				regmatch_t* match = &matches[i];
-				if(match->rm_so != -1)
-					numMatches = i;
-
-				snprintf(lookup[i], LOOKUP_MAX, "$%d", i); //This should probably be computed at compiletime
-				//TODO: Error checking
-			}	 
-			size_t formatLen = strlen(unit->format);
-			const char* curPos = unit->format;
-			const char* prevPos = NULL;
-			char* outPos = output;
-			while(curPos < unit->format + formatLen)
-			{
-				log_write(LEVEL_INFO, "Looking for next token in %s", curPos);
-				prevPos = curPos;
-				int index = 0;
-				curPos = getNext(curPos, &index, lookup, LOOKUP_MAX);
-
-				if(curPos == NULL)
-					break;
-
-				strncpy(outPos, prevPos, curPos - prevPos);
-				outPos += curPos - prevPos;
-
-				regmatch_t match = matches[index];
-				strncpy(outPos, input + match.rm_so, match.rm_eo - match.rm_so);
-				outPos += match.rm_eo - match.rm_so;
-				curPos += strlen(lookup[index]);
-			}
-		}
-	}
-}
-
-void executeUnit(struct Unit* unit)
-{
-	log_write(LEVEL_INFO, "%s (%s, %s)", unit->name, unit->command, TypeStr[unit->type]);
-
+	/* Execute process */
 	FILE* f = (FILE*)popen(unit->command, "r");
-	char buff[1024];
-	fgets(buff, 1024, f);
+	Vector buff;
+	vector_init(&buff, sizeof(char), 32);
+	ssize_t readLen;
+	char null = '\0';
+
+
+	/* Read output */
+	char chunk[32];
+	while((readLen = fread(chunk, 1, 32, f))>0)
+		vector_putListBack(&buff, chunk, readLen);
+
+	if(buff.data[buff.size-1] == '\n')
+		buff.data[buff.size-1] = '\0';
+	else
+		vector_putBack(&buff, &null);
+		
 	pclose(f);
-	unsigned long cmdOut = hashString((unsigned char*)buff);
-	if(cmdOut == unit->lastCmdOut)
-		return;
-	unit->lastCmdOut = cmdOut;
 
+	/* Don't process things we already have processed */
+	unsigned long newHash = hashString(buff.data);
+	if(unit->hash == newHash) {
+		vector_delete(&buff);
+		return true;
+	}
+	unit->hash = newHash;
+
+	/* Format the output for the bar */
 	char outBuff[1024];
+	formatter_format(&formatter, unit, buff.data, outBuff, 1024);
+	vector_delete(&buff);
 
-	formatStrUnit(unit, buff, outBuff, 1024);
+	strncpy(unit->output, outBuff, 1024);
 
-	printf("%s\n", outBuff);
+	return true;
+}
+
+bool render() {
+	char* out = out_format(&outputter);
+	printf("%s\n", out);
+	free(out);
+	fflush(stdout);
+}
+
+bool parseType(struct Unit* unit, const char* type)
+{
+	for(int i = 0; i < UNITTYPE_LENGTH; i++)
+	{
+		if(!strcasecmp(TypeStr[i], type))
+			return unit_setType(unit, (const enum UnitType)i);
+	}
+	return false;
+}
+
+void pipe_handler(int signal) {
+	//Handle pipes being ready. We want to tell the conditional that it can read
+	log_write(LEVEL_INFO, "Data ready on a pipe");
+}
+
+void loadUnits(Vector* units, struct ConfigParser* parser, const char* path) {
+	Vector files;
+	vector_init(&files, sizeof(char*), 5);
+	getFiles(path, &files);
+	for(size_t i = 0; i < vector_size(&files); i++)
+	{
+		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(&files, i));
+		char* file = *(char**)vector_get(&files, i);
+		struct Unit unit = { 0 };
+		unit_init(&unit);
+
+		if(!cp_load(parser, *(char**)vector_get(&files, i), &unit)) {
+			log_write(LEVEL_ERROR, "Couldn't parse config %s", file);
+			exit(1);
+		}
+
+		vector_putBack(units, &unit);
+	}
+	vector_foreach(&files, freePtr, NULL);
+	vector_delete(&files);
 }
 
 int main(int argc, char **argv)
 {
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+	//Set signal handler for the async pipes
+	if(signal(SIGIO, pipe_handler) == SIG_ERR) {
+		log_write(LEVEL_ERROR, "Could not set signal handler SIGIO");
+		exit(1);
+	}
+
+	formatter_init(&formatter);
+
 	if(arguments.configDir == NULL)
 	{
 		log_write(LEVEL_ERROR, "Config directory required");
 		exit(0);
 	}
-	log_write(LEVEL_INFO, "Reading config from %s", arguments.configDir);
+	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 
-	Vector files;
-	vector_init(&files, sizeof(char*), 5);
-	getFiles(arguments.configDir, &files);
+	struct ConfigParser globalParser;
+	struct ConfigParserEntry globalEntries[] = {
+		StringConfigEntry("display:separator", conf_setSeparator, ""),
+		{.name = NULL},
+	};
+	cp_init(&globalParser, globalEntries);
 
-	Vector units;
-	vector_init(&units, sizeof(struct Unit), 10);
+	struct Conf conf;
+	conf_init(&conf);
+	
+	char* globalPath = pathAppend(arguments.configDir, "bard.conf");
+	cp_load(&globalParser, globalPath, &conf);
+	free(globalPath);
 
-	time_t curTime = time(NULL); 
+	Vector left;
+	Vector center;
+	Vector right;
+	vector_init(&left, sizeof(struct Unit), 10);
+	vector_init(&center, sizeof(struct Unit), 10);
+	vector_init(&right, sizeof(struct Unit), 10);
 
-	for(size_t i = 0; i < vector_size(&files); i++)
-	{
-		log_write(LEVEL_INFO, "%s", *(char**)vector_get(&files, i));
-		dictionary *conf = iniparser_load(*(char**)vector_get(&files, i));
-		struct Unit unit = { 0 };
+	struct ConfigParser unitParser;
+	struct ConfigParserEntry entries[] = {
+		StringConfigEntry("unit:name", unit_setName, NULL),
+		StringConfigEntry("unit:type", parseType, (char*)TypeStr[UNIT_POLL]),
 
-		char* name = iniparser_getstring(conf, "unit:name", "UNDEFINED");
-		if(strlen(name) >= NAME_MAX)
-		{
-			log_write(LEVEL_ERROR, "Unit name length greater than max");
-			continue;
-		}
-		strcpy(unit.name, name);
+		StringConfigEntry("display:command", unit_setCommand, NULL),
+		StringConfigEntry("display:regex", unit_setRegex, NULL),
+		StringConfigEntry("display:format", unit_setFormat, NULL),
+		IntConfigEntry("display:interval", unit_setInterval, 10),
+		{.name = NULL},
+	};
+	cp_init(&unitParser, entries);
 
-		char* type = iniparser_getstring(conf, "unit:type", "poll");
-		for(int i = 0; i < UNITTYPE_LENGTH; i++)
-		{
-			if(!strcasecmp(TypeStr[i], type))
-				unit.type = i;
-		}	
+	char* unitPath = pathAppend(arguments.configDir, "left");
+	loadUnits(&left, &unitParser, unitPath);
+	free(unitPath);
+	unitPath = pathAppend(arguments.configDir, "center");
+	loadUnits(&center, &unitParser, unitPath);
+	free(unitPath);
+	unitPath = pathAppend(arguments.configDir, "right");
+	loadUnits(&right, &unitParser, unitPath);
+	free(unitPath);
 
-		char* command = iniparser_getstring(conf, "display:command", NULL);
-		if(strlen(command) >= COMMAND_MAX)
-		{
-			log_write(LEVEL_ERROR, "Unit command length greater than max");
-			continue;
-		}
-		strcpy(unit.command, command);
+	cp_free(&unitParser);
+	
+	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
+	out_insert(&outputter, ALIGN_LEFT, &left);
+	out_insert(&outputter, ALIGN_CENTER, &center);
+	out_insert(&outputter, ALIGN_RIGHT, &right);
 
-		char* regex = iniparser_getstring(conf, "display:regex", NULL);
-		if(regex == NULL)
-		{
-			log_write(LEVEL_INFO, "No regex set");
-			unit.hasRegex = false;
-		}else if(strlen(regex) >= REGEX_MAX){
-			log_write(LEVEL_ERROR, "Regex length greather than max");	
-			continue;
-		}else{
-			unit.hasRegex = true;
-			strcpy(unit.regex, regex);
-		}
+	struct WorkManager wm;
+	workmanager_init(&wm);
+	workmanager_addUnits(&wm, &left);
+	workmanager_addUnits(&wm, &center);
+	workmanager_addUnits(&wm, &right);
 
-		char* format = iniparser_getstring(conf, "display:format", NULL);
-		if(format == NULL)
-		{
-			log_write(LEVEL_INFO, "No format string set");
-			if(unit.hasRegex)
-			{
-				log_write(LEVEL_ERROR, "Unit has regex but no information on how to format it");
-				continue;
-			}
-		}else if(strlen(format) >= FORMAT_MAX){
-			log_write(LEVEL_ERROR, "Format length greather than max");
-			continue;
-		}else{
-			strcpy(unit.format, format);
-		}
+	workmanager_run(&wm, executeUnit, render); //Blocks until the program should exit
 
-		unit.advancedFormat = iniparser_getboolean(conf, "display:advFormat", false);
+	workmanager_free(&wm);
 
-		unit.interval = iniparser_getint(conf, "display:interval", 10);
+	vector_foreach(&left, freeUnit, NULL);
+	vector_delete(&left);
 
-		unit.nextRun = curTime + unit.interval;
+	vector_foreach(&center, freeUnit, NULL);
+	vector_delete(&center);
 
-		vector_putBack(&units, &unit);
-	}
+	vector_foreach(&right, freeUnit, NULL);
+	vector_delete(&right);
 
-	vector_delete(&files);
-
-	LinkedList work;
-	ll_init(&work, sizeof(struct Unit*));
-
-	for(size_t i = 0; i < vector_size(&units); i++)
-	{
-		struct Unit* unit = (struct Unit*)vector_get(&units, i);
-		insertWork(&work, unit);
-	}
-
-	ll_foreach(&work, PrintUnit, NULL);
-
-	{
-		while(ll_size(&work) != 0)
-		{
-			time_t curTime = time(NULL);
-
-			struct Unit* next = *(struct Unit**)ll_get(&work, 0);
-			sleep(next->nextRun-curTime);
-			curTime = time(NULL);
-
-			ll_remove(&work, 0);
-			executeUnit(next);
-			next->nextRun = curTime + next->interval;
-			insertWork(&work, next);
-		}
-	}
-
-	ll_delete(&work);
-
-	vector_delete(&units);
+	out_free(&outputter);
+	formatter_free(&formatter);
 
 
 	return 0;
