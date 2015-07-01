@@ -248,7 +248,7 @@ int main(int argc, char **argv)
 	struct ConfigParser globalParser;
 	struct ConfigParserEntry globalEntries[] = {
 		StringConfigEntry("display:separator", conf_setSeparator, ""),
-		{.name = NULL},
+		EndConfigEntry(),
 	};
 	cp_init(&globalParser, globalEntries);
 
@@ -275,7 +275,7 @@ int main(int argc, char **argv)
 		StringConfigEntry("display:regex", unit_setRegex, NULL),
 		StringConfigEntry("display:format", unit_setFormat, NULL),
 		IntConfigEntry("display:interval", unit_setInterval, 10),
-		{.name = NULL},
+		EndConfigEntry(),
 	};
 	cp_init(&unitParser, entries);
 
