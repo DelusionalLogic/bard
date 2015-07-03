@@ -45,6 +45,7 @@ struct PrintUnitData {
 static bool vecPrintUnit(void* elem, void* userdata) {
 	struct PrintUnitData* data = (struct PrintUnitData*)userdata;
 	char** unit = (char**)elem;
+	vector_putListBack(data->vec, "%{F-}%{B-}%{T-}", 15);
 	if(!data->first)
 		vector_putListBack(data->vec, data->sep, data->sepLen);
 	vector_putListBack(data->vec, *unit, strlen(*unit));

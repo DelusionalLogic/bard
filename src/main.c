@@ -64,12 +64,6 @@ bool freeUnit(void* elem, void* userdata) {
 	unit_free(unit);
 }
 
-//Foreach callback to call parsecolor on all elements of a vector
-bool color_parseEach(void* elem, void* userdata) {
-	struct Unit* unit = (struct Unit*)elem;
-	return color_parseColor(unit);
-}
-
 bool PrintUnit(void* elem, void* userdata)
 {
 	struct Unit* unit = *(struct Unit**)elem;
@@ -134,6 +128,8 @@ bool executeUnit(struct Unit* unit)
 	char outBuff[1024];
 	formatter_format(&formatter, unit, buff.data, outBuff, 1024);
 	vector_delete(&buff);
+
+	color_parseColor(unit, outBuff, 1024);
 
 	strncpy(unit->output, outBuff, 1024);
 
@@ -251,9 +247,6 @@ int main(int argc, char **argv)
 
 	//Input color information
 	color_init(arguments.configDir);
-	vector_foreach(&left, color_parseEach, NULL);
-	vector_foreach(&center, color_parseEach, NULL);
-	vector_foreach(&right, color_parseEach, NULL);
 
 	formatter_init(&formatter);
 	

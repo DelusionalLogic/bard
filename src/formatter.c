@@ -96,7 +96,7 @@ bool formatter_format(struct Formatter* formatter, struct Unit* unit, const char
 	regmatch_t matches[MAX_MATCH];
 	log_write(LEVEL_INFO, "%s on %s\n", unit->regex, input);
 	if(regexec(&buffer->regex, input, MAX_MATCH, matches, 0))
-		log_write(LEVEL_ERROR, "Error matching");
+		log_write(LEVEL_ERROR, "Error in %s regex", unit->name);
 
 	char lookupmem[MAX_MATCH*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
