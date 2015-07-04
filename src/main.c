@@ -129,7 +129,7 @@ bool executeUnit(struct Unit* unit)
 	formatter_format(&formatter, unit, buff.data, outBuff, 1024);
 	vector_delete(&buff);
 
-	color_parseColor(unit, outBuff, 1024);
+	color_parseColor(outBuff, 1024);
 
 	strncpy(unit->output, outBuff, 1024);
 

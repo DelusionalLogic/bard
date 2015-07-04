@@ -10,7 +10,7 @@ void color_init(char* configRoot);
 void color_free();
 
 //Should take text and replace it with the colored string.
-bool color_parseColor(struct Unit* unit, char* text, size_t maxSize);
+bool color_parseColor(char* text, size_t maxSize);
 
 
 #endif

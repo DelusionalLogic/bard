@@ -85,7 +85,7 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 	return curMin;
 }
 
-bool color_parseColor(struct Unit* unit, char* output, size_t maxSize) {
+bool color_parseColor(char* output, size_t maxSize) {
 	Vector newOut;
 	vector_init(&newOut, sizeof(char), maxSize); 
 	
@@ -93,7 +93,7 @@ bool color_parseColor(struct Unit* unit, char* output, size_t maxSize) {
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
 	for(int i = 0; i < MAXCOLOR; i++)
 	{
-		snprintf(lookup[i], LOOKUP_MAX, "$%s", colorName[i]); //This should probably be computed at compiletime
+		snprintf(lookup[i], LOOKUP_MAX, "$color[%d]", i); //This should probably be computed at compiletime
 		//TODO: Error checking
 	}	 
 	size_t formatLen = strlen(output)+1;
@@ -110,14 +110,12 @@ bool color_parseColor(struct Unit* unit, char* output, size_t maxSize) {
 
 		vector_putListBack(&newOut, prevPos, curPos-prevPos);
 
-		vector_putListBack(&newOut, "%{F", 3);
 		vector_putListBack(&newOut, color[index], strlen(color[index]));
-		vector_putListBack(&newOut, "}", 1);
 		curPos += strlen(lookup[index]);
 	}
 	vector_putListBack(&newOut, prevPos, output + formatLen - prevPos);
 	if(vector_size(&newOut) > maxSize) {
-		log_write(LEVEL_ERROR, "Output for %s too long", unit->name);
+		log_write(LEVEL_ERROR, "Output too long");
 		return false;
 	}
 	strncpy(output, newOut.data, vector_size(&newOut));

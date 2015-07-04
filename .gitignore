@@ -1,5 +1,9 @@
 #Build dir
 /build
+
+.ycm_extra_conf.pyc
+.ycm_extra_conf.py
+
 # http://www.gnu.org/software/automake
 
 Makefile.in
