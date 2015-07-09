@@ -22,6 +22,21 @@ static bool set_str(struct ConfigParser* parser, struct ConfigParserEntry* entry
 	return entry->set_str(obj, val);
 }
 
+static bool set_map(struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
+	size_t nameLen = strlen(entry->name);
+	int secn = iniparser_getsecnkeys(parser->conf, entry->name);
+	const char **keys = malloc(secn * sizeof(char*));
+	iniparser_getseckeys(parser->conf, entry->name, keys);
+
+	bool status = true;
+	for(int i = 0; i < secn; i++) {
+		const char* val = iniparser_getstring(parser->conf, keys[i], NULL);
+		if(!entry->set_map(obj, keys[i] + nameLen + 1, val))
+			status = false;
+	}
+	return status;
+}
+
 bool cp_load(struct ConfigParser* parser, const char* file, void* obj) {
 	parser->conf = iniparser_load(file);
 	if(parser->conf == NULL)
@@ -42,6 +57,9 @@ bool cp_load(struct ConfigParser* parser, const char* file, void* obj) {
 				break;
 			case TYPE_STRING:
 				status = set_str(parser, &entry, obj);
+				break;
+			case TYPE_MAP:
+				status = set_map(parser, &entry, obj);
 				break;
 			default:
 				//Should never happen

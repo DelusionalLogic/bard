@@ -8,10 +8,10 @@ struct RegBuff {
 	char* key;
 	regex_t regex;
 };
-bool regBuffFree(void* elem, void* userdata) {
+int regBuffFree(void* elem, void* userdata) {
 	struct RegBuff* element = (struct RegBuff*)elem;
 	regfree(&element->regex);
-	return true;
+	return 0;
 }
 
 void formatter_init(struct Formatter* formatter)
@@ -30,7 +30,9 @@ struct Search {
 	char* key;
 };
 
-static bool searcher(void* elem, void* userdata)
+#define SEARCH_DONE 1
+#define SEARCH_CONT 0
+static int searcher(void* elem, void* userdata)
 {
 	struct RegBuff* element = (struct RegBuff*)elem;
 	struct Search* search = (struct Search*)userdata;
@@ -38,9 +40,9 @@ static bool searcher(void* elem, void* userdata)
 
 	if(element->key == search->key || !strcmp(element->key, search->key)) {
 		search->found = element;
-		return false;
+		return SEARCH_DONE;
 	}
-	return true;
+	return SEARCH_CONT;
 }
 
 static bool findBuffer(struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)

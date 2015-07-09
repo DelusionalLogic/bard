@@ -21,12 +21,12 @@ void out_free(struct Output* output) {
 struct AddUnitData {
 	Vector* list;
 };
-static bool vecAddUnit(void* elem, void* userdata) {
+static int vecAddUnit(void* elem, void* userdata) {
 	struct AddUnitData* data = (struct AddUnitData*)userdata;
 	struct Unit* unit = (struct Unit*)elem;
 	char** outPtr = (char**)&unit->output;
 	vector_putBack(data->list, &outPtr);
-	return true;
+	return 0;
 }
 
 void out_insert(struct Output* output, enum Align side, Vector* units) {
@@ -42,7 +42,7 @@ struct PrintUnitData {
 	size_t sepLen;
 	Vector* vec;
 };
-static bool vecPrintUnit(void* elem, void* userdata) {
+static int vecPrintUnit(void* elem, void* userdata) {
 	struct PrintUnitData* data = (struct PrintUnitData*)userdata;
 	char** unit = (char**)elem;
 	vector_putListBack(data->vec, "%{F-}%{B-}%{T-}", 15);
@@ -51,7 +51,7 @@ static bool vecPrintUnit(void* elem, void* userdata) {
 	vector_putListBack(data->vec, "%{F-}%{B-}%{T-}", 15);
 	vector_putListBack(data->vec, *unit, strlen(*unit));
 	data->first = false;
-	return true;
+	return 0;
 }
 
 //REMEMBER TO FREE THE STRING

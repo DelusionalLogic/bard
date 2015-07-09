@@ -1,4 +1,5 @@
 #include "sortedlist.h"
+#include <errno.h>
 
 void sl_init(struct SortedList* list, size_t elementSize, sortCompar comp) {
 	ll_init(&list->list, elementSize);
@@ -9,23 +10,27 @@ void sl_free(struct SortedList* list) {
 	ll_delete(&list->list);
 }
 
+#define SEARCH_DONE 1
+#define SEARCH_CONT 0
 struct FindPlaceData {
 	size_t slot;
 	void* elem;
 	sortCompar comp;
 };
-static bool findPlace(void* elem, void* userdata) {
+static int findPlace(void* elem, void* userdata) {
 	struct FindPlaceData* data = (struct FindPlaceData*)userdata;
 	if(data->comp(data->elem, elem))
-		return false;
+		return SEARCH_DONE;
 	data->slot++;
-	return true;
+	return SEARCH_CONT;
 }
 
-void sl_insert(struct SortedList* list, void* element) {
+int sl_insert(struct SortedList* list, void* element) {
 	struct FindPlaceData data = { .slot = 0, .elem = element, .comp = list->comparator};
 	ll_foreach(&list->list, findPlace, &data);
-	ll_insert(&list->list, data.slot, element);
+	if(ll_insert(&list->list, data.slot, element) == NULL)
+		return ENOMEM;
+	return 0;
 }
 
 void* sl_get(struct SortedList* list, size_t index) {

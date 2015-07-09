@@ -1,6 +1,12 @@
 #include "unit.h"
 #include <stdlib.h>
 #include <string.h>
+#include "logger.h"
+
+bool fontCmp(const void* straw, const void* needle, size_t eSize) {
+	char* e1 = *(char**)straw;
+	return strcmp(e1, needle) == 0;
+}
 
 void unit_init(struct Unit* unit) {
 	unit->name = NULL;
@@ -14,6 +20,8 @@ void unit_init(struct Unit* unit) {
 	unit->format = NULL;
 
 	unit->interval = 0;
+
+	map_init(&unit->fontMap, sizeof(char*), sizeof(struct FontContainer), fontCmp);
 }
 
 void unit_free(struct Unit* unit) {
@@ -21,6 +29,8 @@ void unit_free(struct Unit* unit) {
 	free(unit->command);
 	free(unit->regex);
 	free(unit->format);
+
+	map_free(&unit->fontMap);
 }
 
 	//Setters
@@ -82,5 +92,28 @@ void unit_free(struct Unit* unit) {
 	}
 	bool unit_setInterval(struct Unit* unit, const int interval) {
 		unit->interval = interval;
+		return true;
+	}
+	//Add font to fontmap is called once per font
+	bool unit_setFonts(struct Unit* unit, const char* key, const char* value) {
+		if(key == NULL || value == NULL)
+			return true;
+
+		size_t keyLen = strlen(key) + 1;
+		size_t valueLen = strlen(value) + 1;
+
+		char* newKey = malloc(sizeof(char) * keyLen);
+		if(newKey == NULL) return false;
+
+		struct FontContainer* container = malloc(sizeof(struct FontContainer));
+		if(container == NULL) return false;
+
+		container->font = malloc(sizeof(char) * valueLen);
+		if(container->font == NULL) return false;
+
+		strcpy(newKey, key);
+		strcpy(container->font, value);
+
+		map_put(&unit->fontMap, &newKey, &container);
 		return true;
 	}

@@ -10,6 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "map.h"
 #include "unit.h"
 #include "formatter.h"
 #include "configparser.h"
@@ -54,23 +55,23 @@ static error_t parse_opt(int key, char* arg, struct argp_state *state)
 
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
-bool freePtr(void* elem, void* userdata) {
+int freePtr(void* elem, void* userdata) {
 	char** data = (char**) elem;
 	free(*data);
+	return 0;
 }
 
-bool freeUnit(void* elem, void* userdata) {
+int freeUnit(void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	unit_free(unit);
+	return 0;
 }
 
-bool PrintUnit(void* elem, void* userdata)
+int PrintUnit(void* elem, void* userdata)
 {
 	struct Unit* unit = *(struct Unit**)elem;
-
 	log_write(LEVEL_INFO, unit->name);
-
-	return true;
+	return 0;
 }
 
 unsigned long hashString(unsigned char *str)
@@ -91,8 +92,9 @@ struct PatternMatch{
 
 struct Formatter formatter;
 struct Output outputter;
+FILE* bar;
 
-bool executeUnit(struct Unit* unit)
+int executeUnit(struct Unit* unit)
 {
 	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
@@ -120,7 +122,7 @@ bool executeUnit(struct Unit* unit)
 	unsigned long newHash = hashString((unsigned char*)buff.data);
 	if(unit->hash == newHash) {
 		vector_delete(&buff);
-		return true;
+		return 0;
 	}
 	unit->hash = newHash;
 
@@ -133,14 +135,58 @@ bool executeUnit(struct Unit* unit)
 
 	strncpy(unit->output, outBuff, 1024);
 
-	return true;
+	return 0;
 }
 
-bool render() {
+int render() {
 	char* out = out_format(&outputter);
+	fprintf(bar, "%s\n", out);
 	printf("%s\n", out);
 	free(out);
 	fflush(stdout);
+	fflush(bar);
+}
+
+struct addFontsData {
+	Vector* fonts;
+};
+int addFonts(void* key, void* value, void* userdata) {
+	char* k = *(char**)key;
+	struct FontContainer* v = *(struct FontContainer**)value;
+	struct addFontsData* data = (struct addFontsData*)userdata;
+
+	int nextIndex = vector_size(data->fonts);
+	v->fontID = nextIndex+1;
+
+	log_write(LEVEL_INFO, "Font %d with selector: %s\n", v->fontID, v->font);
+	return vector_putBack(data->fonts, &v->font);
+}
+
+struct addUnitFontsData{
+	Vector* fonts;
+};
+int addUnitFonts(void* elem, void* userdata) {
+	struct Unit* unit = (struct Unit*)elem;
+	struct addUnitFontsData* data = (struct addUnitFontsData*)userdata;
+	struct addFontsData newData = {
+		.fonts = data->fonts,
+	};
+	return map_foreach(&unit->fontMap, addFonts, &newData);
+}
+
+struct fontSelectorData{
+	Vector* fontSelector;
+	bool first;
+};
+int fontSelector(void* elem, void* userdata) {	
+	char* font = *(char**)elem;
+	struct fontSelectorData* data = (struct fontSelectorData*)userdata;
+
+	if(!data->first)
+		vector_putListBack(data->fontSelector, ",", 1);
+	data->first = false;
+	int fontLen = strlen(font);
+	vector_putListBack(data->fontSelector, font, fontLen); 
 }
 
 bool parseType(struct Unit* unit, const char* type)
@@ -229,6 +275,7 @@ int main(int argc, char **argv)
 		StringConfigEntry("display:regex", unit_setRegex, NULL),
 		StringConfigEntry("display:format", unit_setFormat, NULL),
 		IntConfigEntry("display:interval", unit_setInterval, 10),
+		MapConfigEntry("font", unit_setFonts),
 		EndConfigEntry(),
 	};
 	cp_init(&unitParser, entries);
@@ -245,11 +292,37 @@ int main(int argc, char **argv)
 
 	cp_free(&unitParser);
 
+	Vector fonts;
+	vector_init(&fonts, sizeof(char*), 5);
+	struct addUnitFontsData fontData = {
+		.fonts = &fonts,
+	};
+	vector_foreach(&left, addUnitFonts, &fontData);
+	vector_foreach(&center, addUnitFonts, &fontData);
+	vector_foreach(&right, addUnitFonts, &fontData);
+
 	//Input color information
 	color_init(arguments.configDir);
 
 	formatter_init(&formatter);
-	
+
+	//Lets load that bar!
+	Vector fontSel;
+	vector_init(&fontSel, sizeof(char), 64);
+	struct fontSelectorData data = {
+		.fontSelector = &fontSel,
+		.first = true,
+	};
+	vector_foreach(&fonts, fontSelector, &data);
+	vector_putListBack(&fontSel, "\0", 1);
+	char lBuff[1024];
+	snprintf(lBuff, 1024, "bar -f \"%s\"", fontSel.data);
+	printf("%s\n", lBuff);
+	vector_delete(&fontSel);
+
+	log_write(LEVEL_INFO, "Starting %s", lBuff);
+	bar = popen(lBuff, "w");
+
 	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
 	out_insert(&outputter, ALIGN_LEFT, &left);
 	out_insert(&outputter, ALIGN_CENTER, &center);
@@ -277,6 +350,7 @@ int main(int argc, char **argv)
 	out_free(&outputter);
 	formatter_free(&formatter);
 
+	pclose(bar);
 
 	return 0;
 }

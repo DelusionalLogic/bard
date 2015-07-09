@@ -14,7 +14,7 @@ struct SortedList {
 void sl_init(struct SortedList* list, size_t elementSize, sortCompar comp);
 void sl_free(struct SortedList* list);
 
-void sl_insert(struct SortedList* list, void* element);
+int sl_insert(struct SortedList* list, void* element);
 
 void* sl_get(struct SortedList* list, size_t index);
 void sl_reorder(struct SortedList* list, size_t index);

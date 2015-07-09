@@ -2,6 +2,7 @@
 #define UNIT_H
 
 #include <stdbool.h>
+#include "map.h"
 
 enum UnitType{
 	UNIT_POLL,
@@ -12,6 +13,11 @@ enum UnitType{
 static const char* const TypeStr[] = {
 	"poll",
 	"running",
+};
+
+struct FontContainer {
+	char* font;
+	int fontID;
 };
 
 struct Unit {
@@ -27,6 +33,8 @@ struct Unit {
 	char* format;
 
 	int interval;
+
+	struct Map fontMap;
 
 	/* Processing info */
 	/* Command buffering */
@@ -45,5 +53,6 @@ bool unit_setCommand(struct Unit* unit, const char* command);
 bool unit_setRegex(struct Unit* unit, const char* regex);
 bool unit_setFormat(struct Unit* unit, const char* format);
 bool unit_setInterval(struct Unit* unit, const int interval);
+bool unit_setFonts(struct Unit* unit, const char* key, const char* value);
 
 #endif

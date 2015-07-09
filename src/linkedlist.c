@@ -58,15 +58,17 @@ void* ll_get(LinkedList* list, size_t index)
 	return cur->data;
 }
 
-void ll_foreach(LinkedList* list, Callback cb, void* userdata)
+int ll_foreach(LinkedList* list, Callback cb, void* userdata)
 {
 	struct llElement* cur = list->first;
 	for(size_t i = 0; i < list->length; i++)
 	{
-		if(!cb(cur->data, userdata))
-			break;
+		int err = cb(cur->data, userdata);
+		if(err)
+			return err;
 		cur = cur->next;
 	}
+	return 0;
 }
 
 void ll_remove(LinkedList* list, size_t index)

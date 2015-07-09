@@ -14,5 +14,5 @@ void workmanager_init(struct WorkManager* manager);
 void workmanager_free(struct WorkManager* manager);
 
 void workmanager_addUnits(struct WorkManager* manager, Vector* vec);
-void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* unit), bool (*render)());
+int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* unit), int (*render)());
 #endif

@@ -20,12 +20,14 @@ static bool unitPlaceComp(void* obj, void* oth) {
 struct AddUnitData {
 	struct SortedList* list;
 };
-static bool vecAddUnit(void* elem, void* userdata) {
+static int vecAddUnit(void* elem, void* userdata) {
 	struct AddUnitData* data = (struct AddUnitData*)userdata;
 	time_t curTime = time(NULL);
 	struct UnitContainer container = { .nextRun = curTime, .unit = elem };
-	sl_insert(data->list, &container);
-	return true;
+	int err = sl_insert(data->list, &container);
+	if(err)
+		return err;
+	return 0;
 }
 
 void workmanager_init(struct WorkManager* manager) {
@@ -41,7 +43,7 @@ void workmanager_addUnits(struct WorkManager* manager, Vector* vec) {
 	vector_foreach(vec, vecAddUnit, &data);
 }
 
-void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* unit), bool (*render)()) {
+int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* unit), int (*render)()) {
 	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
 	while(true)
 	{
@@ -50,14 +52,18 @@ void workmanager_run(struct WorkManager* manager, bool (*execute)(struct Unit* u
 		if(container->nextRun >= curTime)
 			sleep(container->nextRun - curTime);
 
-		if(!execute(container->unit))
-			break;
+		int err = execute(container->unit);
+		if(err)
+			return err;
 		
 		curTime = time(NULL);
 		container->nextRun = curTime + container->unit->interval;
 		sl_reorder(&manager->list, 0);
 		container = (struct UnitContainer*)sl_get(&manager->list, 0);
-		if(container->nextRun != curTime)
-			render();
+		if(container->nextRun != curTime){
+			int err = render();
+			if(err)
+				return err;
+		}
 	}
 }

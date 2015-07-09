@@ -16,7 +16,7 @@ typedef struct{
 	struct llElement *last;
 } LinkedList;
 
-typedef bool (*Callback)(void* element, void* userdata);
+typedef int (*Callback)(void* element, void* userdata);
 
 void ll_init(LinkedList* list, size_t elementSize);
 void ll_delete(LinkedList* list);
@@ -24,7 +24,7 @@ void ll_delete(LinkedList* list);
 void* ll_insert(LinkedList* list, size_t index, void* data);
 void* ll_get(LinkedList* list, size_t index);
 
-void ll_foreach(LinkedList* list, Callback cb, void* userdata);
+int ll_foreach(LinkedList* list, Callback cb, void* userdata);
 
 void ll_remove(LinkedList* list, size_t index);
 
