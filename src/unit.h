@@ -45,7 +45,7 @@ struct Unit {
 };
 
 void unit_init(struct Unit* unit);
-void unit_free(struct Unit* unit);
+void unit_kill(struct Unit* unit);
 
 bool unit_setName(struct Unit* unit, const char* name);
 bool unit_setType(struct Unit* unit, const enum UnitType type);

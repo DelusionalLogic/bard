@@ -19,7 +19,7 @@ typedef struct{
 typedef int (*Callback)(void* element, void* userdata);
 
 void ll_init(LinkedList* list, size_t elementSize);
-void ll_delete(LinkedList* list);
+void ll_kill(LinkedList* list);
 
 void* ll_insert(LinkedList* list, size_t index, void* data);
 void* ll_get(LinkedList* list, size_t index);

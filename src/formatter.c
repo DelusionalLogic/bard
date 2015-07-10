@@ -19,10 +19,10 @@ void formatter_init(struct Formatter* formatter)
 	ll_init(&formatter->bufferList, sizeof(struct RegBuff));
 }
 
-void formatter_free(struct Formatter* formatter)
+void formatter_kill(struct Formatter* formatter)
 {
 	ll_foreach(&formatter->bufferList, regBuffFree, NULL);
-	ll_delete(&formatter->bufferList);
+	ll_kill(&formatter->bufferList);
 }
 
 struct Search {

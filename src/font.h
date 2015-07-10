@@ -8,8 +8,8 @@ struct Font {
 };
 
 void font_init(struct Font* font);
-void font_free(struct Font* font);
+void font_kill(struct Font* font);
 
-int font_insert(struct Font* font, Vector* units);
+int font_addUnits(struct Font* font, Vector* units);
 
 #endif

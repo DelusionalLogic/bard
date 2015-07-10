@@ -14,19 +14,19 @@ void units_init(struct Units* units) {
 
 static int freeUnit(void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
-	unit_free(unit);
+	unit_kill(unit);
 	return 0;
 }
 
-void units_free(struct Units* units) {
+void units_kill(struct Units* units) {
 	vector_foreach(&units->left, freeUnit, NULL);
-	vector_delete(&units->left);
+	vector_kill(&units->left);
 
 	vector_foreach(&units->center, freeUnit, NULL);
-	vector_delete(&units->center);
+	vector_kill(&units->center);
 
 	vector_foreach(&units->right, freeUnit, NULL);
-	vector_delete(&units->right);
+	vector_kill(&units->right);
 }
 
 static int freePtr(void* elem, void* userdata) {
@@ -63,7 +63,7 @@ static int loadSide(Vector* units, struct ConfigParser* parser, const char* path
 		vector_putBack(units, &unit);
 	}
 	vector_foreach(&files, freePtr, NULL);
-	vector_delete(&files);
+	vector_kill(&files);
 	return 0;
 }
 
@@ -93,6 +93,6 @@ int units_load(struct Units* units, char* configDir) {
 	loadSide(&units->right, &unitParser, unitPath);
 	free(unitPath);
 
-	cp_free(&unitParser);
+	cp_kill(&unitParser);
 	return 0;
 }

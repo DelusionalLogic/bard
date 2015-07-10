@@ -25,7 +25,7 @@ void vector_init(Vector* vector, size_t elementsize, size_t initialsize)
 	vector->data = malloc(initialsize * elementsize);
 }
 
-void vector_delete(Vector* vector)
+void vector_kill(Vector* vector)
 {
 	free(vector->data);
 }

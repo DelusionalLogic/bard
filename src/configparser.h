@@ -42,7 +42,7 @@ struct ConfigParser {
 };
 
 void cp_init(struct ConfigParser* parser, struct ConfigParserEntry entry[]);
-void cp_free(struct ConfigParser* parser);
+void cp_kill(struct ConfigParser* parser);
 
 int cp_load(struct ConfigParser* parser, const char* file, void* obj);
 

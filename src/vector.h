@@ -12,7 +12,7 @@ typedef struct {
 } Vector;
 
 void vector_init(Vector* vector, size_t elementsize, size_t initialsize);
-void vector_delete(Vector* vector);
+void vector_kill(Vector* vector);
 
 int vector_putBack(Vector* vector, const void* element);
 int vector_putListBack(Vector* vector, const void* list, size_t count);

@@ -5,7 +5,7 @@ void cp_init(struct ConfigParser* parser, struct ConfigParserEntry entry[]) {
 	parser->conf = NULL;
 	parser->entries = entry;
 }
-void cp_free(struct ConfigParser* parser) {
+void cp_kill(struct ConfigParser* parser) {
 }
 
 static bool set_bool(struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {

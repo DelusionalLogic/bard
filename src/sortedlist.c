@@ -6,8 +6,8 @@ void sl_init(struct SortedList* list, size_t elementSize, sortCompar comp) {
 	list->comparator = comp;
 }
 
-void sl_free(struct SortedList* list) {
-	ll_delete(&list->list);
+void sl_kill(struct SortedList* list) {
+	ll_kill(&list->list);
 }
 
 #define SEARCH_DONE 1

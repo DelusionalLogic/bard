@@ -12,9 +12,9 @@ void out_init(struct Output* output, struct Conf* conf) {
 	}
 }
 
-void out_free(struct Output* output) {
+void out_kill(struct Output* output) {
 	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
-		vector_delete(&output->out[i]);
+		vector_kill(&output->out[i]);
 	}
 }
 
@@ -29,7 +29,7 @@ static int vecAddUnit(void* elem, void* userdata) {
 	return 0;
 }
 
-void out_insert(struct Output* output, struct Units* units) {
+void out_addUnits(struct Output* output, struct Units* units) {
 	struct AddUnitData data = {
 		.list = &output->out[ALIGN_LEFT]
 	};
@@ -78,7 +78,7 @@ char* out_format(struct Output* output) {
 	//Copy into new buffer owned by calling function
 	char* buff = malloc((vector_size(&vec) * sizeof(char)) + 1);
 	memcpy(buff, vec.data, vector_size(&vec) * sizeof(char) + 1);
-	vector_delete(&vec);
+	vector_kill(&vec);
 	return buff;
 }
 

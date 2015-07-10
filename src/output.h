@@ -12,9 +12,9 @@ struct Output {
 };
 
 void out_init(struct Output* output, struct Conf* conf);
-void out_free(struct Output* output);
+void out_kill(struct Output* output);
 
-void out_insert(struct Output* output, struct Units* units);
+void out_addUnits(struct Output* output, struct Units* units);
 
 char* out_format(struct Output* output);
 

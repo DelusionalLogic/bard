@@ -7,7 +7,7 @@ void conf_init(struct Conf* conf) {
 	conf->geometry = NULL;
 }
 
-void conf_free(struct Conf* conf) {
+void conf_kill(struct Conf* conf) {
 	free(conf->separator);
 	free(conf->geometry);
 }

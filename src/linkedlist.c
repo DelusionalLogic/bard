@@ -9,7 +9,7 @@ void ll_init(LinkedList* list, size_t elementSize)
 	list->first = list->last;
 }
 
-void ll_delete(LinkedList* list)
+void ll_kill(LinkedList* list)
 {
 	list->elementSize = 0x72727272;
 	while(list->length > 0)

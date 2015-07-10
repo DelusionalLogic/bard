@@ -12,7 +12,7 @@ struct WorkManager {
 };
 
 void workmanager_init(struct WorkManager* manager);
-void workmanager_free(struct WorkManager* manager);
+void workmanager_kill(struct WorkManager* manager);
 
 void workmanager_addUnits(struct WorkManager* manager, struct Units* units);
 int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* unit), int (*render)());

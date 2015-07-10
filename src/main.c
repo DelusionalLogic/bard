@@ -109,7 +109,7 @@ int executeUnit(struct Unit* unit)
 	/* Don't process things we already have processed */
 	unsigned long newHash = hashString((unsigned char*)buff.data);
 	if(unit->hash == newHash) {
-		vector_delete(&buff);
+		vector_kill(&buff);
 		return 0;
 	}
 	unit->hash = newHash;
@@ -117,7 +117,7 @@ int executeUnit(struct Unit* unit)
 	/* Format the output for the bar */
 	char outBuff[1024];
 	formatter_format(&formatter, unit, buff.data, outBuff, 1024);
-	vector_delete(&buff);
+	vector_kill(&buff);
 
 	color_parseColor(outBuff, 1024);
 
@@ -253,14 +253,14 @@ int main(int argc, char **argv)
 		log_write(LEVEL_ERROR, "Couldn't prepare the bar launch string (probably too long)\n");
 		exit(1);
 	}
-	vector_delete(&fontSel);
+	vector_kill(&fontSel);
 
 	log_write(LEVEL_INFO, "Starting %s\n", lBuff);
 	bar = popen(lBuff, "w");
 	
 	//Now lets run the units in a loop and write to bar
 	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
-	out_insert(&outputter, &units);
+	out_addUnits(&outputter, &units);
 
 	struct WorkManager wm;
 	workmanager_init(&wm);
@@ -268,11 +268,11 @@ int main(int argc, char **argv)
 
 	workmanager_run(&wm, executeUnit, render); //Blocks until the program should exit
 
-	workmanager_free(&wm);
+	workmanager_kill(&wm);
 
 
-	out_free(&outputter);
-	formatter_free(&formatter);
+	out_kill(&outputter);
+	formatter_kill(&formatter);
 
 	pclose(bar);
 

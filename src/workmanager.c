@@ -34,8 +34,8 @@ void workmanager_init(struct WorkManager* manager) {
 	sl_init(&manager->list, sizeof(struct UnitContainer), unitPlaceComp);
 }
 
-void workmanager_free(struct WorkManager* manager) {
-	sl_free(&manager->list);
+void workmanager_kill(struct WorkManager* manager) {
+	sl_kill(&manager->list);
 }
 
 void workmanager_addUnits(struct WorkManager* manager, struct Units *units) {

@@ -24,13 +24,13 @@ void unit_init(struct Unit* unit) {
 	map_init(&unit->fontMap, sizeof(char*), sizeof(struct FontContainer), fontCmp);
 }
 
-void unit_free(struct Unit* unit) {
+void unit_kill(struct Unit* unit) {
 	free(unit->name);
 	free(unit->command);
 	free(unit->regex);
 	free(unit->format);
 
-	map_free(&unit->fontMap);
+	map_kill(&unit->fontMap);
 }
 
 	//Setters

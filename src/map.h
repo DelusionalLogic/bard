@@ -13,7 +13,7 @@ struct Map {
 };
 
 int map_init(struct Map* map, size_t keySize, size_t valueSize, bool (*compar)(const void*, const void*, size_t));
-int map_free(struct Map* map);
+int map_kill(struct Map* map);
 
 int map_put(struct Map* map, const void* key, const void* value);
 void* map_get(struct Map* map, const void* key);

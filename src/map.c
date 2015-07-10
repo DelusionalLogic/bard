@@ -14,9 +14,9 @@ int map_init(struct Map* map, size_t keySize, size_t valueSize, bool (*compar)(c
 	return 0;
 }
 
-int map_free(struct Map* map) {
-	vector_delete(&map->keys);
-	vector_delete(&map->values);
+int map_kill(struct Map* map) {
+	vector_kill(&map->keys);
+	vector_kill(&map->values);
 	return 0;
 }
 
