@@ -16,6 +16,7 @@
 #include "unit.h"
 #include "formatter.h"
 #include "configparser.h"
+#include "font.h"
 #include "workmanager.h"
 #include "output.h"
 #include "logger.h"
@@ -146,50 +147,6 @@ int render() {
 	fflush(bar);
 }
 
-//TODO: Move into own pipeline step
-struct addFontsData {
-	Vector* fonts;
-};
-int addFonts(void* key, void* value, void* userdata) {
-	char* k = *(char**)key;
-	struct FontContainer* v = *(struct FontContainer**)value;
-	struct addFontsData* data = (struct addFontsData*)userdata;
-
-	int nextIndex = vector_size(data->fonts);
-	v->fontID = nextIndex+1;
-
-	log_write(LEVEL_INFO, "Font %d with selector: %s\n", v->fontID, v->font);
-	return vector_putBack(data->fonts, &v->font);
-}
-
-struct addUnitFontsData{
-	Vector* fonts;
-};
-int addUnitFonts(void* elem, void* userdata) {
-	struct Unit* unit = (struct Unit*)elem;
-	struct addUnitFontsData* data = (struct addUnitFontsData*)userdata;
-	struct addFontsData newData = {
-		.fonts = data->fonts,
-	};
-	return map_foreach(&unit->fontMap, addFonts, &newData);
-}
-
-struct fontSelectorData{
-	Vector* fontSelector;
-	bool first;
-};
-int fontSelector(void* elem, void* userdata) {	
-	char* font = *(char**)elem;
-	struct fontSelectorData* data = (struct fontSelectorData*)userdata;
-
-	if(!data->first)
-		vector_putListBack(data->fontSelector, ",", 1);
-	data->first = false;
-	int fontLen = strlen(font);
-	vector_putListBack(data->fontSelector, font, fontLen); 
-}
-//ENDTODO
-
 void pipe_handler(int signal) {
 	//Handle pipes being ready. We want to tell the conditional that it can read
 	log_write(LEVEL_INFO, "Data ready on a pipe");
@@ -215,7 +172,8 @@ int main(int argc, char **argv)
 
 	//Setup pipeline
 	pipeline[0] = formatter_getStage();
-	pipeline[1] = color_getStage();
+	pipeline[1] = font_getStage();
+	pipeline[2] = color_getStage();
 
 	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 	struct ConfigParser globalParser;
@@ -238,48 +196,18 @@ int main(int argc, char **argv)
 
 	units_load(&units, arguments.configDir);
 
-	//TODO; Should be part of the font pipeline step
-	Vector fonts;
-	vector_init(&fonts, sizeof(char*), 5);
-	struct addUnitFontsData fontData = {
-		.fonts = &fonts,
-	};
-	vector_foreach(&units.left, addUnitFonts, &fontData);
-	vector_foreach(&units.center, addUnitFonts, &fontData);
-	vector_foreach(&units.right, addUnitFonts, &fontData);
-
 	//Initialize all stages in pipeline (This is where they load the configuration)
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
 		if(stage.obj == NULL)
 			break;
-		stage.create(stage.obj, arguments.configDir);
+		int err = 0;
+		if(stage.create != NULL)
+			err = stage.create(stage.obj, arguments.configDir);
+		if(err != 0)
+			log_write(LEVEL_ERROR, "Couldn't create pipe stage %d\n", i);
 	}
 
-	//TODO: Where the hell does this belong?
-	//Lets load that bar!
-	Vector fontSel;
-	vector_init(&fontSel, sizeof(char), 64);
-	struct fontSelectorData data = {
-		.fontSelector = &fontSel,
-		.first = true,
-	};
-	vector_foreach(&fonts, fontSelector, &data);
-	vector_putListBack(&fontSel, "\0", 1);
-	char lBuff[2048];
-	int written = snprintf(lBuff, 2048, "bar -f \"%s\" %s%s", 
-			fontSel.data,
-			conf.geometry != NULL ? "-g " : "",
-			conf.geometry);
-	if(written >= 2048 || written < 0) {
-		log_write(LEVEL_ERROR, "Couldn't prepare the bar launch string (probably too long)\n");
-		exit(1);
-	}
-	vector_kill(&fontSel);
-
-	log_write(LEVEL_INFO, "Starting %s\n", lBuff);
-	bar = popen(lBuff, "w");
-	
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
 		if(stage.obj == NULL)
@@ -287,6 +215,27 @@ int main(int argc, char **argv)
 		if(stage.addUnits != NULL)
 			stage.addUnits(stage.obj, &units);
 	}
+
+	char lBuff[2048];
+	strcpy(lBuff, "bar");
+	for(int i = 0; i < NUM_STAGES; i++) {
+		struct PipeStage stage = pipeline[i];
+		if(stage.obj == NULL)
+			break;
+		int err = 0;
+		if(stage.getArgs != NULL)
+			err = stage.getArgs(stage.obj, lBuff, 2048);
+		if(err == ENOMEM) {
+			log_write(LEVEL_ERROR, "Couldn*t prepare bar launch string. It would have been too long");
+			exit(err);
+		}
+	}
+
+	//TODO: Where the hell does this belong?
+	//Lets load that bar!
+	log_write(LEVEL_INFO, "Starting %s\n", lBuff);
+	bar = popen(lBuff, "w");
+	
 	//Now lets run the units in a loop and write to bar
 	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
 	out_addUnits(&outputter, &units);

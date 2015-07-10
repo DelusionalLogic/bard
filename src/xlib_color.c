@@ -34,6 +34,8 @@ struct PipeStage color_getStage() {
 	struct PipeStage stage;
 	stage.obj = (void*)0xDEADBEEF;
 	stage.create = color_init;
+	stage.addUnits = NULL;
+	stage.getArgs = NULL;
 	stage.process = color_parseColor;
 	stage.destroy = color_kill;
 	return stage;

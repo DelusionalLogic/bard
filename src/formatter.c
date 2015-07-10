@@ -25,6 +25,8 @@ struct PipeStage formatter_getStage() {
 	if(stage.obj == NULL)
 		stage.error = ENOMEM;
 	stage.create = (int (*)(void*, char*))formatter_init;
+	stage.addUnits = NULL;
+	stage.getArgs = NULL;
 	stage.process = (int (*)(void*, struct Unit*))formatter_format;
 	stage.destroy = (int (*)(void*))formatter_free;
 	return stage;
