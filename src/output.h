@@ -5,6 +5,7 @@
 #include "vector.h"
 #include "align.h"
 #include "conf.h"
+#include "unit.h"
 
 struct Output {
 	struct Conf* conf;
@@ -16,6 +17,6 @@ void out_kill(struct Output* output);
 
 void out_addUnits(struct Output* output, struct Units* units);
 
-char* out_format(struct Output* output);
+char* out_format(struct Output* output, struct Unit* unit);
 
 #endif

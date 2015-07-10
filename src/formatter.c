@@ -2,6 +2,7 @@
 #include <regex.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include "logger.h"
 
 struct RegBuff {
@@ -14,12 +15,27 @@ int regBuffFree(void* elem, void* userdata) {
 	return 0;
 }
 
-void formatter_init(struct Formatter* formatter)
+static void formatter_free(struct Formatter* formatter) {
+	formatter_kill(formatter);
+	free(formatter);
+}
+struct PipeStage formatter_getStage() {
+	struct PipeStage stage;
+	stage.obj = calloc(1, sizeof(struct Formatter));
+	if(stage.obj == NULL)
+		stage.error = ENOMEM;
+	stage.create = (int (*)(void*, char*))formatter_init;
+	stage.process = (int (*)(void*, struct Unit*))formatter_format;
+	stage.destroy = (int (*)(void*))formatter_free;
+	return stage;
+}
+
+int formatter_init(struct Formatter* formatter, char* configDir)
 {
 	ll_init(&formatter->bufferList, sizeof(struct RegBuff));
 }
 
-void formatter_kill(struct Formatter* formatter)
+int formatter_kill(struct Formatter* formatter)
 {
 	ll_foreach(&formatter->bufferList, regBuffFree, NULL);
 	ll_kill(&formatter->bufferList);
@@ -89,14 +105,17 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 	return curMin;
 }
 
-bool formatter_format(struct Formatter* formatter, struct Unit* unit, const char* input, char* output, size_t outLen)
+int formatter_format(struct Formatter* formatter, struct Unit* unit)
 {
-	struct RegBuff* buffer;
-	getBuffer(formatter, unit, &buffer);
+	//Copy the input from the previous stage
+	char buffer[UNIT_BUFFLEN];
+	memcpy(buffer, unit->buffer, UNIT_BUFFLEN);
+	struct RegBuff* cache;
+	getBuffer(formatter, unit, &cache);
 //--------------------------THIS IS TUPID I THINK----------------------
 
 	regmatch_t matches[MAX_MATCH];
-	if(regexec(&buffer->regex, input, MAX_MATCH, matches, 0))
+	if(regexec(&cache->regex, buffer, MAX_MATCH, matches, 0))
 		log_write(LEVEL_ERROR, "Error in %s regex", unit->name);
 
 	char lookupmem[MAX_MATCH*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
@@ -114,7 +133,7 @@ bool formatter_format(struct Formatter* formatter, struct Unit* unit, const char
 	size_t formatLen = strlen(unit->format)+1;
 	const char* curPos = unit->format;
 	const char* prevPos = NULL;
-	char* outPos = output;
+	char* outPos = unit->buffer;
 	while(curPos < unit->format + formatLen)
 	{
 		prevPos = curPos;
@@ -128,12 +147,12 @@ bool formatter_format(struct Formatter* formatter, struct Unit* unit, const char
 		outPos += curPos - prevPos;
 
 		regmatch_t match = matches[index];
-		strncpy(outPos, input + match.rm_so, match.rm_eo - match.rm_so);
+		strncpy(outPos, buffer + match.rm_so, match.rm_eo - match.rm_so);
 		outPos += match.rm_eo - match.rm_so;
 		curPos += strlen(lookup[index]);
 	}
 	strncpy(outPos, prevPos, unit->format + formatLen - prevPos);
 //---------------------------------------------------------------------
-	log_write(LEVEL_INFO, "%s\n", output);
+	log_write(LEVEL_INFO, "%s\n", unit->buffer);
 	return true;
 }

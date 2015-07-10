@@ -24,7 +24,7 @@ struct AddUnitData {
 static int vecAddUnit(void* elem, void* userdata) {
 	struct AddUnitData* data = (struct AddUnitData*)userdata;
 	struct Unit* unit = (struct Unit*)elem;
-	char** outPtr = (char**)&unit->output;
+	char** outPtr = (char**)&unit->buffer;
 	vector_putBack(data->list, &outPtr);
 	return 0;
 }
@@ -59,7 +59,7 @@ static int vecPrintUnit(void* elem, void* userdata) {
 }
 
 //REMEMBER TO FREE THE STRING
-char* out_format(struct Output* output) {
+char* out_format(struct Output* output, struct Unit* unit) {
 	Vector vec;
 	vector_init(&vec, sizeof(char), 128);
 	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {

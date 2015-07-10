@@ -20,6 +20,7 @@ struct FontContainer {
 	int fontID;
 };
 
+#define UNIT_BUFFLEN (1024) //Length of scratch buffer
 struct Unit {
 	/* Config File */
 	char* name;
@@ -40,8 +41,8 @@ struct Unit {
 	/* Command buffering */
 	unsigned long hash;
 
-	/* Final output */
-	char output[1024];
+	/* Scratch buffer between stages */
+	char buffer[1024];
 };
 
 void unit_init(struct Unit* unit);

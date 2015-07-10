@@ -10,6 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "pipestage.h"
 #include "unitcontainer.h"
 #include "map.h"
 #include "unit.h"
@@ -23,6 +24,8 @@
 #include "conf.h"
 #include "color.h"
 #include "fs.h"
+
+static int min(int a, int b) { return a < b ? a : b; }
 
 const char* argp_program_version = PACKAGE_STRING;
 const char* argp_program_bug_address = PACKAGE_BUGREPORT;
@@ -56,6 +59,9 @@ static error_t parse_opt(int key, char* arg, struct argp_state *state)
 
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
+#define NUM_STAGES 10
+struct PipeStage pipeline[NUM_STAGES];
+
 int freePtr(void* elem, void* userdata) {
 	char** data = (char**) elem;
 	free(*data);
@@ -78,7 +84,6 @@ struct PatternMatch{
 	size_t endPos;
 };
 
-struct Formatter formatter;
 struct Output outputter;
 FILE* bar;
 
@@ -86,6 +91,7 @@ int executeUnit(struct Unit* unit)
 {
 	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
+	//TODO: Cutout and replace with a pipeline stage
 	/* Execute process */
 	FILE* f = (FILE*)popen(unit->command, "r");
 	Vector buff;
@@ -106,6 +112,7 @@ int executeUnit(struct Unit* unit)
 		
 	pclose(f);
 
+	//TODO: Maybe this could be a stage too? make it return some known good, but nonzero value
 	/* Don't process things we already have processed */
 	unsigned long newHash = hashString((unsigned char*)buff.data);
 	if(unit->hash == newHash) {
@@ -113,21 +120,25 @@ int executeUnit(struct Unit* unit)
 		return 0;
 	}
 	unit->hash = newHash;
-
-	/* Format the output for the bar */
-	char outBuff[1024];
-	formatter_format(&formatter, unit, buff.data, outBuff, 1024);
+	strncpy(unit->buffer, buff.data, min(vector_size(&buff), UNIT_BUFFLEN));
 	vector_kill(&buff);
 
-	color_parseColor(outBuff, 1024);
-
-	strncpy(unit->output, outBuff, 1024);
+	/* Format the output for the bar */
+	for(int i = 0; i < NUM_STAGES; i++) {
+		struct PipeStage stage = pipeline[i];
+		if(stage.obj == NULL)
+			break;
+		if(stage.process != NULL)
+			stage.process(stage.obj, unit);
+	}
 
 	return 0;
 }
 
 int render() {
-	char* out = out_format(&outputter);
+	//What to do about this? It can't be pipelined because then i might run more than once
+	//per sleep
+	char* out = out_format(&outputter, NULL);
 	fprintf(bar, "%s\n", out);
 	printf("%s\n", out);
 	free(out);
@@ -135,6 +146,7 @@ int render() {
 	fflush(bar);
 }
 
+//TODO: Move into own pipeline step
 struct addFontsData {
 	Vector* fonts;
 };
@@ -176,6 +188,7 @@ int fontSelector(void* elem, void* userdata) {
 	int fontLen = strlen(font);
 	vector_putListBack(data->fontSelector, font, fontLen); 
 }
+//ENDTODO
 
 void pipe_handler(int signal) {
 	//Handle pipes being ready. We want to tell the conditional that it can read
@@ -187,6 +200,7 @@ int main(int argc, char **argv)
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
+	//This shouldn't be useful anymore
 	//Set signal handler for the async pipes
 	if(signal(SIGIO, pipe_handler) == SIG_ERR) {
 		log_write(LEVEL_ERROR, "Could not set signal handler SIGIO");
@@ -195,10 +209,13 @@ int main(int argc, char **argv)
 
 	if(arguments.configDir == NULL)
 	{
-		log_write(LEVEL_ERROR, "Config directory required");
+		log_write(LEVEL_ERROR, "Config directory required\n");
 		exit(0);
 	}
 
+	//Setup pipeline
+	pipeline[0] = formatter_getStage();
+	pipeline[1] = color_getStage();
 
 	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 	struct ConfigParser globalParser;
@@ -221,6 +238,7 @@ int main(int argc, char **argv)
 
 	units_load(&units, arguments.configDir);
 
+	//TODO; Should be part of the font pipeline step
 	Vector fonts;
 	vector_init(&fonts, sizeof(char*), 5);
 	struct addUnitFontsData fontData = {
@@ -230,11 +248,15 @@ int main(int argc, char **argv)
 	vector_foreach(&units.center, addUnitFonts, &fontData);
 	vector_foreach(&units.right, addUnitFonts, &fontData);
 
-	//Input color information
-	color_init(arguments.configDir);
+	//Initialize all stages in pipeline (This is where they load the configuration)
+	for(int i = 0; i < NUM_STAGES; i++) {
+		struct PipeStage stage = pipeline[i];
+		if(stage.obj == NULL)
+			break;
+		stage.create(stage.obj, arguments.configDir);
+	}
 
-	formatter_init(&formatter);
-
+	//TODO: Where the hell does this belong?
 	//Lets load that bar!
 	Vector fontSel;
 	vector_init(&fontSel, sizeof(char), 64);
@@ -258,6 +280,13 @@ int main(int argc, char **argv)
 	log_write(LEVEL_INFO, "Starting %s\n", lBuff);
 	bar = popen(lBuff, "w");
 	
+	for(int i = 0; i < NUM_STAGES; i++) {
+		struct PipeStage stage = pipeline[i];
+		if(stage.obj == NULL)
+			break;
+		if(stage.addUnits != NULL)
+			stage.addUnits(stage.obj, &units);
+	}
 	//Now lets run the units in a loop and write to bar
 	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
 	out_addUnits(&outputter, &units);
@@ -272,7 +301,14 @@ int main(int argc, char **argv)
 
 
 	out_kill(&outputter);
-	formatter_kill(&formatter);
+
+	for(int i = 0; i < NUM_STAGES; i++) {
+		struct PipeStage stage = pipeline[i];
+		if(stage.obj == NULL)
+			break;
+		if(stage.destroy != NULL)
+			stage.destroy(stage.obj);
+	}
 
 	pclose(bar);
 

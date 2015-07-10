@@ -30,7 +30,16 @@ char colormem[MAXCOLOR * COLORLEN] = { 0xBA, 0xBE };
 char (*color)[COLORLEN] = (char (*)[COLORLEN])colormem;
 XrmDatabase rdb;
 
-void color_init(char* configPath) {
+struct PipeStage color_getStage() {
+	struct PipeStage stage;
+	stage.obj = (void*)0xDEADBEEF;
+	stage.create = color_init;
+	stage.process = color_parseColor;
+	stage.destroy = color_kill;
+	return stage;
+}
+
+int color_init(void* obj, char* configPath) {
 	log_write(LEVEL_INFO, "Getting config for display\n");
 	Display* display  = XOpenDisplay(NULL);
 	XrmInitialize();
@@ -61,7 +70,7 @@ void color_init(char* configPath) {
 	XCloseDisplay(display);
 }
 
-void color_free() {
+int color_kill(void* obj) {
 	XrmDestroyDatabase(rdb);
 }
 
@@ -85,9 +94,9 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 	return curMin;
 }
 
-bool color_parseColor(char* output, size_t maxSize) {
+int color_parseColor(void* obj, struct Unit* unit) {
 	Vector newOut;
-	vector_init(&newOut, sizeof(char), maxSize); 
+	vector_init(&newOut, sizeof(char), UNIT_BUFFLEN); 
 	
 	char lookupmem[MAXCOLOR*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
@@ -96,10 +105,10 @@ bool color_parseColor(char* output, size_t maxSize) {
 		snprintf(lookup[i], LOOKUP_MAX, "$color[%d]", i); //This should probably be computed at compiletime
 		//TODO: Error checking
 	}	 
-	size_t formatLen = strlen(output)+1;
-	const char* curPos = output;
+	size_t formatLen = strlen(unit->buffer)+1;
+	const char* curPos = unit->buffer;
 	const char* prevPos = NULL;
-	while(curPos < output + formatLen)
+	while(curPos < unit->buffer + formatLen)
 	{
 		prevPos = curPos;
 		int index = 0;
@@ -109,15 +118,14 @@ bool color_parseColor(char* output, size_t maxSize) {
 			break;
 
 		vector_putListBack(&newOut, prevPos, curPos-prevPos);
-
 		vector_putListBack(&newOut, color[index], strlen(color[index]));
 		curPos += strlen(lookup[index]);
 	}
-	vector_putListBack(&newOut, prevPos, output + formatLen - prevPos);
-	if(vector_size(&newOut) > maxSize) {
+	vector_putListBack(&newOut, prevPos, unit->buffer + formatLen - prevPos);
+	if(vector_size(&newOut) > UNIT_BUFFLEN) {
 		log_write(LEVEL_ERROR, "Output too long");
 		return false;
 	}
-	strncpy(output, newOut.data, vector_size(&newOut));
+	strncpy(unit->buffer, newOut.data, vector_size(&newOut));
 	return true;
 }
