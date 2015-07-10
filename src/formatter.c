@@ -74,7 +74,6 @@ static bool findBuffer(struct Formatter* formatter, struct Unit* unit, struct Re
 
 static bool getBuffer(struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)
 {
-	log_write(LEVEL_INFO, "Getting buffer\n");
 	bool found = findBuffer(formatter, unit, buff);
 	if(!found) {
 		struct RegBuff newBuff;
@@ -118,7 +117,7 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 
 	regmatch_t matches[MAX_MATCH];
 	if(regexec(&cache->regex, buffer, MAX_MATCH, matches, 0))
-		log_write(LEVEL_ERROR, "Error in %s regex", unit->name);
+		log_write(LEVEL_ERROR, "Error in %s's regex\n", unit->name);
 
 	char lookupmem[MAX_MATCH*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
@@ -155,6 +154,5 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 	}
 	strncpy(outPos, prevPos, unit->format + formatLen - prevPos);
 //---------------------------------------------------------------------
-	log_write(LEVEL_INFO, "%s\n", unit->buffer);
 	return true;
 }

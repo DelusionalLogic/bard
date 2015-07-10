@@ -15,6 +15,7 @@
 #include "map.h"
 #include "unit.h"
 #include "formatter.h"
+#include "unitexecute.h"
 #include "configparser.h"
 #include "font.h"
 #include "workmanager.h"
@@ -25,8 +26,6 @@
 #include "conf.h"
 #include "color.h"
 #include "fs.h"
-
-static int min(int a, int b) { return a < b ? a : b; }
 
 const char* argp_program_version = PACKAGE_STRING;
 const char* argp_program_bug_address = PACKAGE_BUGREPORT;
@@ -69,17 +68,6 @@ int freePtr(void* elem, void* userdata) {
 	return 0;
 }
 
-unsigned long hashString(unsigned char *str)
-{
-	unsigned long hash = 5381;
-	int c;
-
-	while ((c = *str++))
-		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
-	return hash;
-}
-
 struct PatternMatch{
 	size_t startPos;
 	size_t endPos;
@@ -92,45 +80,16 @@ int executeUnit(struct Unit* unit)
 {
 	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
-	//TODO: Cutout and replace with a pipeline stage
-	/* Execute process */
-	FILE* f = (FILE*)popen(unit->command, "r");
-	Vector buff;
-	vector_init(&buff, sizeof(char), 32);
-	ssize_t readLen;
-	char null = '\0';
-
-
-	/* Read output */
-	char chunk[32];
-	while((readLen = fread(chunk, 1, 32, f))>0)
-		vector_putListBack(&buff, chunk, readLen);
-
-	if(buff.data[buff.size-1] == '\n')
-		buff.data[buff.size-1] = '\0';
-	else
-		vector_putBack(&buff, &null);
-		
-	pclose(f);
-
-	//TODO: Maybe this could be a stage too? make it return some known good, but nonzero value
-	/* Don't process things we already have processed */
-	unsigned long newHash = hashString((unsigned char*)buff.data);
-	if(unit->hash == newHash) {
-		vector_kill(&buff);
-		return 0;
-	}
-	unit->hash = newHash;
-	strncpy(unit->buffer, buff.data, min(vector_size(&buff), UNIT_BUFFLEN));
-	vector_kill(&buff);
-
 	/* Format the output for the bar */
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
 		if(stage.obj == NULL)
 			break;
+		int err = 0;
 		if(stage.process != NULL)
-			stage.process(stage.obj, unit);
+			err = stage.process(stage.obj, unit);
+		if(err == -1) //Hash was identical to previous run
+			break;
 	}
 
 	return 0;
@@ -171,9 +130,10 @@ int main(int argc, char **argv)
 	}
 
 	//Setup pipeline
-	pipeline[0] = formatter_getStage();
-	pipeline[1] = font_getStage();
-	pipeline[2] = color_getStage();
+	pipeline[0] = unitexec_getStage();
+	pipeline[1] = formatter_getStage();
+	pipeline[2] = font_getStage();
+	pipeline[3] = color_getStage();
 
 	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 	struct ConfigParser globalParser;
@@ -226,8 +186,12 @@ int main(int argc, char **argv)
 		if(stage.getArgs != NULL)
 			err = stage.getArgs(stage.obj, lBuff, 2048);
 		if(err == ENOMEM) {
-			log_write(LEVEL_ERROR, "Couldn*t prepare bar launch string. It would have been too long");
+			log_write(LEVEL_ERROR, "Couldn't prepare bar launch string. It would have been too long");
 			exit(err);
+		}
+		if(err != 0) {
+			log_write(LEVEL_INFO, "Unknown error when constructing bar launch string, trying to continue");
+			continue;
 		}
 	}
 
