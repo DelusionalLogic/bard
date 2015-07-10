@@ -38,9 +38,11 @@ void workmanager_free(struct WorkManager* manager) {
 	sl_free(&manager->list);
 }
 
-void workmanager_addUnits(struct WorkManager* manager, Vector* vec) {
+void workmanager_addUnits(struct WorkManager* manager, struct Units *units) {
 	struct AddUnitData data = { .list = &manager->list };
-	vector_foreach(vec, vecAddUnit, &data);
+	vector_foreach(&units->left, vecAddUnit, &data);
+	vector_foreach(&units->center, vecAddUnit, &data);
+	vector_foreach(&units->right, vecAddUnit, &data);
 }
 
 int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* unit), int (*render)()) {

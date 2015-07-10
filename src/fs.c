@@ -1,4 +1,5 @@
 #include "fs.h"
+#include <stdio.h>
 
 char* pathAppend(const char* path, const char* path2) {
 	size_t pathLen = strlen(path);
@@ -43,6 +44,7 @@ void getFiles(const char* path, Vector* nameList)
 		vector_putListBack(&name, ent->d_name, strlen(ent->d_name)+1);
 
 		vector_putBack(nameList, &name.data);
+		printf("Hello: %s\n", *(void**)nameList->data);
 		//Name is not destroyed because we want to keep the buffer around
 	}	
 	closedir(dir);

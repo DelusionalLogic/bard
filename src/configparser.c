@@ -1,4 +1,5 @@
 #include "configparser.h"
+//TODO: Rewrite to use integer error codes
 
 void cp_init(struct ConfigParser* parser, struct ConfigParserEntry entry[]) {
 	parser->conf = NULL;
@@ -37,7 +38,7 @@ static bool set_map(struct ConfigParser* parser, struct ConfigParserEntry* entry
 	return status;
 }
 
-bool cp_load(struct ConfigParser* parser, const char* file, void* obj) {
+int cp_load(struct ConfigParser* parser, const char* file, void* obj) {
 	parser->conf = iniparser_load(file);
 	if(parser->conf == NULL)
 		return false;
@@ -63,12 +64,14 @@ bool cp_load(struct ConfigParser* parser, const char* file, void* obj) {
 				break;
 			default:
 				//Should never happen
-				return false;
+				return 1;
 		}
 		if(!status)
 			break;
 		i++;
 	}
 	iniparser_freedict(parser->conf);
-	return status;
+	if(!status)
+		return 1;
+	return 0;
 }

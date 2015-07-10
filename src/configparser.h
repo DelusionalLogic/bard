@@ -44,6 +44,6 @@ struct ConfigParser {
 void cp_init(struct ConfigParser* parser, struct ConfigParserEntry entry[]);
 void cp_free(struct ConfigParser* parser);
 
-bool cp_load(struct ConfigParser* parser, const char* file, void* obj);
+int cp_load(struct ConfigParser* parser, const char* file, void* obj);
 
 #endif

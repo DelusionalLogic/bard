@@ -10,6 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "unitcontainer.h"
 #include "map.h"
 #include "unit.h"
 #include "formatter.h"
@@ -58,19 +59,6 @@ static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 int freePtr(void* elem, void* userdata) {
 	char** data = (char**) elem;
 	free(*data);
-	return 0;
-}
-
-int freeUnit(void* elem, void* userdata) {
-	struct Unit* unit = (struct Unit*)elem;
-	unit_free(unit);
-	return 0;
-}
-
-int PrintUnit(void* elem, void* userdata)
-{
-	struct Unit* unit = *(struct Unit**)elem;
-	log_write(LEVEL_INFO, unit->name);
 	return 0;
 }
 
@@ -189,41 +177,9 @@ int fontSelector(void* elem, void* userdata) {
 	vector_putListBack(data->fontSelector, font, fontLen); 
 }
 
-bool parseType(struct Unit* unit, const char* type)
-{
-	for(int i = 0; i < UNITTYPE_LENGTH; i++)
-	{
-		if(!strcasecmp(TypeStr[i], type))
-			return unit_setType(unit, (const enum UnitType)i);
-	}
-	return false;
-}
-
 void pipe_handler(int signal) {
 	//Handle pipes being ready. We want to tell the conditional that it can read
 	log_write(LEVEL_INFO, "Data ready on a pipe");
-}
-
-void loadUnits(Vector* units, struct ConfigParser* parser, const char* path) {
-	Vector files;
-	vector_init(&files, sizeof(char*), 5);
-	getFiles(path, &files);
-	for(size_t i = 0; i < vector_size(&files); i++)
-	{
-		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(&files, i));
-		char* file = *(char**)vector_get(&files, i);
-		struct Unit unit = { 0 };
-		unit_init(&unit);
-
-		if(!cp_load(parser, *(char**)vector_get(&files, i), &unit)) {
-			log_write(LEVEL_ERROR, "Couldn't parse config %s", file);
-			exit(1);
-		}
-
-		vector_putBack(units, &unit);
-	}
-	vector_foreach(&files, freePtr, NULL);
-	vector_delete(&files);
 }
 
 int main(int argc, char **argv)
@@ -248,6 +204,7 @@ int main(int argc, char **argv)
 	struct ConfigParser globalParser;
 	struct ConfigParserEntry globalEntries[] = {
 		StringConfigEntry("display:separator", conf_setSeparator, ""),
+		StringConfigEntry("bar:geometry", conf_setGeometry, NULL),
 		EndConfigEntry(),
 	};
 	cp_init(&globalParser, globalEntries);
@@ -259,47 +216,19 @@ int main(int argc, char **argv)
 	cp_load(&globalParser, globalPath, &conf);
 	free(globalPath);
 
-	Vector left;
-	Vector center;
-	Vector right;
-	vector_init(&left, sizeof(struct Unit), 10);
-	vector_init(&center, sizeof(struct Unit), 10);
-	vector_init(&right, sizeof(struct Unit), 10);
+	struct Units units;
+	units_init(&units);
 
-	struct ConfigParser unitParser;
-	struct ConfigParserEntry entries[] = {
-		StringConfigEntry("unit:name", unit_setName, NULL),
-		StringConfigEntry("unit:type", parseType, (char*)TypeStr[UNIT_POLL]),
-
-		StringConfigEntry("display:command", unit_setCommand, NULL),
-		StringConfigEntry("display:regex", unit_setRegex, NULL),
-		StringConfigEntry("display:format", unit_setFormat, NULL),
-		IntConfigEntry("display:interval", unit_setInterval, 10),
-		MapConfigEntry("font", unit_setFonts),
-		EndConfigEntry(),
-	};
-	cp_init(&unitParser, entries);
-
-	char* unitPath = pathAppend(arguments.configDir, "left");
-	loadUnits(&left, &unitParser, unitPath);
-	free(unitPath);
-	unitPath = pathAppend(arguments.configDir, "center");
-	loadUnits(&center, &unitParser, unitPath);
-	free(unitPath);
-	unitPath = pathAppend(arguments.configDir, "right");
-	loadUnits(&right, &unitParser, unitPath);
-	free(unitPath);
-
-	cp_free(&unitParser);
+	units_load(&units, arguments.configDir);
 
 	Vector fonts;
 	vector_init(&fonts, sizeof(char*), 5);
 	struct addUnitFontsData fontData = {
 		.fonts = &fonts,
 	};
-	vector_foreach(&left, addUnitFonts, &fontData);
-	vector_foreach(&center, addUnitFonts, &fontData);
-	vector_foreach(&right, addUnitFonts, &fontData);
+	vector_foreach(&units.left, addUnitFonts, &fontData);
+	vector_foreach(&units.center, addUnitFonts, &fontData);
+	vector_foreach(&units.right, addUnitFonts, &fontData);
 
 	//Input color information
 	color_init(arguments.configDir);
@@ -315,37 +244,32 @@ int main(int argc, char **argv)
 	};
 	vector_foreach(&fonts, fontSelector, &data);
 	vector_putListBack(&fontSel, "\0", 1);
-	char lBuff[1024];
-	snprintf(lBuff, 1024, "bar -f \"%s\"", fontSel.data);
-	printf("%s\n", lBuff);
+	char lBuff[2048];
+	int written = snprintf(lBuff, 2048, "bar -f \"%s\" %s%s", 
+			fontSel.data,
+			conf.geometry != NULL ? "-g " : "",
+			conf.geometry);
+	if(written >= 2048 || written < 0) {
+		log_write(LEVEL_ERROR, "Couldn't prepare the bar launch string (probably too long)\n");
+		exit(1);
+	}
 	vector_delete(&fontSel);
 
-	log_write(LEVEL_INFO, "Starting %s", lBuff);
+	log_write(LEVEL_INFO, "Starting %s\n", lBuff);
 	bar = popen(lBuff, "w");
-
+	
+	//Now lets run the units in a loop and write to bar
 	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
-	out_insert(&outputter, ALIGN_LEFT, &left);
-	out_insert(&outputter, ALIGN_CENTER, &center);
-	out_insert(&outputter, ALIGN_RIGHT, &right);
+	out_insert(&outputter, &units);
 
 	struct WorkManager wm;
 	workmanager_init(&wm);
-	workmanager_addUnits(&wm, &left);
-	workmanager_addUnits(&wm, &center);
-	workmanager_addUnits(&wm, &right);
+	workmanager_addUnits(&wm, &units);
 
 	workmanager_run(&wm, executeUnit, render); //Blocks until the program should exit
 
 	workmanager_free(&wm);
 
-	vector_foreach(&left, freeUnit, NULL);
-	vector_delete(&left);
-
-	vector_foreach(&center, freeUnit, NULL);
-	vector_delete(&center);
-
-	vector_foreach(&right, freeUnit, NULL);
-	vector_delete(&right);
 
 	out_free(&outputter);
 	formatter_free(&formatter);

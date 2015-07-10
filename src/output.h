@@ -1,6 +1,7 @@
 #ifndef OUTPUT_H
 #define OUTPUT_H
 
+#include "unitcontainer.h"
 #include "vector.h"
 #include "align.h"
 #include "conf.h"
@@ -13,7 +14,7 @@ struct Output {
 void out_init(struct Output* output, struct Conf* conf);
 void out_free(struct Output* output);
 
-void out_insert(struct Output* output, enum Align side, Vector* units);
+void out_insert(struct Output* output, struct Units* units);
 
 char* out_format(struct Output* output);
 

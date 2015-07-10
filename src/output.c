@@ -29,11 +29,15 @@ static int vecAddUnit(void* elem, void* userdata) {
 	return 0;
 }
 
-void out_insert(struct Output* output, enum Align side, Vector* units) {
+void out_insert(struct Output* output, struct Units* units) {
 	struct AddUnitData data = {
-		.list = &output->out[side]
+		.list = &output->out[ALIGN_LEFT]
 	};
-	vector_foreach(units, vecAddUnit, &data);
+	vector_foreach(&units->left, vecAddUnit, &data);
+	data.list = &output->out[ALIGN_CENTER];
+	vector_foreach(&units->center, vecAddUnit, &data);
+	data.list = &output->out[ALIGN_RIGHT];
+	vector_foreach(&units->right, vecAddUnit, &data);
 }
 
 struct PrintUnitData {
