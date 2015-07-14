@@ -35,12 +35,14 @@ struct PipeStage formatter_getStage() {
 int formatter_init(struct Formatter* formatter, char* configDir)
 {
 	ll_init(&formatter->bufferList, sizeof(struct RegBuff));
+	return 0;
 }
 
 int formatter_kill(struct Formatter* formatter)
 {
 	ll_foreach(&formatter->bufferList, regBuffFree, NULL);
 	ll_kill(&formatter->bufferList);
+	return 0;
 }
 
 struct Search {

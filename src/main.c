@@ -165,7 +165,7 @@ int main(int argc, char **argv)
 		if(stage.create != NULL)
 			err = stage.create(stage.obj, arguments.configDir);
 		if(err != 0)
-			log_write(LEVEL_ERROR, "Couldn't create pipe stage %d\n", i);
+			log_write(LEVEL_ERROR, "Couldn't create pipe stage %d, error code: %d\n", i, err);
 	}
 
 	for(int i = 0; i < NUM_STAGES; i++) {
