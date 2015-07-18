@@ -21,3 +21,5 @@ Makefile.in
 
 # Vim session
 session.vim
+
+*.orig
