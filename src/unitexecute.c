@@ -19,7 +19,7 @@ struct PipeStage unitexec_getStage() {
 	return stage;
 }
 
-unsigned long hashString(unsigned char *str)
+static unsigned long hashString(unsigned char *str)
 {
 	unsigned long hash = 5381;
 	int c;

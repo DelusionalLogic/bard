@@ -19,13 +19,43 @@ struct PipeStage font_getStage(){
 	return stage;
 }
 
+struct FontCont{
+	char* font;
+	unsigned long hash;
+};
+
 int font_init(struct Font* font, char* configDir) {
-	vector_init(&font->fonts, sizeof(char*), 8);
+	vector_init(&font->fonts, sizeof(struct FontCont), 8);
 	return 0;
 }
 
 int font_kill(struct Font* font) {
 	vector_kill(&font->fonts);
+	return 0;
+}
+
+static unsigned long hashString(const char *str)
+{
+	unsigned long hash = 5381;
+	int c;
+
+	while ((c = *str++))
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+	return hash;
+}
+
+struct findFontData {
+	unsigned long needle;
+	int index;
+};
+static int findFont(void* elem, void* userdata) {
+	struct FontCont *cont = (struct FontCont*)elem;
+	struct findFontData *data = (struct findFontData*)userdata;
+
+	if(cont->hash == data->needle)
+		return -1;
+	data->index++;
 	return 0;
 }
 
@@ -37,11 +67,24 @@ static int addFonts(void* key, void* value, void* userdata) {
 	struct FontContainer* v = *(struct FontContainer**)value;
 	struct addFontsData* data = (struct addFontsData*)userdata;
 
+	struct findFontData findData = {
+		.needle = hashString(v->font),
+		.index = 0,
+	};
+	if(vector_foreach(data->fonts, findFont, &findData) == -1) {
+		v->fontID = findData.index;
+		return 0;
+	}
+
 	int nextIndex = vector_size(data->fonts);
 	v->fontID = nextIndex+1;
 
 	log_write(LEVEL_INFO, "Font %d with selector: %s\n", v->fontID, v->font);
-	return vector_putBack(data->fonts, &v->font);
+	struct FontCont cont = {
+		.font = v->font,
+		.hash = hashString(v->font),
+	};
+	return vector_putBack(data->fonts, &cont);
 }
 
 struct addUnitFontsData{
@@ -143,7 +186,6 @@ static int createLookup(void* key, void* data, void* userdata) {
 }
 
 int font_format(struct Font* font, struct Unit* unit) {
-	log_write(LEVEL_INFO, "%s\n", unit->name);
 	Vector newOut;
 	vector_init(&newOut, sizeof(char), UNIT_BUFFLEN); 
 	

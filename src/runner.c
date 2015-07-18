@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <wordexp.h>
 #include "unitcontainer.h"
 #include "logger.h"
 
@@ -25,6 +26,19 @@ static int run(struct Unit* unit) {
 		return 1;
 	}
 
+	wordexp_t wexp;
+	int err = wordexp(unit->command, &wexp, WRDE_NOCMD);
+	if(err == WRDE_CMDSUB) {
+		log_write(LEVEL_ERROR, "Command substitution is disabled in %s", unit->name);
+		wordfree(&wexp);
+		return 1;
+	}
+	if(err != 0) {
+		log_write(LEVEL_ERROR, "Error in command argument of unit %s", unit->name);
+		if(err == WRDE_NOSPACE)
+			wordfree(&wexp);
+		return 1;
+	}
 	int pid = fork();
 	if(pid == -1) {
 		log_write(LEVEL_ERROR, "Couldn't create child process for unit %s", unit->name);
@@ -32,8 +46,9 @@ static int run(struct Unit* unit) {
 	}
 	if(pid == 0) {
 		dup2(unit->writefd, STDOUT_FILENO);
-		execlp("xtitle", "xtitle", "-s", NULL);
+		execvp(wexp.we_wordv[0], wexp.we_wordv);
 	}
+	wordfree(&wexp);
 	return 0;
 }
 
@@ -86,7 +101,6 @@ int runner_process(void* obj, struct Unit* unit) {
 			log_write(LEVEL_ERROR, "Could not read from pipe");
 			return 2;
 		}
-		log_write(LEVEL_INFO, "Looking for in %s\n", window);
 		vector_putBack(&str, window + delimiterLen-1); //Put last char onto the final string
 		memcpy(window+1, window, delimiterLen-1); //This should move everything over one
 		n = read(unit->pipe, window, 1);

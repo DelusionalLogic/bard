@@ -73,7 +73,7 @@ struct pipeRunData {
 int pipeRun(void* elem, void* userdata) {
 	struct pipeRunData* data = (struct pipeRunData*)userdata;
 	struct Unit* unit = *(struct Unit**)elem;
-		log_write(LEVEL_INFO, "A pipe got ready for unit %s\n", unit->name);
+	log_write(LEVEL_INFO, "A pipe got ready for unit %s\n", unit->name);
 	if(unit->pipe == -1)
 		return 0;
 
