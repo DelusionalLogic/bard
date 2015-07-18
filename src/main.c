@@ -16,6 +16,7 @@
 #include "unit.h"
 #include "formatter.h"
 #include "unitexecute.h"
+#include "runner.h"
 #include "configparser.h"
 #include "font.h"
 #include "workmanager.h"
@@ -83,13 +84,13 @@ int executeUnit(struct Unit* unit)
 	/* Format the output for the bar */
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
-		if(stage.obj == NULL)
-			break;
 		int err = 0;
 		if(stage.process != NULL)
 			err = stage.process(stage.obj, unit);
 		if(err == -1) //Hash was identical to previous run
 			break;
+		if(err != 0)
+			log_write(LEVEL_ERROR, "Unknown error while truing to execute %s:%d\n", unit->name, i);
 	}
 
 	return 0;
@@ -106,22 +107,10 @@ int render() {
 	fflush(bar);
 }
 
-void pipe_handler(int signal) {
-	//Handle pipes being ready. We want to tell the conditional that it can read
-	log_write(LEVEL_INFO, "Data ready on a pipe");
-}
-
 int main(int argc, char **argv)
 {
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
-
-	//This shouldn't be useful anymore
-	//Set signal handler for the async pipes
-	if(signal(SIGIO, pipe_handler) == SIG_ERR) {
-		log_write(LEVEL_ERROR, "Could not set signal handler SIGIO");
-		exit(1);
-	}
 
 	if(arguments.configDir == NULL)
 	{
@@ -131,9 +120,10 @@ int main(int argc, char **argv)
 
 	//Setup pipeline
 	pipeline[0] = unitexec_getStage();
-	pipeline[1] = formatter_getStage();
-	pipeline[2] = font_getStage();
-	pipeline[3] = color_getStage();
+	pipeline[1] = runner_getStage();
+	pipeline[2] = formatter_getStage();
+	pipeline[3] = font_getStage();
+	pipeline[4] = color_getStage();
 
 	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 	struct ConfigParser globalParser;
@@ -154,13 +144,15 @@ int main(int argc, char **argv)
 	struct Units units;
 	units_init(&units);
 
-	units_load(&units, arguments.configDir);
+	int err = units_load(&units, arguments.configDir);
+	if(err) {
+		log_write(LEVEL_ERROR, "Failed to load units\n");
+		exit(err);
+	}
 
 	//Initialize all stages in pipeline (This is where they load the configuration)
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
-		if(stage.obj == NULL)
-			break;
 		int err = 0;
 		if(stage.create != NULL)
 			err = stage.create(stage.obj, arguments.configDir);
@@ -170,18 +162,17 @@ int main(int argc, char **argv)
 
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
-		if(stage.obj == NULL)
-			break;
+		int err = 0;
 		if(stage.addUnits != NULL)
-			stage.addUnits(stage.obj, &units);
+			err = stage.addUnits(stage.obj, &units);
+		if(err != 0)
+			log_write(LEVEL_ERROR, "Unknown error while adding units to stage %d\n", i);
 	}
 
 	char lBuff[2048];
 	strcpy(lBuff, "bar");
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
-		if(stage.obj == NULL)
-			break;
 		int err = 0;
 		if(stage.getArgs != NULL)
 			err = stage.getArgs(stage.obj, lBuff, 2048);
@@ -212,13 +203,10 @@ int main(int argc, char **argv)
 
 	workmanager_kill(&wm);
 
-
 	out_kill(&outputter);
 
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
-		if(stage.obj == NULL)
-			break;
 		if(stage.destroy != NULL)
 			stage.destroy(stage.obj);
 	}

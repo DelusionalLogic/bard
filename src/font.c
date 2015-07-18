@@ -181,8 +181,8 @@ int font_format(struct Font* font, struct Unit* unit) {
 	vector_putListBack(&newOut, prevPos, unit->buffer + formatLen - prevPos);
 	if(vector_size(&newOut) > UNIT_BUFFLEN) {
 		log_write(LEVEL_ERROR, "Output too long");
-		return false;
+		return 1;
 	}
 	strncpy(unit->buffer, newOut.data, vector_size(&newOut));
-	return true;
+	return 0;
 }

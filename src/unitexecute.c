@@ -31,6 +31,8 @@ unsigned long hashString(unsigned char *str)
 }
 
 int unitexec_process(void* obj, struct Unit* unit) {
+	if(unit->type != UNIT_POLL)
+		return 0;
 	/* Execute process */
 	FILE* f = (FILE*)popen(unit->command, "r");
 	Vector buff;
@@ -61,4 +63,5 @@ int unitexec_process(void* obj, struct Unit* unit) {
 	unit->hash = newHash;
 	strncpy(unit->buffer, buff.data, min(vector_size(&buff), UNIT_BUFFLEN));
 	vector_kill(&buff);
+	return 0;
 }

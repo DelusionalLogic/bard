@@ -2,6 +2,7 @@
 #define WORKMANAGER_H
 
 #include <stdbool.h>
+#include <sys/select.h>
 #include "unitcontainer.h"
 #include "sortedlist.h"
 #include "vector.h"
@@ -9,6 +10,8 @@
 
 struct WorkManager {
 	struct SortedList list;
+	Vector pipeList;
+	fd_set fdset;
 };
 
 void workmanager_init(struct WorkManager* manager);

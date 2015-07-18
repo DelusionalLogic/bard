@@ -79,7 +79,7 @@ static bool getBuffer(struct Formatter* formatter, struct Unit* unit, struct Reg
 	bool found = findBuffer(formatter, unit, buff);
 	if(!found) {
 		struct RegBuff newBuff;
-		if(regcomp(&newBuff.regex, unit->regex, REG_EXTENDED))
+		if(regcomp(&newBuff.regex, unit->regex, REG_EXTENDED | REG_NEWLINE))
 			log_write(LEVEL_ERROR, "Could not compile regex for %s\n", unit->name);
 		newBuff.key = unit->name;
 		*buff = ll_insert(&formatter->bufferList, ll_size(&formatter->bufferList), &newBuff);
@@ -110,16 +110,23 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 
 int formatter_format(struct Formatter* formatter, struct Unit* unit)
 {
+	//TODO: Figure out what the fuck is wrong with newline in regcomp
 	//Copy the input from the previous stage
 	char buffer[UNIT_BUFFLEN];
 	memcpy(buffer, unit->buffer, UNIT_BUFFLEN);
 	struct RegBuff* cache;
 	getBuffer(formatter, unit, &cache);
-//--------------------------THIS IS TUPID I THINK----------------------
 
 	regmatch_t matches[MAX_MATCH];
-	if(regexec(&cache->regex, buffer, MAX_MATCH, matches, 0))
-		log_write(LEVEL_ERROR, "Error in %s's regex\n", unit->name);
+	int err = regexec(&cache->regex, buffer, MAX_MATCH, matches, 0);
+	if(err) {
+		size_t reqSize = regerror(err, &cache->regex, NULL, 0);
+		char *errBuff = malloc(reqSize * sizeof(char));
+		regerror(err, &cache->regex, errBuff, reqSize);
+		log_write(LEVEL_ERROR, "Error in %s's regex: %s\n", unit->name, errBuff);
+		free(errBuff);
+		return 2;
+	}
 
 	char lookupmem[MAX_MATCH*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
@@ -150,11 +157,11 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 		outPos += curPos - prevPos;
 
 		regmatch_t match = matches[index];
-		strncpy(outPos, buffer + match.rm_so, match.rm_eo - match.rm_so);
+		memcpy(outPos, buffer + match.rm_so, match.rm_eo - match.rm_so);
 		outPos += match.rm_eo - match.rm_so;
 		curPos += strlen(lookup[index]);
 	}
 	strncpy(outPos, prevPos, unit->format + formatLen - prevPos);
 //---------------------------------------------------------------------
-	return true;
+	return 0;
 }

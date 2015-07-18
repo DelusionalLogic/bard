@@ -37,12 +37,19 @@ struct Unit {
 
 	struct Map fontMap;
 
+	char* delimiter;
+
 	/* Processing info */
 	/* Command buffering */
 	unsigned long hash;
 
 	/* Scratch buffer between stages */
 	char buffer[1024];
+	size_t buffoff; //If we did a partial buffer fill last run
+
+	/* Pipe descriptor if applicable */
+	int pipe;
+	int writefd;
 };
 
 void unit_init(struct Unit* unit);
@@ -55,5 +62,6 @@ bool unit_setRegex(struct Unit* unit, const char* regex);
 bool unit_setFormat(struct Unit* unit, const char* format);
 bool unit_setInterval(struct Unit* unit, const int interval);
 bool unit_setFonts(struct Unit* unit, const char* key, const char* value);
+bool unit_setDelimiter(struct Unit* unit, const char* delimiter);
 
 #endif

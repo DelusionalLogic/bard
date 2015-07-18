@@ -22,6 +22,13 @@ void unit_init(struct Unit* unit) {
 	unit->interval = 0;
 
 	map_init(&unit->fontMap, sizeof(char*), sizeof(struct FontContainer), fontCmp);
+	
+	unit->delimiter = NULL;
+
+	unit->buffoff = 0;
+
+	unit->pipe = -1;
+	unit->writefd = -1;
 }
 
 void unit_kill(struct Unit* unit) {
@@ -31,6 +38,8 @@ void unit_kill(struct Unit* unit) {
 	free(unit->format);
 
 	map_kill(&unit->fontMap);
+
+	free(unit->delimiter);
 }
 
 	//Setters
@@ -71,10 +80,38 @@ void unit_kill(struct Unit* unit) {
 			return true;
 		}
 
-		size_t regexLen = strlen(regex) + 1;
-		unit->regex = malloc(sizeof(char) * regexLen);
-		if(unit->regex == NULL) return false;
-		strcpy(unit->regex, regex);
+		Vector str;
+		vector_init(&str, sizeof(char), 512);
+
+		//For some insane reason regex depends on all escape chars to already be unescaped before being passsed to it. So here it goes i guess...
+		for(int i = 0; regex[i] != '\0'; i++) {
+			if(regex[i] == '\\'){
+				char c;
+				switch(regex[i+1]) {
+					case 'n':
+						c = '\n';
+						i++;
+						break;
+					case 't':
+						c = '\t';
+						i++;
+						break;
+					case '\\':
+						c = '\\';
+						i++;
+						break;
+					default:
+						c = '\\';
+				}
+				vector_putBack(&str, &c);
+			} else {
+				vector_putBack(&str, &regex[i]);
+			}
+		}
+		vector_putBack(&str, "\0"); //Using a string lets get a char* from a literal
+
+		unit->regex = str.data;
+
 		return true;
 	}
 	bool unit_setFormat(struct Unit* unit, const char* format){
@@ -115,5 +152,19 @@ void unit_kill(struct Unit* unit) {
 		strcpy(container->font, value);
 
 		map_put(&unit->fontMap, &newKey, &container);
+		return true;
+	}
+
+	bool unit_setDelimiter(struct Unit* unit, const char* delimiter) {
+		free(unit->delimiter);
+		if(delimiter == NULL) {
+			unit->delimiter = NULL;
+			return true;
+		}
+
+		size_t delimiterLen = strlen(delimiter) + 1;
+		unit->delimiter = malloc(sizeof(char) * delimiterLen);
+		if(unit->delimiter == NULL) return false;
+		strcpy(unit->delimiter, delimiter);
 		return true;
 	}

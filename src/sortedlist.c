@@ -70,6 +70,10 @@ void sl_reorder(struct SortedList* list, size_t index) {
 	this->next = cur;
 }
 
+int sl_foreach(struct SortedList* list, int (*cb)(void*, void*), void* userdata) {
+	return ll_foreach(&list->list, cb, userdata);
+}
+
 void sl_remove(struct SortedList* list, size_t index) {
 	return ll_remove(&list->list, index);
 }

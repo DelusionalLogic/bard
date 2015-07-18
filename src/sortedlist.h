@@ -21,6 +21,8 @@ void sl_reorder(struct SortedList* list, size_t index);
 void sl_remove(struct SortedList* list, size_t index);
 void* sl_getAndRemove(struct SortedList* list, size_t index);
 
+int sl_foreach(struct SortedList* list, int (*cb)(void*, void*), void* userdata);
+
 int sl_size(struct SortedList* list);
 
 #endif

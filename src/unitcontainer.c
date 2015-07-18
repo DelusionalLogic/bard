@@ -73,6 +73,8 @@ int units_load(struct Units* units, char* configDir) {
 		StringConfigEntry("unit:name", unit_setName, NULL),
 		StringConfigEntry("unit:type", parseType, (char*)TypeStr[UNIT_POLL]),
 
+		StringConfigEntry("process:delimiter", unit_setDelimiter, "\n"),
+
 		StringConfigEntry("display:command", unit_setCommand, NULL),
 		StringConfigEntry("display:regex", unit_setRegex, NULL),
 		StringConfigEntry("display:format", unit_setFormat, NULL),
@@ -83,14 +85,21 @@ int units_load(struct Units* units, char* configDir) {
 
 	cp_init(&unitParser, entries);
 	
+	int err;
 	char* unitPath = pathAppend(configDir, "left");
-	loadSide(&units->left, &unitParser, unitPath);
+	err = loadSide(&units->left, &unitParser, unitPath);
+	if(err)
+		return err;
 	free(unitPath);
 	unitPath = pathAppend(configDir, "center");
-	loadSide(&units->center, &unitParser, unitPath);
+	err = loadSide(&units->center, &unitParser, unitPath);
+	if(err)
+		return err;
 	free(unitPath);
 	unitPath = pathAppend(configDir, "right");
-	loadSide(&units->right, &unitParser, unitPath);
+	err = loadSide(&units->right, &unitParser, unitPath);
+	if(err)
+		return err;
 	free(unitPath);
 
 	cp_kill(&unitParser);

@@ -3,6 +3,6 @@
 
 #include <stdio.h>
 
-FILE* parExec(const char* file, char* const argv[], char* const envp[]);
+int parExec(const char* file, int out, char* const argv[], char* const envp[]);
 
 #endif

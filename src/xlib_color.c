@@ -61,7 +61,7 @@ int color_init(void* obj, char* configPath) {
 		int resCode = XrmGetResource(rdb, colorName[i], NULL, &resType, &res);
 		if(resCode && (strcmp(resType, "String")) == 0){
 			log_write(LEVEL_INFO, "%s\n", res.addr);
-			snprintf(color[i], 4, "#AA");
+			snprintf(color[i], 4, "#FF");
 			size_t cnt = 0;
 			while(*(res.addr + cnt) != '\0') {
 				*(color[i] + 3 + cnt) = toupper(*(res.addr + 1 + cnt));
@@ -70,13 +70,14 @@ int color_init(void* obj, char* configPath) {
 		}
 	}
 	XCloseDisplay(display);
+	return 0;
 }
 
 int color_kill(void* obj) {
 	XrmDestroyDatabase(rdb);
 }
 
-#define LOOKUP_MAX 10
+#define LOOKUP_MAX 16
 static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
 {
 	char* curMin = strstr(curPos, lookups[0]);
@@ -126,8 +127,8 @@ int color_parseColor(void* obj, struct Unit* unit) {
 	vector_putListBack(&newOut, prevPos, unit->buffer + formatLen - prevPos);
 	if(vector_size(&newOut) > UNIT_BUFFLEN) {
 		log_write(LEVEL_ERROR, "Output too long");
-		return false;
+		return 1;
 	}
 	strncpy(unit->buffer, newOut.data, vector_size(&newOut));
-	return true;
+	return 0;
 }
