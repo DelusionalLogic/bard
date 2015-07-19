@@ -59,6 +59,7 @@ bool unit_setName(struct Unit* unit, const char* name);
 bool unit_setType(struct Unit* unit, const enum UnitType type);
 bool unit_setCommand(struct Unit* unit, const char* command);
 bool unit_setRegex(struct Unit* unit, const char* regex);
+bool unit_setAdvFormat(struct Unit* unit, bool advFormat);
 bool unit_setFormat(struct Unit* unit, const char* format);
 bool unit_setInterval(struct Unit* unit, const int interval);
 bool unit_setFonts(struct Unit* unit, const char* key, const char* value);

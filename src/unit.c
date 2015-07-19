@@ -114,6 +114,10 @@ void unit_kill(struct Unit* unit) {
 
 		return true;
 	}
+	bool unit_setAdvFormat(struct Unit* unit, const bool advFormat) {
+		unit->advancedFormat = advFormat;
+		return true;
+	}
 	bool unit_setFormat(struct Unit* unit, const char* format){
 		free(unit->format);
 		if(format == NULL) {

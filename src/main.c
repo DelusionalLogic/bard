@@ -15,6 +15,7 @@
 #include "map.h"
 #include "unit.h"
 #include "formatter.h"
+#include "advancedformat.h"
 #include "unitexecute.h"
 #include "runner.h"
 #include "configparser.h"
@@ -122,8 +123,9 @@ int main(int argc, char **argv)
 	pipeline[0] = unitexec_getStage();
 	pipeline[1] = runner_getStage();
 	pipeline[2] = formatter_getStage();
-	pipeline[3] = font_getStage();
-	pipeline[4] = color_getStage();
+	pipeline[3] = advFormatter_getStage();
+	pipeline[4] = font_getStage();
+	pipeline[5] = color_getStage();
 
 	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
 	struct ConfigParser globalParser;

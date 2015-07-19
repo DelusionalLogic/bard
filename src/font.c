@@ -72,7 +72,7 @@ static int addFonts(void* key, void* value, void* userdata) {
 		.index = 0,
 	};
 	if(vector_foreach(data->fonts, findFont, &findData) == -1) {
-		v->fontID = findData.index;
+		v->fontID = findData.index+1; //technically we should look it up and use the fontID, this is a quick hack
 		return 0;
 	}
 

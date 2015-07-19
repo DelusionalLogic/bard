@@ -77,6 +77,7 @@ int units_load(struct Units* units, char* configDir) {
 
 		StringConfigEntry("display:command", unit_setCommand, NULL),
 		StringConfigEntry("display:regex", unit_setRegex, NULL),
+		BoolConfigEntry("display:advformat", unit_setAdvFormat, false),
 		StringConfigEntry("display:format", unit_setFormat, NULL),
 		IntConfigEntry("display:interval", unit_setInterval, 10),
 		MapConfigEntry("font", unit_setFonts),

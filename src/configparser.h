@@ -7,7 +7,7 @@
 
 #define	StringConfigEntry(NAME, CB, DEFAULT) { .name = NAME, .type = TYPE_STRING, .set_str = (bool (*)(void*, const char*))CB, .default_string = DEFAULT }
 #define	IntConfigEntry(NAME, CB, DEFAULT) { .name = NAME, .type = TYPE_INT, .set_int = (bool (*)(void*, int))CB, .default_int = DEFAULT }
-#define	BoolConfigEntry(NAME, CB, DEFAULT) { .name = NAME, .type = TYPE_BOOL, .set_str = (bool (*)(void*, bool))CB, .default_bool = DEFAULT }
+#define	BoolConfigEntry(NAME, CB, DEFAULT) { .name = NAME, .type = TYPE_BOOL, .set_bool = (bool (*)(void*, bool))CB, .default_bool = DEFAULT }
 #define	MapConfigEntry(NAME, CB) { .name = NAME, .type = TYPE_MAP, .set_map = (bool (*)(void*, const char*, const char*))CB }
 #define EndConfigEntry() { .name = NULL }
 

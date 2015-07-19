@@ -110,7 +110,9 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 
 int formatter_format(struct Formatter* formatter, struct Unit* unit)
 {
-	//TODO: Figure out what the fuck is wrong with newline in regcomp
+	if(unit->advancedFormat)
+		return 0; //We only do "simple" formatting
+	//
 	//Copy the input from the previous stage
 	char buffer[UNIT_BUFFLEN];
 	memcpy(buffer, unit->buffer, UNIT_BUFFLEN);
@@ -162,6 +164,6 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 		curPos += strlen(lookup[index]);
 	}
 	strncpy(outPos, prevPos, unit->format + formatLen - prevPos);
-//---------------------------------------------------------------------
+	//---------------------------------------------------------------------
 	return 0;
 }
