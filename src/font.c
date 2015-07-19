@@ -106,6 +106,7 @@ int font_addUnits(struct Font* font, struct Units* units){
 	vector_foreach(&units->left, addUnitFonts, &fontData);
 	vector_foreach(&units->center, addUnitFonts, &fontData);
 	vector_foreach(&units->right, addUnitFonts, &fontData);
+	return 0;
 }
 
 struct fontSelectorData{
@@ -226,5 +227,6 @@ int font_format(struct Font* font, struct Unit* unit) {
 		return 1;
 	}
 	strncpy(unit->buffer, newOut.data, vector_size(&newOut));
+	vector_kill(&newOut);
 	return 0;
 }

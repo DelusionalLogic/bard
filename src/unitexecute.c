@@ -19,7 +19,7 @@ struct PipeStage unitexec_getStage() {
 	return stage;
 }
 
-static unsigned long hashString(unsigned char *str)
+static unsigned long hashString(char *str)
 {
 	unsigned long hash = 5381;
 	int c;
@@ -55,7 +55,7 @@ int unitexec_process(void* obj, struct Unit* unit) {
 
 	//TODO: Maybe this could be a stage too? make it return some known good, but nonzero value
 	/* Don't process things we already have processed */
-	unsigned long newHash = hashString((unsigned char*)buff.data);
+	unsigned long newHash = hashString(buff.data);
 	if(unit->hash == newHash) {
 		vector_kill(&buff);
 		return -1;

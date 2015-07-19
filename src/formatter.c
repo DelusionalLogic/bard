@@ -78,7 +78,8 @@ static bool getBuffer(struct Formatter* formatter, struct Unit* unit, struct Reg
 {
 	bool found = findBuffer(formatter, unit, buff);
 	if(!found) {
-		struct RegBuff newBuff;
+		struct RegBuff newBuff = {0};
+		newBuff.key = NULL;
 		if(regcomp(&newBuff.regex, unit->regex, REG_EXTENDED | REG_NEWLINE))
 			log_write(LEVEL_ERROR, "Could not compile regex for %s\n", unit->name);
 		newBuff.key = unit->name;

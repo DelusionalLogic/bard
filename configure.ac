@@ -1,7 +1,7 @@
 AC_INIT([bard], [1.0], [bug-report@address])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 AC_CONFIG_SRCDIR([src/main.c])
-: ${CFLAGS="-g -O0"}
+: ${CFLAGS="-g -O0 -Wall"}
 AC_PROG_CC
 AC_PROG_CC_STDC
 AC_CHECK_HEADERS([iniparser.h])

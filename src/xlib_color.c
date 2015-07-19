@@ -75,6 +75,7 @@ int color_init(void* obj, char* configPath) {
 
 int color_kill(void* obj) {
 	XrmDestroyDatabase(rdb);
+	return 0;
 }
 
 #define LOOKUP_MAX 16
@@ -130,5 +131,6 @@ int color_parseColor(void* obj, struct Unit* unit) {
 		return 1;
 	}
 	strncpy(unit->buffer, newOut.data, vector_size(&newOut));
+	vector_kill(&newOut);
 	return 0;
 }

@@ -25,6 +25,8 @@ void unit_init(struct Unit* unit) {
 	
 	unit->delimiter = NULL;
 
+	unit->hash = 0;
+	memset(unit->buffer, 0x00, sizeof(unit->buffer));
 	unit->buffoff = 0;
 
 	unit->pipe = -1;

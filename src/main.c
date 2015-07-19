@@ -106,6 +106,7 @@ int render() {
 	free(out);
 	fflush(stdout);
 	fflush(bar);
+	return 0;
 }
 
 int main(int argc, char **argv)

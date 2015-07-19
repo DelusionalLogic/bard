@@ -35,6 +35,7 @@ static bool set_map(struct ConfigParser* parser, struct ConfigParserEntry* entry
 		if(!entry->set_map(obj, keys[i] + nameLen + 1, val))
 			status = false;
 	}
+	free(keys);
 	return status;
 }
 

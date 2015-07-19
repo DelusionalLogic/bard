@@ -44,7 +44,7 @@ struct Unit {
 	unsigned long hash;
 
 	/* Scratch buffer between stages */
-	char buffer[1024];
+	char buffer[UNIT_BUFFLEN];
 	size_t buffoff; //If we did a partial buffer fill last run
 
 	/* Pipe descriptor if applicable */
