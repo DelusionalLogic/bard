@@ -75,7 +75,6 @@ char* out_format(struct Output* output, struct Unit* unit) {
 	//Remember to add the terminator back on
 	static char term = '\0';
 	vector_putBack(&vec, &term);
-	log_write(LEVEL_INFO, "Hello: %d", vector_size(&vec));
 	//Copy into new buffer owned by calling function
 	char* buff = malloc((vector_size(&vec) * sizeof(char)));
 	memcpy(buff, vec.data, vector_size(&vec) * sizeof(char));

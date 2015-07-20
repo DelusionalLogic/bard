@@ -8,7 +8,7 @@
 
 #define MAXCOLOR 16
 #define COLORLEN 10
-char* colorName[MAXCOLOR] = {
+char* colorCode[MAXCOLOR] = {
 	"color0",
    	"color1",
 	"color2",
@@ -25,6 +25,24 @@ char* colorName[MAXCOLOR] = {
 	"color13",
 	"color14",
 	"color15",
+};
+char* colorName[MAXCOLOR] = {
+	"black",
+	"red",
+	"green",
+	"yellow",
+	"blue",
+	"magenta",
+	"cyan",
+	"grey",
+	"brightblack",
+	"brightred",
+	"brightgreen",
+	"brightyellow",
+	"brightblue",
+	"brightmagenta",
+	"brightcyan",
+	"white",
 };
 char colormem[MAXCOLOR * COLORLEN] = { 0xBA, 0xBE };
 char (*color)[COLORLEN] = (char (*)[COLORLEN])colormem;
@@ -58,7 +76,7 @@ int color_init(void* obj, char* configPath) {
 	char* resType;
 	XrmValue res;
 	for(int i = 0; i < MAXCOLOR; i++) {
-		int resCode = XrmGetResource(rdb, colorName[i], NULL, &resType, &res);
+		int resCode = XrmGetResource(rdb, colorCode[i], NULL, &resType, &res);
 		if(resCode && (strcmp(resType, "String")) == 0){
 			log_write(LEVEL_INFO, "%s\n", res.addr);
 			snprintf(color[i], 4, "#FF");
@@ -102,11 +120,12 @@ int color_parseColor(void* obj, struct Unit* unit) {
 	Vector newOut;
 	vector_init(&newOut, sizeof(char), UNIT_BUFFLEN); 
 	
-	char lookupmem[MAXCOLOR*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
+	char lookupmem[(MAXCOLOR * 2)*LOOKUP_MAX] = {0}; //Mutliply by two because each color has two variants 
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
 	for(int i = 0; i < MAXCOLOR; i++)
 	{
 		snprintf(lookup[i], LOOKUP_MAX, "$color[%d]", i); //This should probably be computed at compiletime
+		snprintf(lookup[i+16], LOOKUP_MAX, "$color[%s]", colorName[i]); //This should probably be computed at compiletime
 		//TODO: Error checking
 	}	 
 	size_t formatLen = strlen(unit->buffer)+1;
@@ -116,13 +135,14 @@ int color_parseColor(void* obj, struct Unit* unit) {
 	{
 		prevPos = curPos;
 		int index = 0;
-		curPos = getNext(curPos, &index, lookup, LOOKUP_MAX);
+		curPos = getNext(curPos, &index, lookup, MAXCOLOR*2);
 
 		if(curPos == NULL)
 			break;
 
+		int colorNum = index % 16; //We need to find the "shorter" code for the color
 		vector_putListBack(&newOut, prevPos, curPos-prevPos);
-		vector_putListBack(&newOut, color[index], strlen(color[index]));
+		vector_putListBack(&newOut, color[colorNum], strlen(color[colorNum]));
 		curPos += strlen(lookup[index]);
 	}
 	vector_putListBack(&newOut, prevPos, unit->buffer + formatLen - prevPos);
