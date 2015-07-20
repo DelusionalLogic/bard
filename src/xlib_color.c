@@ -3,6 +3,7 @@
 #include <iniparser.h>
 #include <X11/Xresource.h>
 #include <ctype.h>
+#include <errno.h>
 #include "fs.h"
 #include "vector.h"
 
@@ -44,13 +45,20 @@ char* colorName[MAXCOLOR] = {
 	"brightcyan",
 	"white",
 };
-char colormem[MAXCOLOR * COLORLEN] = { 0xBA, 0xBE };
-char (*color)[COLORLEN] = (char (*)[COLORLEN])colormem;
+
+struct XlibColor {
+	char colormem[MAXCOLOR * COLORLEN];
+	char (*color)[COLORLEN];
+	XrmDatabase rdb;
+};
+//These should be put in the obj struct
 XrmDatabase rdb;
 
 struct PipeStage color_getStage() {
 	struct PipeStage stage;
-	stage.obj = (void*)0xDEADBEEF;
+	stage.obj = malloc(sizeof(struct XlibColor));
+	if(stage.obj == NULL)
+		stage.error = ENOMEM;
 	stage.create = color_init;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
@@ -59,7 +67,11 @@ struct PipeStage color_getStage() {
 	return stage;
 }
 
-int color_init(void* obj, char* configPath) {
+int color_init(void* obj, char* configPath) {	
+	struct XlibColor* cobj = (struct XlibColor*)obj;
+
+	cobj->color = (char (*)[COLORLEN])cobj->colormem;
+
 	log_write(LEVEL_INFO, "Getting config for display\n");
 	Display* display  = XOpenDisplay(NULL);
 	XrmInitialize();
@@ -79,20 +91,19 @@ int color_init(void* obj, char* configPath) {
 		int resCode = XrmGetResource(rdb, colorCode[i], NULL, &resType, &res);
 		if(resCode && (strcmp(resType, "String")) == 0){
 			log_write(LEVEL_INFO, "%s\n", res.addr);
-			snprintf(color[i], 4, "#FF");
+			snprintf(cobj->color[i], 4, "#FF");
 			size_t cnt = 0;
 			while(*(res.addr + cnt) != '\0') {
-				*(color[i] + 3 + cnt) = toupper(*(res.addr + 1 + cnt));
+				*(cobj->color[i] + 3 + cnt) = toupper(*(res.addr + 1 + cnt));
 				cnt++;
 			}
 		}
 	}
-	XCloseDisplay(display);
+	XCloseDisplay(display); //This also destroys the database object (rdb)
 	return 0;
 }
 
 int color_kill(void* obj) {
-	XrmDestroyDatabase(rdb);
 	return 0;
 }
 
@@ -117,6 +128,7 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 }
 
 int color_parseColor(void* obj, struct Unit* unit) {
+	struct XlibColor* cobj = (struct XlibColor*)obj;
 	Vector newOut;
 	vector_init(&newOut, sizeof(char), UNIT_BUFFLEN); 
 	
@@ -142,7 +154,7 @@ int color_parseColor(void* obj, struct Unit* unit) {
 
 		int colorNum = index % 16; //We need to find the "shorter" code for the color
 		vector_putListBack(&newOut, prevPos, curPos-prevPos);
-		vector_putListBack(&newOut, color[colorNum], strlen(color[colorNum]));
+		vector_putListBack(&newOut, cobj->color[colorNum], strlen(cobj->color[colorNum]));
 		curPos += strlen(lookup[index]);
 	}
 	vector_putListBack(&newOut, prevPos, unit->buffer + formatLen - prevPos);

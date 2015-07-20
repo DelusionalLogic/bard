@@ -87,6 +87,7 @@ int pipeRun(void* elem, void* userdata) {
 
 int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* unit), int (*render)()) {
 	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
+	bool doRender = false;
 	while(true)
 	{
 		time_t curTime = time(NULL);
@@ -120,14 +121,17 @@ int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* uni
 		}
 
 		int err = execute(container->unit);
-		if(err)
+		if(err > 0)
 			return err;
+		if(err != -1) //We don't need to rerender
+			doRender = true;
 		
 		curTime = time(NULL);
 		container->nextRun = curTime + container->unit->interval;
 		sl_reorder(&manager->list, 0);
 		container = (struct UnitContainer*)sl_get(&manager->list, 0);
-		if(container->nextRun != curTime){
+		if(container->nextRun != curTime && doRender){
+			doRender = false;
 			int err = render();
 			if(err)
 				return err;

@@ -89,7 +89,7 @@ int executeUnit(struct Unit* unit)
 		if(stage.process != NULL)
 			err = stage.process(stage.obj, unit);
 		if(err == -1) //Hash was identical to previous run
-			break;
+			return -1;
 		if(err != 0)
 			log_write(LEVEL_ERROR, "Unknown error while truing to execute %s:%d\n", unit->name, i);
 	}
