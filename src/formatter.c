@@ -21,6 +21,7 @@ static void formatter_free(struct Formatter* formatter) {
 }
 struct PipeStage formatter_getStage() {
 	struct PipeStage stage;
+	stage.enabled = true;
 	stage.obj = calloc(1, sizeof(struct Formatter));
 	if(stage.obj == NULL)
 		stage.error = ENOMEM;

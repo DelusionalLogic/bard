@@ -8,6 +8,7 @@
 
 struct PipeStage font_getStage(){
 	struct PipeStage stage;
+	stage.enabled = true;
 	stage.obj = calloc(1, sizeof(struct Font));
 	if(stage.obj == NULL)
 		stage.error = ENOMEM;

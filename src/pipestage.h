@@ -2,9 +2,11 @@
 #define PIPESTAGE_H
 
 #include "unitcontainer.h"
+#include <stdbool.h>
 #include "unit.h"
 
 struct PipeStage {
+	bool enabled;
 	int error;
 	void* obj;
 	int (*create)(void* obj, char* configPath);

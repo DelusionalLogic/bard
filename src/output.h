@@ -4,15 +4,14 @@
 #include "unitcontainer.h"
 #include "vector.h"
 #include "align.h"
-#include "conf.h"
 #include "unit.h"
 
 struct Output {
-	struct Conf* conf;
+	char* separator;
 	Vector out[ALIGN_NUM];
 };
 
-void out_init(struct Output* output, struct Conf* conf);
+void out_init(struct Output* output, char* configDir);
 void out_kill(struct Output* output);
 
 void out_addUnits(struct Output* output, struct Units* units);

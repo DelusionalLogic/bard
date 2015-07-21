@@ -1,12 +1,35 @@
 #include "output.h"
 #include <stdio.h>
 #include <string.h>
+#include "fs.h"
+#include "configparser.h"
 #include "vector.h"
 #include "logger.h"
 #include "unit.h"
 
-void out_init(struct Output* output, struct Conf* conf) {
-	output->conf = conf;
+static bool separator(struct Output* output, const char* separator) {
+	if(separator == NULL) {
+		output->separator = "";
+		return true;
+	}
+	output->separator = malloc(strlen(separator) * sizeof(char));
+	if(output->separator == NULL)
+		return false;
+	strcpy(output->separator, separator);
+	return true;
+}
+
+void out_init(struct Output* output, char* configDir) {
+	struct ConfigParser parser;
+	struct ConfigParserEntry entry[] = {
+		StringConfigEntry("display:separator", separator, NULL),
+	};
+	cp_init(&parser, entry);
+	char* path = pathAppend(configDir, "bard.conf");
+	cp_load(&parser, path, output);
+	free(path);
+	cp_kill(&parser);
+	
 	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
 		vector_init(&output->out[i], sizeof(char*), 10);
 	}
@@ -66,8 +89,8 @@ char* out_format(struct Output* output, struct Unit* unit) {
 		vector_putListBack(&vec, AlignStr[i], strlen(AlignStr[i]));
 		struct PrintUnitData data = {
 			.first = true,
-			.sep = output->conf->separator,
-			.sepLen = strlen(output->conf->separator),
+			.sep = output->separator,
+			.sepLen = strlen(output->separator),
 			.vec = &vec,
 		};
 		vector_foreach(&output->out[i], vecPrintUnit, &data);

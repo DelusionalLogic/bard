@@ -6,6 +6,7 @@ static const char *const LevelNames[] = {
 	"Info",
 	"Warning",
 	"Error",
+	"FATAL",
 };
 
 static const char* LevelStr(const LOG_Level level)

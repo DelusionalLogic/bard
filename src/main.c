@@ -10,6 +10,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "xlib_color.h"
+#include "barconfig.h"
 #include "pipestage.h"
 #include "unitcontainer.h"
 #include "map.h"
@@ -25,8 +27,6 @@
 #include "logger.h"
 #include "vector.h"
 #include "linkedlist.h"
-#include "conf.h"
-#include "color.h"
 #include "fs.h"
 
 const char* argp_program_version = PACKAGE_STRING;
@@ -62,7 +62,7 @@ static error_t parse_opt(int key, char* arg, struct argp_state *state)
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
 #define NUM_STAGES 10
-struct PipeStage pipeline[NUM_STAGES];
+struct PipeStage pipeline[NUM_STAGES] = {0};
 
 int freePtr(void* elem, void* userdata) {
 	char** data = (char**) elem;
@@ -85,13 +85,17 @@ int executeUnit(struct Unit* unit)
 	/* Format the output for the bar */
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
+		if(stage.enabled != true)
+			continue;
 		int err = 0;
 		if(stage.process != NULL)
 			err = stage.process(stage.obj, unit);
 		if(err == -1) //Hash was identical to previous run
 			return -1;
-		if(err != 0)
+		if(err != 0) {
 			log_write(LEVEL_ERROR, "Unknown error while truing to execute %s:%d\n", unit->name, i);
+			stage.enabled = false;
+		}
 	}
 
 	return 0;
@@ -121,61 +125,68 @@ int main(int argc, char **argv)
 	}
 
 	//Setup pipeline
-	pipeline[0] = unitexec_getStage();
-	pipeline[1] = runner_getStage();
-	pipeline[2] = formatter_getStage();
-	pipeline[3] = advFormatter_getStage();
-	pipeline[4] = font_getStage();
-	pipeline[5] = color_getStage();
-
-	log_write(LEVEL_INFO, "Reading configs from %s\n", arguments.configDir);
-	struct ConfigParser globalParser;
-	struct ConfigParserEntry globalEntries[] = {
-		StringConfigEntry("display:separator", conf_setSeparator, ""),
-		StringConfigEntry("bar:geometry", conf_setGeometry, NULL),
-		EndConfigEntry(),
-	};
-	cp_init(&globalParser, globalEntries);
-
-	struct Conf conf;
-	conf_init(&conf);
-	
-	char* globalPath = pathAppend(arguments.configDir, "bard.conf");
-	cp_load(&globalParser, globalPath, &conf);
-	free(globalPath);
+	pipeline[0] = barconfig_getStage();
+	pipeline[1] = unitexec_getStage();
+	pipeline[2] = runner_getStage();
+	pipeline[3] = formatter_getStage();
+	pipeline[4] = advFormatter_getStage();
+	pipeline[5] = font_getStage();
+	pipeline[6] = color_getStage();
+	for(int i = 0; i < NUM_STAGES; i++) {
+		struct PipeStage stage = pipeline[i];
+		if(stage.enabled != true)
+			continue;
+		if(stage.error == ENOMEM) {
+			log_write(LEVEL_FATAL, "Couldn't allocate stage %d", i);
+			exit(ENOMEM);
+		}
+		if(stage.error != 0) {
+			log_write(LEVEL_WARNING, "Unknown error with stage %d, error: %d", i, stage.error);
+		}
+	}
 
 	struct Units units;
 	units_init(&units);
 
 	int err = units_load(&units, arguments.configDir);
 	if(err) {
-		log_write(LEVEL_ERROR, "Failed to load units\n");
+		log_write(LEVEL_ERROR, "Failed to load units");
 		exit(err);
 	}
 
 	//Initialize all stages in pipeline (This is where they load the configuration)
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
+		if(stage.enabled != true)
+			continue;
 		int err = 0;
 		if(stage.create != NULL)
 			err = stage.create(stage.obj, arguments.configDir);
-		if(err != 0)
-			log_write(LEVEL_ERROR, "Couldn't create pipe stage %d, error code: %d\n", i, err);
+		if(err != 0) {
+			log_write(LEVEL_WARNING, "Unknown error creating pipe stage %d, error: %d", i, err);
+			stage.enabled = false;
+		}
 	}
 
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
+		if(stage.enabled != true)
+			continue;
 		int err = 0;
 		if(stage.addUnits != NULL)
 			err = stage.addUnits(stage.obj, &units);
-		if(err != 0)
-			log_write(LEVEL_ERROR, "Unknown error while adding units to stage %d\n", i);
+		if(err != 0) {
+			log_write(LEVEL_ERROR, "Unknown error while adding units to stage %d, error: %d", i, err);
+			stage.enabled = false;
+		}
 	}
 
 	char lBuff[2048];
 	strcpy(lBuff, "bar");
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
+		if(stage.enabled != true)
+			continue;
 		int err = 0;
 		if(stage.getArgs != NULL)
 			err = stage.getArgs(stage.obj, lBuff, 2048);
@@ -184,8 +195,7 @@ int main(int argc, char **argv)
 			exit(err);
 		}
 		if(err != 0) {
-			log_write(LEVEL_INFO, "Unknown error when constructing bar launch string, trying to continue");
-			continue;
+			log_write(LEVEL_WARNING, "Unknown error when constructing bar arg string in unit %d, error: %d", i, err);
 		}
 	}
 
@@ -195,7 +205,7 @@ int main(int argc, char **argv)
 	bar = popen(lBuff, "w");
 	
 	//Now lets run the units in a loop and write to bar
-	out_init(&outputter, &conf); // Out is called from workmanager_run. It has to be ready before that is called
+	out_init(&outputter, arguments.configDir); // Out is called from workmanager_run. It has to be ready before that is called
 	out_addUnits(&outputter, &units);
 
 	struct WorkManager wm;
@@ -210,6 +220,8 @@ int main(int argc, char **argv)
 
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
+		if(stage.enabled != true)
+			continue;
 		if(stage.destroy != NULL)
 			stage.destroy(stage.obj);
 	}

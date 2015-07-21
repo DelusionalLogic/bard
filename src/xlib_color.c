@@ -1,15 +1,12 @@
 //Xlib color provider. Replaces color strings with colors found in the X resource database
-#include "color.h"
+#include "xlib_color.h"
 #include <iniparser.h>
-#include <X11/Xresource.h>
 #include <ctype.h>
 #include <errno.h>
 #include "fs.h"
 #include "vector.h"
 
-#define MAXCOLOR 16
-#define COLORLEN 10
-char* colorCode[MAXCOLOR] = {
+const char* colorCode[MAXCOLOR] = {
 	"color0",
    	"color1",
 	"color2",
@@ -27,7 +24,7 @@ char* colorCode[MAXCOLOR] = {
 	"color14",
 	"color15",
 };
-char* colorName[MAXCOLOR] = {
+const char* colorName[MAXCOLOR] = {
 	"black",
 	"red",
 	"green",
@@ -46,19 +43,16 @@ char* colorName[MAXCOLOR] = {
 	"white",
 };
 
-struct XlibColor {
-	char colormem[MAXCOLOR * COLORLEN];
-	char (*color)[COLORLEN];
-	XrmDatabase rdb;
-};
-//These should be put in the obj struct
-XrmDatabase rdb;
+int color_init(void* obj, char* configPath);
+int color_kill(void* obj);
+int color_parseColor(void* obj, struct Unit* unit);
 
 struct PipeStage color_getStage() {
 	struct PipeStage stage;
+	stage.enabled = true;
 	stage.obj = malloc(sizeof(struct XlibColor));
 	if(stage.obj == NULL)
-		stage.error = ENOMEM;
+		stage.error = errno;
 	stage.create = color_init;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
@@ -72,25 +66,26 @@ int color_init(void* obj, char* configPath) {
 
 	cobj->color = (char (*)[COLORLEN])cobj->colormem;
 
-	log_write(LEVEL_INFO, "Getting config for display\n");
+	log_write(LEVEL_INFO, "Getting config for display");
 	Display* display  = XOpenDisplay(NULL);
 	XrmInitialize();
-	rdb = XrmGetDatabase(display);
-	if(!rdb){
+	cobj->rdb = XrmGetDatabase(display);
+	if(!cobj->rdb){
 		//Stolen from awesomewm, seems like quite the hack
 		(void)XGetDefault(display, "", "");
-		rdb = XrmGetDatabase(display);
-		if(!rdb)
-			log_write(LEVEL_ERROR, "Failed opening the X resource manager");
+		cobj->rdb = XrmGetDatabase(display);
+		if(!cobj->rdb) {
+			log_write(LEVEL_WARNING, "Failed opening the X resource manager");
+			return 1;
+		}
 	}
 
 	//Load those colors from the Xrm
 	char* resType;
 	XrmValue res;
 	for(int i = 0; i < MAXCOLOR; i++) {
-		int resCode = XrmGetResource(rdb, colorCode[i], NULL, &resType, &res);
+		int resCode = XrmGetResource(cobj->rdb, colorCode[i], NULL, &resType, &res);
 		if(resCode && (strcmp(resType, "String")) == 0){
-			log_write(LEVEL_INFO, "%s\n", res.addr);
 			snprintf(cobj->color[i], 4, "#FF");
 			size_t cnt = 0;
 			while(*(res.addr + cnt) != '\0') {
@@ -127,11 +122,7 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 	return curMin;
 }
 
-int color_parseColor(void* obj, struct Unit* unit) {
-	struct XlibColor* cobj = (struct XlibColor*)obj;
-	Vector newOut;
-	vector_init(&newOut, sizeof(char), UNIT_BUFFLEN); 
-	
+int color_parseString(struct XlibColor* cobj, char* input, Vector* output) {
 	char lookupmem[(MAXCOLOR * 2)*LOOKUP_MAX] = {0}; //Mutliply by two because each color has two variants 
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
 	for(int i = 0; i < MAXCOLOR; i++)
@@ -140,10 +131,10 @@ int color_parseColor(void* obj, struct Unit* unit) {
 		snprintf(lookup[i+16], LOOKUP_MAX, "$color[%s]", colorName[i]); //This should probably be computed at compiletime
 		//TODO: Error checking
 	}	 
-	size_t formatLen = strlen(unit->buffer)+1;
-	const char* curPos = unit->buffer;
+	size_t formatLen = strlen(input)+1;
+	const char* curPos = input;
 	const char* prevPos = NULL;
-	while(curPos < unit->buffer + formatLen)
+	while(curPos < input + formatLen)
 	{
 		prevPos = curPos;
 		int index = 0;
@@ -153,11 +144,25 @@ int color_parseColor(void* obj, struct Unit* unit) {
 			break;
 
 		int colorNum = index % 16; //We need to find the "shorter" code for the color
-		vector_putListBack(&newOut, prevPos, curPos-prevPos);
-		vector_putListBack(&newOut, cobj->color[colorNum], strlen(cobj->color[colorNum]));
+		vector_putListBack(output, prevPos, curPos-prevPos);
+		vector_putListBack(output, cobj->color[colorNum], strlen(cobj->color[colorNum]));
 		curPos += strlen(lookup[index]);
 	}
-	vector_putListBack(&newOut, prevPos, unit->buffer + formatLen - prevPos);
+	vector_putListBack(output, prevPos, input + formatLen - prevPos);
+	return 0;
+}
+
+int color_parseColor(void* obj, struct Unit* unit) {
+	struct XlibColor* cobj = (struct XlibColor*)obj;
+	Vector newOut;
+	vector_init(&newOut, sizeof(char), UNIT_BUFFLEN); 
+
+	int err = color_parseString(cobj, unit->buffer, &newOut);
+	if(err){
+		log_write(LEVEL_ERROR, "Couldn't parse the color in %s", unit->name);
+		return err;
+	}
+	
 	if(vector_size(&newOut) > UNIT_BUFFLEN) {
 		log_write(LEVEL_ERROR, "Output too long");
 		return 1;
