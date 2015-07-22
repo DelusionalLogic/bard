@@ -112,17 +112,15 @@ int font_addUnits(struct Font* font, struct Units* units){
 
 struct fontSelectorData{
 	Vector* fontSelector;
-	bool first;
 };
 static int fontSelector(void* elem, void* userdata) {	
 	char* font = *(char**)elem;
 	struct fontSelectorData* data = (struct fontSelectorData*)userdata;
 
-	if(!data->first)
-		vector_putListBack(data->fontSelector, ",", 1);
-	data->first = false;
 	int fontLen = strlen(font);
+	vector_putListBack(data->fontSelector, " -f \"", 5);
 	vector_putListBack(data->fontSelector, font, fontLen); 
+	vector_putListBack(data->fontSelector, "\"", 1);
 	return 0;
 }
 
@@ -131,11 +129,8 @@ int font_getArgs(struct Font* font, char* argString, size_t maxLen) {
 	vector_init(&fontSel, sizeof(char), 256);
 	struct fontSelectorData data = {
 		.fontSelector = &fontSel,
-		.first = true,
 	};
-	vector_putListBack(&fontSel, " -f \"", 5);
 	vector_foreach(&font->fonts, fontSelector, &data);
-	vector_putListBack(&fontSel, "\"", 1);
 	vector_putListBack(&fontSel, "\0", 1);
 	size_t argLen = strlen(argString);
 	if(argLen + vector_size(&fontSel) >= maxLen)
