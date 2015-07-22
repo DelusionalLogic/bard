@@ -52,8 +52,9 @@ struct Search {
 	char* key;
 };
 
-#define SEARCH_DONE 1
-#define SEARCH_CONT 0
+#define BUFFER_FOUND 1
+#define BUFFER_NOTFOUND 0
+#define BUFFER_CREATED -1
 static int searcher(void* elem, void* userdata)
 {
 	struct RegBuff* element = (struct RegBuff*)elem;
@@ -62,31 +63,42 @@ static int searcher(void* elem, void* userdata)
 
 	if(element->key == search->key || !strcmp(element->key, search->key)) {
 		search->found = element;
-		return SEARCH_DONE;
+		return BUFFER_FOUND;
 	}
-	return SEARCH_CONT;
+	return BUFFER_NOTFOUND;
 }
 
-static bool findBuffer(struct AdvFormatter* formatter, struct Unit* unit, struct RegBuff** buff)
+static int findBuffer(struct AdvFormatter* formatter, struct Unit* unit, struct RegBuff** buff)
 {
 	struct Search search = { 0 };
 	search.key = unit->name;
-	ll_foreach(&formatter->bufferList, searcher, &search);
+	int status = ll_foreach(&formatter->bufferList, searcher, &search);
+	if(status == BUFFER_NOTFOUND)
+		return BUFFER_NOTFOUND;
 	*buff = search.found;
-	return buff == NULL;
+	return BUFFER_FOUND;
 }
 
-static bool getBuffer(struct AdvFormatter* formatter, struct Unit* unit, struct RegBuff** buff)
+static int getBuffer(struct AdvFormatter* formatter, struct Unit* unit, struct RegBuff** buff)
 {
-	bool found = findBuffer(formatter, unit, buff);
-	if(!found) {
-		struct RegBuff newBuff;
-		if(regcomp(&newBuff.regex, unit->regex, REG_EXTENDED | REG_NEWLINE))
-			log_write(LEVEL_ERROR, "Could not compile regex for %s\n", unit->name);
+	int found = findBuffer(formatter, unit, buff);
+	if(found == 0) {
+		struct RegBuff newBuff = {0};
+		newBuff.key = NULL;
+		int err = regcomp(&newBuff.regex, unit->regex, REG_EXTENDED | REG_NEWLINE);
+		if(err){
+			size_t reqSize = regerror(err, &newBuff.regex, NULL, 0);
+			char *errBuff = malloc(reqSize * sizeof(char));
+			regerror(err, &newBuff.regex, errBuff, reqSize);
+			log_write(LEVEL_ERROR, "Could not compile regex for %s: %s", unit->name, errBuff);
+			free(errBuff);
+			return BUFFER_NOTFOUND;
+		}
 		newBuff.key = unit->name;
 		*buff = ll_insert(&formatter->bufferList, ll_size(&formatter->bufferList), &newBuff);
+		return BUFFER_CREATED;
 	}
-	return found;
+	return BUFFER_FOUND;
 }
 
 #define MAX_MATCH 24
@@ -94,21 +106,29 @@ int advFormatter_format(struct AdvFormatter* formatter, struct Unit* unit)
 {
 	if(!unit->advancedFormat)
 		return 0; //We only do "advanced" formatting
+
 	//Copy the input from the previous stage
 	char buffer[UNIT_BUFFLEN];
 	memcpy(buffer, unit->buffer, UNIT_BUFFLEN);
 	struct RegBuff* cache;
-	getBuffer(formatter, unit, &cache);
 
 	regmatch_t matches[MAX_MATCH];
-	int err = regexec(&cache->regex, buffer, MAX_MATCH, matches, 0);
-	if(err) {
-		size_t reqSize = regerror(err, &cache->regex, NULL, 0);
-		char *errBuff = malloc(reqSize * sizeof(char));
-		regerror(err, &cache->regex, errBuff, reqSize);
-		log_write(LEVEL_ERROR, "Error in %s's regex: %s\n", unit->name, errBuff);
-		free(errBuff);
-		return 2;
+	if(unit->hasRegex) {
+		if(getBuffer(formatter, unit, &cache) == BUFFER_NOTFOUND)
+			return 1;
+		int err = regexec(&cache->regex, buffer, MAX_MATCH, matches, 0);
+		if(err) {
+			size_t reqSize = regerror(err, &cache->regex, NULL, 0);
+			char *errBuff = malloc(reqSize * sizeof(char));
+			regerror(err, &cache->regex, errBuff, reqSize);
+			log_write(LEVEL_ERROR, "Error in %s's regex: %s\n", unit->name, errBuff);
+			free(errBuff);
+			return 2;
+		}
+	} else {
+		matches[0].rm_so = 0;
+		matches[0].rm_eo = strlen(buffer)+1;
+		matches[1].rm_so = -1;
 	}
 
 	Vector rline;

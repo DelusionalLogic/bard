@@ -51,8 +51,9 @@ struct Search {
 	char* key;
 };
 
-#define SEARCH_DONE 1
-#define SEARCH_CONT 0
+#define BUFFER_FOUND 1
+#define BUFFER_NOTFOUND 0
+#define BUFFER_CREATED -1
 static int searcher(void* elem, void* userdata)
 {
 	struct RegBuff* element = (struct RegBuff*)elem;
@@ -61,32 +62,42 @@ static int searcher(void* elem, void* userdata)
 
 	if(element->key == search->key || !strcmp(element->key, search->key)) {
 		search->found = element;
-		return SEARCH_DONE;
+		return BUFFER_FOUND;
 	}
-	return SEARCH_CONT;
+	return BUFFER_NOTFOUND;
 }
 
-static bool findBuffer(struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)
+static int findBuffer(struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)
 {
 	struct Search search = { 0 };
 	search.key = unit->name;
-	ll_foreach(&formatter->bufferList, searcher, &search);
+	int status = ll_foreach(&formatter->bufferList, searcher, &search);
+	if(status == BUFFER_NOTFOUND)
+		return BUFFER_NOTFOUND;
 	*buff = search.found;
-	return buff == NULL;
+	return BUFFER_FOUND;
 }
 
-static bool getBuffer(struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)
+static int getBuffer(struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)
 {
-	bool found = findBuffer(formatter, unit, buff);
-	if(!found) {
+	int found = findBuffer(formatter, unit, buff);
+	if(found == 0) {
 		struct RegBuff newBuff = {0};
 		newBuff.key = NULL;
-		if(regcomp(&newBuff.regex, unit->regex, REG_EXTENDED | REG_NEWLINE))
-			log_write(LEVEL_ERROR, "Could not compile regex for %s\n", unit->name);
+		int err = regcomp(&newBuff.regex, unit->regex, REG_EXTENDED | REG_NEWLINE);
+		if(err){
+			size_t reqSize = regerror(err, &newBuff.regex, NULL, 0);
+			char *errBuff = malloc(reqSize * sizeof(char));
+			regerror(err, &newBuff.regex, errBuff, reqSize);
+			log_write(LEVEL_ERROR, "Could not compile regex for %s: %s", unit->name, errBuff);
+			free(errBuff);
+			return BUFFER_NOTFOUND;
+		}
 		newBuff.key = unit->name;
 		*buff = ll_insert(&formatter->bufferList, ll_size(&formatter->bufferList), &newBuff);
+		return BUFFER_CREATED;
 	}
-	return found;
+	return BUFFER_FOUND;
 }
 
 #define MAX_MATCH 24
@@ -122,7 +133,8 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 
 	regmatch_t matches[MAX_MATCH];
 	if(unit->hasRegex) {
-		getBuffer(formatter, unit, &cache);
+		if(getBuffer(formatter, unit, &cache) == BUFFER_NOTFOUND)
+			return 1;
 		int err = regexec(&cache->regex, buffer, MAX_MATCH, matches, 0);
 		if(err) {
 			size_t reqSize = regerror(err, &cache->regex, NULL, 0);
@@ -145,10 +157,15 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 	{
 		regmatch_t* match = &matches[i];
 		if(match->rm_so != -1)
-			numMatches = i;
+			numMatches = i+1;
 
-		snprintf(lookup[i], LOOKUP_MAX, "$%d", i+1); //This should probably be computed at compiletime
-		//TODO: Error checking
+		int written = snprintf(lookup[i], LOOKUP_MAX, "$%d", i+1); //This should probably be computed at compiletime
+		if(written < 0)
+			return 1; //Should never happen
+		if(written > LOOKUP_MAX) {
+			log_write(LEVEL_FATAL, "FORMAT SEARCH BUFFER TOO SHORT TO HOLD KEYWORD");
+			return 1;
+		}
 	}	 
 	size_t formatLen = strlen(unit->format)+1;
 	const char* curPos = unit->format;
@@ -158,13 +175,14 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 	{
 		prevPos = curPos;
 		int index = 0;
-		curPos = getNext(curPos, &index, lookup, LOOKUP_MAX);
+		curPos = getNext(curPos, &index, lookup, numMatches);
 
 		if(curPos == NULL)
 			break;
 
 		strncpy(outPos, prevPos, curPos - prevPos);
 		outPos += curPos - prevPos;
+		log_write(LEVEL_INFO, "Found: %d", index);
 
 		regmatch_t match = matches[index];
 		memcpy(outPos, buffer + match.rm_so, match.rm_eo - match.rm_so);
