@@ -88,30 +88,29 @@ void unit_kill(struct Unit* unit) {
 		//For some insane reason regex depends on all escape chars to already be unescaped before being passsed to it. So here it goes i guess...
 		for(int i = 0; regex[i] != '\0'; i++) {
 			if(regex[i] == '\\'){
-				char c;
 				switch(regex[i+1]) {
 					case 'n':
-						c = '\n';
+						vector_putBack(&str, "\n");
 						i++;
 						break;
 					case 't':
-						c = '\t';
+						vector_putBack(&str, "\t");
 						i++;
 						break;
 					case '\\':
-						c = '\\';
+						vector_putBack(&str, "\\");
 						i++;
 						break;
 					default:
-						c = '\\';
+						vector_putBack(&str, "\\");
 				}
-				vector_putBack(&str, &c);
 			} else {
 				vector_putBack(&str, &regex[i]);
 			}
 		}
 		vector_putBack(&str, "\0"); //Using a string lets get a char* from a literal
 
+		unit->hasRegex = true;
 		unit->regex = str.data;
 
 		return true;

@@ -114,22 +114,28 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 {
 	if(unit->advancedFormat)
 		return 0; //We only do "simple" formatting
-	//
+
 	//Copy the input from the previous stage
 	char buffer[UNIT_BUFFLEN];
 	memcpy(buffer, unit->buffer, UNIT_BUFFLEN);
 	struct RegBuff* cache;
-	getBuffer(formatter, unit, &cache);
 
 	regmatch_t matches[MAX_MATCH];
-	int err = regexec(&cache->regex, buffer, MAX_MATCH, matches, 0);
-	if(err) {
-		size_t reqSize = regerror(err, &cache->regex, NULL, 0);
-		char *errBuff = malloc(reqSize * sizeof(char));
-		regerror(err, &cache->regex, errBuff, reqSize);
-		log_write(LEVEL_ERROR, "Error in %s's regex: %s\n", unit->name, errBuff);
-		free(errBuff);
-		return 2;
+	if(unit->hasRegex) {
+		getBuffer(formatter, unit, &cache);
+		int err = regexec(&cache->regex, buffer, MAX_MATCH, matches, 0);
+		if(err) {
+			size_t reqSize = regerror(err, &cache->regex, NULL, 0);
+			char *errBuff = malloc(reqSize * sizeof(char));
+			regerror(err, &cache->regex, errBuff, reqSize);
+			log_write(LEVEL_ERROR, "Error in %s's regex: %s\n", unit->name, errBuff);
+			free(errBuff);
+			return 2;
+		}
+	} else {
+		matches[0].rm_so = 0;
+		matches[0].rm_eo = strlen(buffer)+1;
+		matches[1].rm_so = -1;
 	}
 
 	char lookupmem[MAX_MATCH*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
@@ -141,7 +147,7 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 		if(match->rm_so != -1)
 			numMatches = i;
 
-		snprintf(lookup[i], LOOKUP_MAX, "$%d", i); //This should probably be computed at compiletime
+		snprintf(lookup[i], LOOKUP_MAX, "$%d", i+1); //This should probably be computed at compiletime
 		//TODO: Error checking
 	}	 
 	size_t formatLen = strlen(unit->format)+1;
