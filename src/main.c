@@ -181,8 +181,14 @@ int main(int argc, char **argv)
 		}
 	}
 
+	char* confPath = pathAppend(arguments.configDir, "bard.conf");
+	dictionary* dict = iniparser_load(confPath);
+	free(confPath);
+	const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
+
 	char lBuff[2048];
-	strcpy(lBuff, "bar");
+	strcpy(lBuff, executable);
+	iniparser_freedict(dict);
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
 		if(stage.enabled != true)
