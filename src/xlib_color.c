@@ -32,15 +32,15 @@ const char* colorName[MAXCOLOR] = {
 	"blue",
 	"magenta",
 	"cyan",
+	"brightwhite",
 	"grey",
-	"brightblack",
 	"brightred",
 	"brightgreen",
 	"brightyellow",
 	"brightblue",
 	"brightmagenta",
 	"brightcyan",
-	"white",
+	"brightwhite",
 };
 
 int color_init(void* obj, char* configPath);
