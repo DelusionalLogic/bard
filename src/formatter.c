@@ -28,6 +28,7 @@ struct PipeStage formatter_getStage() {
 	stage.create = (int (*)(void*, char*))formatter_init;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
+	stage.colorString = NULL;
 	stage.process = (int (*)(void*, struct Unit*))formatter_format;
 	stage.destroy = (int (*)(void*))formatter_free;
 	return stage;

@@ -12,10 +12,11 @@ static int min(int a, int b) { return a < b ? a : b; }
 struct PipeStage unitexec_getStage() {
 	struct PipeStage stage;
 	stage.enabled = true;
-	stage.obj = (void*)0xDEADBEEF;
+	stage.obj = NULL;
 	stage.create = NULL;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
+	stage.colorString = NULL;
 	stage.process = unitexec_process;
 	stage.destroy = NULL;
 	return stage;

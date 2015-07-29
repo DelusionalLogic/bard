@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "xlib_color.h"
+#include "strcolor.h"
 #include "barconfig.h"
 #include "pipestage.h"
 #include "unitcontainer.h"
@@ -75,12 +76,40 @@ struct PatternMatch{
 	size_t endPos;
 };
 
+int colorize(const char* str, char** out) {
+	bool first = true;
+	char* curStr = str;
+	Vector vec;
+	vector_init(&vec, sizeof(char), 64);
+	for(int i = 0; i < NUM_STAGES; i++) {
+		struct PipeStage stage = pipeline[i];
+		if(stage.enabled != true)
+			continue;
+		int err = 0;
+		if(stage.colorString != NULL) {
+			err = stage.colorString(stage.obj, str, &vec);
+			if(err != 0) {
+				log_write(LEVEL_ERROR, "Could not color string");
+			} else {
+				if(!first)
+					free(curStr);
+				curStr = vector_detach(&vec);
+				vector_init(&vec, sizeof(char), 64);
+				first = false;
+			}
+		}
+	}
+	vector_kill(&vec);
+	*out = curStr;
+	return 0;
+}
+
 struct Output outputter;
 FILE* bar;
 
 int executeUnit(struct Unit* unit)
 {
-	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)\n", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
 	/* Format the output for the bar */
 	for(int i = 0; i < NUM_STAGES; i++) {
@@ -93,7 +122,7 @@ int executeUnit(struct Unit* unit)
 		if(err == -1) //Hash was identical to previous run
 			return -1;
 		if(err != 0) {
-			log_write(LEVEL_ERROR, "Unknown error while truing to execute %s:%d\n", unit->name, i);
+			log_write(LEVEL_ERROR, "Unknown error while truing to execute %s:%d", unit->name, i);
 			stage.enabled = false;
 		}
 	}
@@ -106,9 +135,7 @@ int render() {
 	//per sleep
 	char* out = out_format(&outputter, NULL);
 	fprintf(bar, "%s\n", out);
-	printf("%s\n", out);
 	free(out);
-	fflush(stdout);
 	fflush(bar);
 	return 0;
 }
@@ -120,7 +147,7 @@ int main(int argc, char **argv)
 
 	if(arguments.configDir == NULL)
 	{
-		log_write(LEVEL_ERROR, "Config directory required\n");
+		log_write(LEVEL_ERROR, "Config directory required");
 		exit(0);
 	}
 
@@ -207,7 +234,7 @@ int main(int argc, char **argv)
 
 	//TODO: Where the hell does this belong?
 	//Lets load that bar!
-	log_write(LEVEL_INFO, "Starting %s\n", lBuff);
+	log_write(LEVEL_INFO, "Starting %s", lBuff);
 	bar = popen(lBuff, "w");
 	
 	//Now lets run the units in a loop and write to bar

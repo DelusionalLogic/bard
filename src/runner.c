@@ -12,9 +12,12 @@ int runner_process(void* obj, struct Unit* unit);
 
 struct PipeStage runner_getStage() {
 	struct PipeStage stage;
+	stage.enabled = true;
+	stage.obj = NULL;
 	stage.create = NULL;
 	stage.addUnits = (int (*)(void*, struct Units*))runner_addUnits;
 	stage.getArgs = NULL;
+	stage.colorString = NULL;
 	stage.process = (int (*)(void*, struct Unit* unit)) runner_process;
 	stage.destroy = NULL;
 	return stage;

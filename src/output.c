@@ -6,6 +6,7 @@
 #include "vector.h"
 #include "logger.h"
 #include "unit.h"
+#include "strcolor.h"
 
 static bool separator(struct Output* output, const char* separator) {
 	if(separator == NULL) {
@@ -15,7 +16,10 @@ static bool separator(struct Output* output, const char* separator) {
 	output->separator = malloc(strlen(separator) * sizeof(char));
 	if(output->separator == NULL)
 		return false;
-	strcpy(output->separator, separator);
+	char* colors;
+	colorize(separator, &colors);
+	strcpy(output->separator, colors);
+	free(colors);
 	return true;
 }
 

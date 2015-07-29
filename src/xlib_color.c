@@ -56,6 +56,8 @@ struct PipeStage color_getStage() {
 	stage.create = color_init;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
+	stage.colorString = NULL;
+	stage.colorString = color_parseString;
 	stage.process = color_parseColor;
 	stage.destroy = color_kill;
 	return stage;
