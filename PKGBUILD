@@ -2,7 +2,7 @@
 
 _pkgname=bard
 pkgname=${_pkgname}-git
-pkgver=49
+pkgver=51
 pkgrel=1
 pkgdesc='A tool for generating a system bar by using lemonbar'
 arch=('i686' 'x86_64')

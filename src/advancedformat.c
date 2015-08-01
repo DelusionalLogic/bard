@@ -22,6 +22,7 @@ static void advFormatter_free(struct AdvFormatter* formatter) {
 }
 struct PipeStage advFormatter_getStage() {
 	struct PipeStage stage;
+	stage.error = 0;
 	stage.enabled = true;
 	stage.obj = calloc(1, sizeof(struct AdvFormatter));
 	if(stage.obj == NULL)

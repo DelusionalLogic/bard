@@ -12,6 +12,7 @@ int runner_process(void* obj, struct Unit* unit);
 
 struct PipeStage runner_getStage() {
 	struct PipeStage stage;
+	stage.error = 0;
 	stage.enabled = true;
 	stage.obj = NULL;
 	stage.create = NULL;

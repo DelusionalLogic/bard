@@ -12,6 +12,7 @@ int barconfig_getArg(void* obj, char* out, size_t outSize);
 
 struct PipeStage barconfig_getStage() {
 	struct PipeStage stage;
+	stage.error = 0;
 	stage.enabled = true;
 	stage.obj = malloc(sizeof(Vector));
 	if(stage.obj == NULL)

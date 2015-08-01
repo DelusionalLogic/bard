@@ -49,6 +49,7 @@ int color_parseColor(void* obj, struct Unit* unit);
 
 struct PipeStage color_getStage() {
 	struct PipeStage stage;
+	stage.error = 0;
 	stage.enabled = true;
 	stage.obj = malloc(sizeof(struct XlibColor));
 	if(stage.obj == NULL)
