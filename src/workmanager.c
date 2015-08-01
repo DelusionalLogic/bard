@@ -73,7 +73,7 @@ struct pipeRunData {
 int pipeRun(void* elem, void* userdata) {
 	struct pipeRunData* data = (struct pipeRunData*)userdata;
 	struct Unit* unit = *(struct Unit**)elem;
-	log_write(LEVEL_INFO, "A pipe got ready for unit %s\n", unit->name);
+	log_write(LEVEL_INFO, "A pipe got ready for unit %s", unit->name);
 	if(unit->pipe == -1)
 		return 0;
 
@@ -85,6 +85,24 @@ int pipeRun(void* elem, void* userdata) {
 	return 0;
 }
 
+static bool isDone(struct WorkManager* manager) {
+	time_t curTime = time(NULL);
+	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
+	if(container->nextRun <= curTime)
+		return false; //We have a poll unit ready to run
+
+	struct timeval tval = {
+		.tv_sec = 0,
+		.tv_usec = 0,
+	};
+	fd_set newSet;
+	memcpy(&newSet, &manager->fdset, sizeof(manager->fdset));
+	if(select(FD_SETSIZE, &newSet, NULL, NULL, &tval) != 0)
+		return false; //We have a running unit ready to read from the pipe (It might finish this tick)
+
+	return true;
+}	
+
 int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* unit), int (*render)()) {
 	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
 	bool doRender = false;
@@ -93,7 +111,7 @@ int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* uni
 		time_t curTime = time(NULL);
 
 		//Wait for the next unit or a pipe is ready
-		if(container->nextRun >= curTime) {
+		if(container->nextRun > curTime) {
 			struct timeval tval = {
 				.tv_sec = container->nextRun - curTime,
 				.tv_usec = 0,
@@ -111,12 +129,8 @@ int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* uni
 				if(err)
 					return err;
 
-				if(data.update) {
-					int err = render();
-					if(err)
-						return err;
-				}
-				continue; //This had nothing to do with the timer, so go to next loop
+				doRender = data.update;
+				goto render;
 			}
 		}
 
@@ -130,7 +144,8 @@ int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* uni
 		container->nextRun = curTime + container->unit->interval;
 		sl_reorder(&manager->list, 0);
 		container = (struct UnitContainer*)sl_get(&manager->list, 0);
-		if(container->nextRun != curTime && doRender){
+render:
+		if(isDone(manager) && doRender){
 			doRender = false;
 			int err = render();
 			if(err)

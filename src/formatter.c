@@ -184,7 +184,6 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 
 		strncpy(outPos, prevPos, curPos - prevPos);
 		outPos += curPos - prevPos;
-		log_write(LEVEL_INFO, "Found: %d", index);
 
 		regmatch_t match = matches[index];
 		memcpy(outPos, buffer + match.rm_so, match.rm_eo - match.rm_so);

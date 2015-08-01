@@ -135,8 +135,10 @@ int render() {
 	//per sleep
 	char* out = out_format(&outputter, NULL);
 	fprintf(bar, "%s\n", out);
+	fprintf(stdout, "%s\n", out);
 	free(out);
 	fflush(bar);
+	fflush(stdout);
 	return 0;
 }
 

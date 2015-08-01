@@ -103,9 +103,7 @@ char* out_format(struct Output* output, struct Unit* unit) {
 	static char term = '\0';
 	vector_putBack(&vec, &term);
 	//Copy into new buffer owned by calling function
-	char* buff = malloc((vector_size(&vec) * sizeof(char)));
-	memcpy(buff, vec.data, vector_size(&vec) * sizeof(char));
-	vector_kill(&vec);
+	char* buff = vector_detach(&vec);
 	return buff;
 }
 

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <wordexp.h>
+#include <errno.h>
 #include "unitcontainer.h"
 #include "logger.h"
 
@@ -102,7 +103,7 @@ int runner_process(void* obj, struct Unit* unit) {
 		if(n == 0)
 			break;
 		if(n == -1) {
-			log_write(LEVEL_ERROR, "Could not read from pipe");
+			log_write(LEVEL_ERROR, "Could not read from pipe: %s", strerror(errno));
 			return 2;
 		}
 		vector_putBack(&str, window + delimiterLen-1); //Put last char onto the final string
@@ -115,7 +116,7 @@ int runner_process(void* obj, struct Unit* unit) {
 		log_write(LEVEL_ERROR, "Running string too long: %s", unit->name);
 		return 1;
 	}
-	strcpy(unit->buffer + unit->buffoff, str.data);
+	strcpy(unit->buffer + unit->buffoff, str.data); //TODO: reverse str.data
 	vector_kill(&str);
 	if(n == 0) {
 		unit->buffoff += vector_size(&str)-1;
