@@ -32,7 +32,7 @@ const char* colorName[MAXCOLOR] = {
 	"blue",
 	"magenta",
 	"cyan",
-	"brightwhite",
+	"white",
 	"grey",
 	"brightred",
 	"brightgreen",
