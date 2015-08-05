@@ -2,7 +2,9 @@
 #include "errno.h"
 #include <string.h>
 #include <stdio.h>
+#include "fs.h"
 #include "logger.h"
+#include "configparser.h"
 
 #define MAXFONTS 10
 
@@ -26,8 +28,36 @@ struct FontCont{
 	unsigned long hash;
 };
 
+struct addFontsData {
+	Vector* fonts;
+};
+static int addFonts(void* key, void* value, void* userdata);
+int defFont(struct Font* font, const char* defFont) {
+	log_write(LEVEL_INFO, "Font: %s", defFont);
+	struct FontContainer* contPtr = malloc(sizeof(struct FontContainer));
+	contPtr->fontID = 0;
+	contPtr->font = malloc(strlen(defFont) * sizeof(char));
+	strcpy(contPtr->font, defFont);
+	struct addFontsData data = {
+		.fonts = &font->fonts,
+	};
+	addFonts(/*UNUSED*/ NULL, &contPtr, &data);
+	return 0;
+}
+
 int font_init(struct Font* font, char* configDir) {
 	vector_init(&font->fonts, sizeof(struct FontCont), 8);
+
+	struct ConfigParser parser;
+	struct ConfigParserEntry entry[] = {
+		StringConfigEntry("display:font", defFont, NULL),
+	};
+	cp_init(&parser, entry);
+	char* path = pathAppend(configDir, "bard.conf");
+	cp_load(&parser, path, font);
+	free(path);
+	cp_kill(&parser);
+
 	return 0;
 }
 
@@ -61,11 +91,7 @@ static int findFont(void* elem, void* userdata) {
 	return 0;
 }
 
-struct addFontsData {
-	Vector* fonts;
-};
 static int addFonts(void* key, void* value, void* userdata) {
-	char* k = *(char**)key;
 	struct FontContainer* v = *(struct FontContainer**)value;
 	struct addFontsData* data = (struct addFontsData*)userdata;
 
