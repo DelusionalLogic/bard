@@ -3,18 +3,18 @@
 
 #include "unitcontainer.h"
 #include <stdbool.h>
+#include <setjmp.h>
 #include "unit.h"
 
 struct PipeStage {
 	bool enabled;
-	int error;
 	void* obj;
-	int (*create)(void* obj, char* configPath);
-	int (*addUnits)(void* obj, struct Units* units); //Temp name
-	int (*getArgs)(void* obj, char* arg, size_t maxLen);
-	int (*colorString)(void* obj, char* str, Vector* vec);
-	int (*process)(void* obj, struct Unit* unit);
-	int (*destroy)(void* obj);
+	void (*create)(jmp_buf jmpBuf, void* obj, char* configPath);
+	void (*addUnits)(jmp_buf jmpBuf, void* obj, struct Units* units); //Temp name
+	void (*getArgs)(jmp_buf jmpBuf, void* obj, char* arg, size_t maxLen);
+	void (*colorString)(jmp_buf jmpBuf, void* obj, char* str, Vector* vec);
+	bool (*process)(jmp_buf jmpBuf, void* obj, struct Unit* unit);
+	void (*destroy)(void* obj);
 };
 
 #endif

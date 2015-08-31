@@ -10,15 +10,15 @@ struct Font {
 	Vector fonts;
 };
 
-struct PipeStage font_getStage();
+struct PipeStage font_getStage(jmp_buf jmpBuf);
 
-int font_init(struct Font* font, char* configDir);
-int font_kill(struct Font* font);
+void font_init(jmp_buf jmpBuf, struct Font* font, char* configDir);
+void font_kill(struct Font* font);
 
-int font_addUnits(struct Font* font, struct Units* units);
+void font_addUnits(jmp_buf jmpBuf, struct Font* font, struct Units* units);
 
-int font_getArgs(struct Font* font, char* argString, size_t maxLen);
+void font_getArgs(jmp_buf jmpBuf, struct Font* font, char* argString, size_t maxLen);
 
-int font_format(struct Font* font, struct Unit* unit);
+bool font_format(jmp_buf jmpBuf, struct Font* font, struct Unit* unit);
 
 #endif

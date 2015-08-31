@@ -3,6 +3,7 @@
 #include <iniparser.h>
 #include <ctype.h>
 #include <errno.h>
+#include "myerror.h"
 #include "fs.h"
 #include "vector.h"
 
@@ -43,17 +44,16 @@ const char* colorName[MAXCOLOR] = {
 	"brightwhite",
 };
 
-int color_init(void* obj, char* configPath);
-int color_kill(void* obj);
-int color_parseColor(void* obj, struct Unit* unit);
+void color_init(jmp_buf jmpBuf, void* obj, char* configPath);
+void color_kill(void* obj);
+bool color_parseColor(jmp_buf jmpBuf, void* obj, struct Unit* unit);
 
-struct PipeStage color_getStage() {
+struct PipeStage color_getStage(jmp_buf jmpBuf) {
 	struct PipeStage stage;
-	stage.error = 0;
 	stage.enabled = true;
 	stage.obj = malloc(sizeof(struct XlibColor));
 	if(stage.obj == NULL)
-		stage.error = errno;
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
 	stage.create = color_init;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
@@ -64,7 +64,7 @@ struct PipeStage color_getStage() {
 	return stage;
 }
 
-int color_init(void* obj, char* configPath) {	
+void color_init(jmp_buf jmpBuf, void* obj, char* configPath) {	
 	struct XlibColor* cobj = (struct XlibColor*)obj;
 
 	cobj->color = (char (*)[COLORLEN])cobj->colormem;
@@ -79,7 +79,7 @@ int color_init(void* obj, char* configPath) {
 		cobj->rdb = XrmGetDatabase(display);
 		if(!cobj->rdb) {
 			log_write(LEVEL_WARNING, "Failed opening the X resource manager");
-			return 1;
+			longjmp(jmpBuf, MYERR_XOPEN);
 		}
 	}
 
@@ -98,11 +98,9 @@ int color_init(void* obj, char* configPath) {
 		}
 	}
 	XCloseDisplay(display); //This also destroys the database object (rdb)
-	return 0;
 }
 
-int color_kill(void* obj) {
-	return 0;
+void color_kill(void* obj) {
 }
 
 #define LOOKUP_MAX 16
@@ -125,7 +123,7 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 	return curMin;
 }
 
-int color_parseString(struct XlibColor* cobj, char* input, Vector* output) {
+void color_parseString(jmp_buf jmpBuf, struct XlibColor* cobj, char* input, Vector* output) {
 	char lookupmem[(MAXCOLOR * 2)*LOOKUP_MAX] = {0}; //Mutliply by two because each color has two variants 
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
 	for(int i = 0; i < MAXCOLOR; i++)
@@ -147,30 +145,33 @@ int color_parseString(struct XlibColor* cobj, char* input, Vector* output) {
 			break;
 
 		int colorNum = index % 16; //We need to find the "shorter" code for the color
-		vector_putListBack(output, prevPos, curPos-prevPos);
-		vector_putListBack(output, cobj->color[colorNum], strlen(cobj->color[colorNum]));
+		vector_putListBack(jmpBuf, output, prevPos, curPos-prevPos);
+		vector_putListBack(jmpBuf, output, cobj->color[colorNum], strlen(cobj->color[colorNum]));
 		curPos += strlen(lookup[index]);
 	}
-	vector_putListBack(output, prevPos, input + formatLen - prevPos);
-	return 0;
+	vector_putListBack(jmpBuf, output, prevPos, input + formatLen - prevPos);
 }
 
-int color_parseColor(void* obj, struct Unit* unit) {
+bool color_parseColor(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
 	struct XlibColor* cobj = (struct XlibColor*)obj;
 	Vector newOut;
-	vector_init(&newOut, sizeof(char), UNIT_BUFFLEN); 
+	vector_init(jmpBuf, &newOut, sizeof(char), UNIT_BUFFLEN); 
 
-	int err = color_parseString(cobj, unit->buffer, &newOut);
-	if(err){
+	jmp_buf parseEx;
+	int errCode = setjmp(parseEx);
+	if(errCode == 0) {
+		color_parseString(jmpBuf, cobj, unit->buffer, &newOut);
+	} else {
 		log_write(LEVEL_ERROR, "Couldn't parse the color in %s", unit->name);
-		return err;
+		longjmp(jmpBuf, errCode);
 	}
-	
+
 	if(vector_size(&newOut) > UNIT_BUFFLEN) {
-		log_write(LEVEL_ERROR, "Output too long");
-		return 1;
+		log_write(LEVEL_ERROR, "No space in unit buffer");
+		log_write(LEVEL_ERROR, "-- While parsing color in %s", unit->name);
+		longjmp(jmpBuf, MYERR_NOSPACE);
 	}
 	strncpy(unit->buffer, newOut.data, vector_size(&newOut));
 	vector_kill(&newOut);
-	return 0;
+	return true;
 }

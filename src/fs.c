@@ -20,7 +20,7 @@ int fileSort(const void* e1, const void* e2)
 }
 
 //nameList is a vector of string (char*)
-void getFiles(const char* path, Vector* nameList)
+void getFiles(jmp_buf jmpBuf, const char* path, Vector* nameList)
 {
 	DIR* dir;
 	struct dirent *ent;
@@ -38,12 +38,12 @@ void getFiles(const char* path, Vector* nameList)
 		if(ent->d_type != DT_REG && ent->d_type != DT_LNK)
 			continue;
 		Vector name;
-		vector_init(&name, sizeof(char), 100);
-		vector_putListBack(&name, path, strlen(path));
-		vector_putBack(&name, &slash);
-		vector_putListBack(&name, ent->d_name, strlen(ent->d_name)+1);
+		vector_init(jmpBuf, &name, sizeof(char), 100);
+		vector_putListBack(jmpBuf, &name, path, strlen(path));
+		vector_putBack(jmpBuf, &name, &slash);
+		vector_putListBack(jmpBuf, &name, ent->d_name, strlen(ent->d_name)+1);
 
-		vector_putBack(nameList, &name.data);
+		vector_putBack(jmpBuf, nameList, &name.data);
 		//Name is not destroyed because we want to keep the buffer around
 	}	
 	closedir(dir);

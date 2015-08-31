@@ -3,60 +3,54 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include "myerror.h"
 #include "logger.h"
 
 struct RegBuff {
 	char* key;
 	regex_t regex;
 };
-int regBuffFree(void* elem, void* userdata) {
+bool regBuffFree(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct RegBuff* element = (struct RegBuff*)elem;
 	regfree(&element->regex);
-	return 0;
+	return true;
 }
 
 static void formatter_free(struct Formatter* formatter) {
 	formatter_kill(formatter);
 	free(formatter);
 }
-struct PipeStage formatter_getStage() {
+struct PipeStage formatter_getStage(jmp_buf jmpBuf) {
 	struct PipeStage stage;
-	stage.error = 0;
 	stage.enabled = true;
 	stage.obj = calloc(1, sizeof(struct Formatter));
 	if(stage.obj == NULL)
-		stage.error = ENOMEM;
-	stage.create = (int (*)(void*, char*))formatter_init;
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	stage.create = (void (*)(jmp_buf, void*, char*))formatter_init;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
 	stage.colorString = NULL;
-	stage.process = (int (*)(void*, struct Unit*))formatter_format;
-	stage.destroy = (int (*)(void*))formatter_free;
+	stage.process = (bool (*)(jmp_buf, void*, struct Unit*))formatter_format;
+	stage.destroy = (void (*)(void*))formatter_free;
 	return stage;
 }
 
-int formatter_init(struct Formatter* formatter, char* configDir)
+void formatter_init(jmp_buf jmpBuf, struct Formatter* formatter, char* configDir)
 {
-	ll_init(&formatter->bufferList, sizeof(struct RegBuff));
-	return 0;
+	ll_init(jmpBuf, &formatter->bufferList, sizeof(struct RegBuff));
 }
 
-int formatter_kill(struct Formatter* formatter)
+void formatter_kill(struct Formatter* formatter)
 {
-	ll_foreach(&formatter->bufferList, regBuffFree, NULL);
+	ll_foreach(NULL, &formatter->bufferList, regBuffFree, NULL);
 	ll_kill(&formatter->bufferList);
-	return 0;
 }
 
 struct Search {
 	struct RegBuff* found;
 	char* key;
 };
-
-#define BUFFER_FOUND 1
-#define BUFFER_NOTFOUND 0
-#define BUFFER_CREATED -1
-static int searcher(void* elem, void* userdata)
+static bool searcher(jmp_buf jmpBuf, void* elem, void* userdata)
 {
 	struct RegBuff* element = (struct RegBuff*)elem;
 	struct Search* search = (struct Search*)userdata;
@@ -64,47 +58,60 @@ static int searcher(void* elem, void* userdata)
 
 	if(element->key == search->key || !strcmp(element->key, search->key)) {
 		search->found = element;
-		return BUFFER_FOUND;
+		return false;
 	}
-	return BUFFER_NOTFOUND;
+	return true;
 }
 
-static int findBuffer(struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)
+static bool findBuffer(jmp_buf jmpBuf, struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)
 {
 	struct Search search = { 0 };
 	search.key = unit->name;
-	int status = ll_foreach(&formatter->bufferList, searcher, &search);
-	if(status == BUFFER_NOTFOUND)
-		return BUFFER_NOTFOUND;
+	if(ll_foreach(jmpBuf, &formatter->bufferList, searcher, &search))
+		return false;
 	*buff = search.found;
-	return BUFFER_FOUND;
+	return true;
 }
 
-static int getBuffer(struct Formatter* formatter, struct Unit* unit, struct RegBuff** buff)
+static struct RegBuff* getBuffer(jmp_buf jmpBuf, struct Formatter* formatter, struct Unit* unit)
 {
-	int found = findBuffer(formatter, unit, buff);
-	if(found == 0) {
-		struct RegBuff newBuff = {0};
-		newBuff.key = NULL;
-		int err = regcomp(&newBuff.regex, unit->regex, REG_EXTENDED | REG_NEWLINE);
-		if(err){
-			size_t reqSize = regerror(err, &newBuff.regex, NULL, 0);
-			char *errBuff = malloc(reqSize * sizeof(char));
-			regerror(err, &newBuff.regex, errBuff, reqSize);
-			log_write(LEVEL_ERROR, "Could not compile regex for %s: %s", unit->name, errBuff);
-			free(errBuff);
-			return BUFFER_NOTFOUND;
+	jmp_buf getEx;
+	int errCode = setjmp(getEx);
+	if(errCode == 0) {
+		struct RegBuff* buff;
+		if(!findBuffer(getEx, formatter, unit, &buff)) {
+			struct RegBuff newBuff = {0};
+			newBuff.key = NULL;
+			int err = regcomp(&newBuff.regex, unit->regex, REG_EXTENDED | REG_NEWLINE);
+			if(err){
+				size_t reqSize = regerror(err, &newBuff.regex, NULL, 0);
+				char *errBuff = malloc(reqSize * sizeof(char));
+				regerror(err, &newBuff.regex, errBuff, reqSize);
+				log_write(LEVEL_ERROR, "Could not compile regex for %s: %s", unit->name, errBuff);
+				free(errBuff);
+				longjmp(jmpBuf, err);
+			}
+			newBuff.key = unit->name;
+			jmp_buf insEx;
+			int errCode = setjmp(insEx);
+			if(errCode == 0) {
+				buff = ll_insert(insEx, &formatter->bufferList, ll_size(&formatter->bufferList), &newBuff);
+			} else {
+				log_write(LEVEL_ERROR, "Failed inserting the regex into the cache");
+				regfree(&newBuff.regex);
+				longjmp(jmpBuf, errCode);
+			}
 		}
-		newBuff.key = unit->name;
-		*buff = ll_insert(&formatter->bufferList, ll_size(&formatter->bufferList), &newBuff);
-		return BUFFER_CREATED;
+		return buff;
+	} else {
+		log_write(LEVEL_ERROR, "Error while looking for the regex in cache");
+		longjmp(jmpBuf, errCode);
 	}
-	return BUFFER_FOUND;
 }
 
 #define MAX_MATCH 24
 #define LOOKUP_MAX 10
-static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
+static char* getNext(jmp_buf jmpBuf, const char* curPos, int* index, char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
 {
 	char* curMin = strstr(curPos, lookups[0]);
 	*index = 0;
@@ -123,10 +130,10 @@ static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX]
 	return curMin;
 }
 
-int formatter_format(struct Formatter* formatter, struct Unit* unit)
+bool formatter_format(jmp_buf jmpBuf, struct Formatter* formatter, struct Unit* unit)
 {
 	if(unit->advancedFormat)
-		return 0; //We only do "simple" formatting
+		return true;
 
 	//Copy the input from the previous stage
 	char buffer[UNIT_BUFFLEN];
@@ -135,16 +142,16 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 
 	regmatch_t matches[MAX_MATCH];
 	if(unit->hasRegex) {
-		if(getBuffer(formatter, unit, &cache) == BUFFER_NOTFOUND)
-			return 1;
+		cache = getBuffer(jmpBuf, formatter, unit);
 		int err = regexec(&cache->regex, buffer, MAX_MATCH, matches, 0);
 		if(err) {
 			size_t reqSize = regerror(err, &cache->regex, NULL, 0);
 			char *errBuff = malloc(reqSize * sizeof(char));
 			regerror(err, &cache->regex, errBuff, reqSize);
-			log_write(LEVEL_ERROR, "Error in %s's regex: %s\n", unit->name, errBuff);
+			log_write(LEVEL_ERROR, "Error in %s's regex: %s", unit->name, errBuff);
 			free(errBuff);
-			return 2;
+			unit->buffer[0] = '\0';
+			longjmp(jmpBuf, err);
 		}
 	} else {
 		matches[0].rm_so = 0;
@@ -177,7 +184,7 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 	{
 		prevPos = curPos;
 		int index = 0;
-		curPos = getNext(curPos, &index, lookup, numMatches);
+		curPos = getNext(jmpBuf, curPos, &index, lookup, numMatches);
 
 		if(curPos == NULL)
 			break;
@@ -192,5 +199,5 @@ int formatter_format(struct Formatter* formatter, struct Unit* unit)
 	}
 	strncpy(outPos, prevPos, unit->format + formatLen - prevPos);
 	//---------------------------------------------------------------------
-	return 0;
+	return true;
 }

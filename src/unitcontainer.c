@@ -6,68 +6,67 @@
 #include "unit.h"
 #include "configparser.h"
 
-void units_init(struct Units* units) {
-	vector_init(&units->left, sizeof(struct Unit), 10);
-	vector_init(&units->center, sizeof(struct Unit), 10);
-	vector_init(&units->right, sizeof(struct Unit), 10);
+void units_init(jmp_buf jmpBuf, struct Units* units) {
+	vector_init(jmpBuf, &units->left, sizeof(struct Unit), 10);
+	vector_init(jmpBuf, &units->center, sizeof(struct Unit), 10);
+	vector_init(jmpBuf, &units->right, sizeof(struct Unit), 10);
 }
 
-static int freeUnit(void* elem, void* userdata) {
+static bool freeUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	unit_kill(unit);
-	return 0;
+	return true;
 }
 
-void units_kill(struct Units* units) {
-	vector_foreach(&units->left, freeUnit, NULL);
+void units_kill(jmp_buf jmpBuf, struct Units* units) {
+	vector_foreach(jmpBuf, &units->left, freeUnit, NULL);
 	vector_kill(&units->left);
 
-	vector_foreach(&units->center, freeUnit, NULL);
+	vector_foreach(jmpBuf, &units->center, freeUnit, NULL);
 	vector_kill(&units->center);
 
-	vector_foreach(&units->right, freeUnit, NULL);
+	vector_foreach(jmpBuf, &units->right, freeUnit, NULL);
 	vector_kill(&units->right);
 }
 
-static int freePtr(void* elem, void* userdata) {
+static bool freePtr(jmp_buf jmpBuf, void* elem, void* userdata) {
 	char** data = (char**) elem;
 	free(*data);
-	return 0;
+	return true;
 }
 
-static bool parseType(struct Unit* unit, const char* type)
+static bool parseType(jmp_buf jmpBuf, struct Unit* unit, const char* type)
 {
 	for(int i = 0; i < UNITTYPE_LENGTH; i++)
 	{
-		if(!strcasecmp(TypeStr[i], type))
-			return unit_setType(unit, (const enum UnitType)i);
+		if(!strcasecmp(TypeStr[i], type)) {
+			unit_setType(jmpBuf, unit, (const enum UnitType)i);
+			return true;
+		}
 	}
 	return false;
 }
 
-static int loadSide(Vector* units, struct ConfigParser* parser, const char* path) {
+static void loadSide(jmp_buf jmpBuf, Vector* units, struct ConfigParser* parser, const char* path) {
 	Vector files;
-	vector_init(&files, sizeof(char*), 5);
-	getFiles(path, &files);
+	vector_init(jmpBuf, &files, sizeof(char*), 5);
+	getFiles(jmpBuf, path, &files);
 	for(int i = 0; i < vector_size(&files); i++)
 	{
-		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(&files, i));
-		char* file = *(char**)vector_get(&files, i);
+		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(jmpBuf, &files, i));
+		char* file = *(char**)vector_get(jmpBuf, &files, i);
 		struct Unit unit;
-		unit_init(&unit);
+		unit_init(jmpBuf, &unit);
 
-		int err = cp_load(parser, file, &unit);
-		if(err)
-			return err;
+		cp_load(jmpBuf, parser, file, &unit);
 
-		vector_putBack(units, &unit);
+		vector_putBack(jmpBuf, units, &unit);
 	}
-	vector_foreach(&files, freePtr, NULL);
+	vector_foreach(jmpBuf, &files, freePtr, NULL);
 	vector_kill(&files);
-	return 0;
 }
 
-int units_load(struct Units* units, char* configDir) {
+void units_load(jmp_buf jmpBuf, struct Units* units, char* configDir) {
 	struct ConfigParser unitParser;
 	struct ConfigParserEntry entries[] = {
 		StringConfigEntry("unit:name", unit_setName, NULL),
@@ -84,25 +83,19 @@ int units_load(struct Units* units, char* configDir) {
 		{.name = NULL},
 	};
 
-	cp_init(&unitParser, entries);
+	cp_init(jmpBuf, &unitParser, entries);
 	
-	int err;
 	char* unitPath = pathAppend(configDir, "left");
-	err = loadSide(&units->left, &unitParser, unitPath);
-	if(err)
-		return err;
+	loadSide(jmpBuf, &units->left, &unitParser, unitPath);
 	free(unitPath);
+
 	unitPath = pathAppend(configDir, "center");
-	err = loadSide(&units->center, &unitParser, unitPath);
-	if(err)
-		return err;
+	loadSide(jmpBuf, &units->center, &unitParser, unitPath);
 	free(unitPath);
+
 	unitPath = pathAppend(configDir, "right");
-	err = loadSide(&units->right, &unitParser, unitPath);
-	if(err)
-		return err;
+	loadSide(jmpBuf, &units->right, &unitParser, unitPath);
 	free(unitPath);
 
 	cp_kill(&unitParser);
-	return 0;
 }

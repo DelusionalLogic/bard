@@ -3,6 +3,9 @@
 #include <unistd.h>
 #include <sys/select.h>
 #include <string.h>
+#include <errno.h>
+#include <setjmp.h>
+#include "myerror.h"
 #include "logger.h"
 
 struct UnitContainer {
@@ -10,7 +13,7 @@ struct UnitContainer {
 	struct Unit* unit;
 };
 
-static bool unitPlaceComp(void* obj, void* oth) {
+static bool unitPlaceComp(jmp_buf jmpBuf, void* obj, void* oth) {
 	struct UnitContainer* this = (struct UnitContainer*)obj;
 	struct UnitContainer* other = (struct UnitContainer*)oth;
 
@@ -24,29 +27,33 @@ struct AddUnitData {
 	Vector* pipeList;
 	fd_set* fdset;
 };
-static int vecAddUnit(void* elem, void* userdata) {
+static bool vecAddUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct AddUnitData* data = (struct AddUnitData*)userdata;
 	struct Unit* unit = (struct Unit*)elem;
 	time_t curTime = time(NULL);
-	if(unit->type == UNIT_POLL) {
-		struct UnitContainer container = { .nextRun = curTime, .unit = elem };
-		int err = sl_insert(data->list, &container);
-		if(err)
-			return err;
-	}else if(unit->type == UNIT_RUNNING) {
-		int err = vector_putBack(data->pipeList, &elem);
-		if(err)
-			return err;
-		if(unit->pipe != -1)
-			FD_SET(unit->pipe, data->fdset);
-	}
-	return 0;
+	jmp_buf addEx;
+	int errCode = setjmp(addEx);
+	if(errCode == 0) {
+		if(unit->type == UNIT_POLL) {
+			struct UnitContainer container = { .nextRun = curTime, .unit = elem };
+			sl_insert(addEx, data->list, &container);
+		}else if(unit->type == UNIT_RUNNING) {
+			vector_putBack(addEx, data->pipeList, &elem);
+			if(unit->pipe != -1)
+				FD_SET(unit->pipe, data->fdset);
+		}
+	} else if (errCode == MYERR_ALLOCFAIL) {
+		log_write(LEVEL_ERROR, "Allocation error while adding unit %s to work queue", unit->name);
+		unit_kill(unit);
+		longjmp(jmpBuf, errCode);
+	} else longjmp(jmpBuf, errCode);
+	return true;
 }
 
-void workmanager_init(struct WorkManager* manager) {
+void workmanager_init(jmp_buf jmpBuf, struct WorkManager* manager) {
 	FD_ZERO(&manager->fdset);
-	sl_init(&manager->list, sizeof(struct UnitContainer), unitPlaceComp);
-	vector_init(&manager->pipeList, sizeof(struct Unit*), 8);
+	sl_init(jmpBuf, &manager->list, sizeof(struct UnitContainer), unitPlaceComp);
+	vector_init(jmpBuf, &manager->pipeList, sizeof(struct Unit*), 8);
 }
 
 void workmanager_kill(struct WorkManager* manager) {
@@ -54,40 +61,39 @@ void workmanager_kill(struct WorkManager* manager) {
 	vector_kill(&manager->pipeList);
 }
 
-void workmanager_addUnits(struct WorkManager* manager, struct Units *units) {
+void workmanager_addUnits(jmp_buf jmpBuf, struct WorkManager* manager, struct Units *units) {
 	struct AddUnitData data = { 
 		.list = &manager->list,
 		.pipeList = &manager->pipeList,
 		.fdset = &manager->fdset,
 	};
-	vector_foreach(&units->left, vecAddUnit, &data);
-	vector_foreach(&units->center, vecAddUnit, &data);
-	vector_foreach(&units->right, vecAddUnit, &data);
+	vector_foreach(jmpBuf, &units->left, vecAddUnit, &data);
+	vector_foreach(jmpBuf, &units->center, vecAddUnit, &data);
+	vector_foreach(jmpBuf, &units->right, vecAddUnit, &data);
 }
 
 struct pipeRunData {
 	fd_set* fdset;
-	int (*execute)(struct Unit* unit);
+	bool (*execute)(jmp_buf jmpBuf, struct Unit* unit);
 	bool update;
 };
-int pipeRun(void* elem, void* userdata) {
+bool pipeRun(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct pipeRunData* data = (struct pipeRunData*)userdata;
 	struct Unit* unit = *(struct Unit**)elem;
 	log_write(LEVEL_INFO, "A pipe got ready for unit %s", unit->name);
 	if(unit->pipe == -1)
-		return 0;
+		return true;
 
 	if(FD_ISSET(unit->pipe, data->fdset)) {
-		int err = data->execute(unit);
-		if(!err)
+		if(data->execute(jmpBuf, unit))
 			data->update = true;
 	}
-	return 0;
+	return true;
 }
 
-static bool isDone(struct WorkManager* manager) {
+static bool isDone(jmp_buf jmpBuf, struct WorkManager* manager) {
 	time_t curTime = time(NULL);
-	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
+	struct UnitContainer* container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
 	if(container->nextRun <= curTime)
 		return false; //We have a poll unit ready to run
 
@@ -97,14 +103,26 @@ static bool isDone(struct WorkManager* manager) {
 	};
 	fd_set newSet;
 	memcpy(&newSet, &manager->fdset, sizeof(manager->fdset));
-	if(select(FD_SETSIZE, &newSet, NULL, NULL, &tval) != 0)
+	int status = select(FD_SETSIZE, &newSet, NULL, NULL, &tval);
+	if(status == -1) {
+		switch(errno) {
+			case EBADF:
+				log_write(LEVEL_INFO, "One of \"running\" unit commands exited");
+				longjmp(jmpBuf, MYERR_BADFD);
+				break;
+			case EINTR:
+				log_write(LEVEL_INFO, "The select was interrupted");
+				return isDone(jmpBuf, manager); //I'll just call myself for now and hope that i won't be interrupted
+		}
+	} else if (status >= 1) {
 		return false; //We have a running unit ready to read from the pipe (It might finish this tick)
+	}
 
 	return true;
 }	
 
-int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* unit), int (*render)()) {
-	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
+int workmanager_run(jmp_buf jmpBuf, struct WorkManager* manager, bool (*execute)(jmp_buf jmpBuf, struct Unit* unit), void (*render)(jmp_buf jmpBuf)) {
+	struct UnitContainer* container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
 	bool doRender = false;
 	while(true)
 	{
@@ -119,37 +137,40 @@ int workmanager_run(struct WorkManager* manager, int (*execute)(struct Unit* uni
 			fd_set newSet;
 			memcpy(&newSet, &manager->fdset, sizeof(fd_set));
 			int ready = select(FD_SETSIZE, &newSet, NULL, NULL, &tval);
-			if(ready > 0) {
+			if(ready == -1) {
+				switch(errno) {
+					case EBADF:
+						log_write(LEVEL_INFO, "One of \"running\" unit commands exited");
+						longjmp(jmpBuf, MYERR_BADFD);
+						break;
+					case EINTR:
+						log_write(LEVEL_INFO, "The select was interrupted");
+						break;
+				}
+			} else if(ready > 0) {
 				struct pipeRunData data = {
 					.fdset = &newSet,
 					.execute = execute,
 					.update = false,
 				};
-				int err = vector_foreach(&manager->pipeList, pipeRun, &data);
-				if(err)
-					return err;
+				vector_foreach(jmpBuf, &manager->pipeList, pipeRun, &data);
 
 				doRender = data.update;
 				goto render;
 			}
 		}
 
-		int err = execute(container->unit);
-		if(err > 0)
-			return err;
-		if(err != -1) //We don't need to rerender
+		if(execute(jmpBuf, container->unit))
 			doRender = true;
 		
 		curTime = time(NULL);
 		container->nextRun = curTime + container->unit->interval;
-		sl_reorder(&manager->list, 0);
-		container = (struct UnitContainer*)sl_get(&manager->list, 0);
+		sl_reorder(jmpBuf, &manager->list, 0);
+		container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
 render:
-		if(isDone(manager) && doRender){
+		if(isDone(jmpBuf, manager) && doRender){
 			doRender = false;
-			int err = render();
-			if(err)
-				return err;
+			render(jmpBuf);
 		}
 	}
 }

@@ -1,49 +1,48 @@
 #include "configparser.h"
+#include "myerror.h";
 //TODO: Rewrite to use integer error codes
 
-void cp_init(struct ConfigParser* parser, struct ConfigParserEntry entry[]) {
+void cp_init(jmp_buf jmpBuf, struct ConfigParser* parser, struct ConfigParserEntry entry[]) {
 	parser->conf = NULL;
 	parser->entries = entry;
 }
 void cp_kill(struct ConfigParser* parser) {
 }
 
-static bool set_bool(struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
+static void set_bool(jmp_buf jmpBuf, struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
 	bool val = iniparser_getboolean(parser->conf, entry->name, entry->default_bool);
-	return entry->set_bool(obj, val);
+	return entry->set_bool(jmpBuf, obj, val);
 }
 
-static bool set_int(struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
+static void set_int(jmp_buf jmpBuf, struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
 	int val = iniparser_getint(parser->conf, entry->name, entry->default_int);
-	return entry->set_int(obj, val);
+	return entry->set_int(jmpBuf, obj, val);
 }
 
-static bool set_str(struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
+static void set_str(jmp_buf jmpBuf, struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
 	const char* val = iniparser_getstring(parser->conf, entry->name, entry->default_string);
-	return entry->set_str(obj, val);
+	return entry->set_str(jmpBuf, obj, val);
 }
 
-static bool set_map(struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
+static void set_map(jmp_buf jmpBuf, struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
 	size_t nameLen = strlen(entry->name);
 	int secn = iniparser_getsecnkeys(parser->conf, entry->name);
 	const char **keys = malloc(secn * sizeof(char*));
+	if(keys == NULL)
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
 	iniparser_getseckeys(parser->conf, entry->name, keys);
 
-	bool status = true;
 	for(int i = 0; i < secn; i++) {
 		const char* val = iniparser_getstring(parser->conf, keys[i], NULL);
-		if(!entry->set_map(obj, keys[i] + nameLen + 1, val))
-			status = false;
+		entry->set_map(jmpBuf, obj, keys[i] + nameLen + 1, val);
 	}
 	free(keys);
-	return status;
 }
 
-int cp_load(struct ConfigParser* parser, const char* file, void* obj) {
+void cp_load(jmp_buf jmpBuf, struct ConfigParser* parser, const char* file, void* obj) {
 	parser->conf = iniparser_load(file);
 	if(parser->conf == NULL)
-		return false;
-	bool status = true;
+		longjmp(jmpBuf, MYERR_NOTINITIALIZED);
 	size_t i = 0;
 	while(true)
 	{
@@ -52,27 +51,22 @@ int cp_load(struct ConfigParser* parser, const char* file, void* obj) {
 			break;
 		switch(entry.type) {
 			case TYPE_BOOL:
-				status = set_bool(parser, &entry, obj);
+				set_bool(jmpBuf, parser, &entry, obj);
 				break;
 			case TYPE_INT:
-				status = set_int(parser, &entry, obj);
+				set_int(jmpBuf, parser, &entry, obj);
 				break;
 			case TYPE_STRING:
-				status = set_str(parser, &entry, obj);
+				set_str(jmpBuf, parser, &entry, obj);
 				break;
 			case TYPE_MAP:
-				status = set_map(parser, &entry, obj);
+				set_map(jmpBuf, parser, &entry, obj);
 				break;
 			default:
 				//Should never happen
-				return 1;
+				return;
 		}
-		if(!status)
-			break;
 		i++;
 	}
 	iniparser_freedict(parser->conf);
-	if(!status)
-		return 1;
-	return 0;
 }
