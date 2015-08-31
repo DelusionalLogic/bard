@@ -11,9 +11,9 @@ struct AdvFormatter {
 
 struct PipeStage advFormatter_getStage();
 
-int advFormatter_init(struct AdvFormatter* formatter, char* configDir);
-int advFormatter_kill(struct AdvFormatter* formatter);
+void advFormatter_init(jmp_buf jmpBuf, struct AdvFormatter* formatter, char* configDir);
+void advFormatter_kill(struct AdvFormatter* formatter);
 
-int advFormatter_format(struct AdvFormatter* formatter, struct Unit* unit);
+bool advFormatter_format(jmp_buf jmpBuf, struct AdvFormatter* formatter, struct Unit* unit);
 
 #endif

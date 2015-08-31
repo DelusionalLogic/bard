@@ -1,22 +1,22 @@
 #include "barconfig.h"
 #include <stdbool.h>
 #include <errno.h>
+#include "myerror.h"
 #include "fs.h"
 #include "vector.h"
 #include "configparser.h"
 #include "strcolor.h"
 
-int barconfig_init(void* obj, char* configDir);
-int barconfig_kill(void* obj);
-int barconfig_getArg(void* obj, char* out, size_t outSize);
+void barconfig_init(jmp_buf jmpBuf, void* obj, char* configDir);
+void barconfig_kill(void* obj);
+void barconfig_getArg(jmp_buf jmpBuf, void* obj, char* out, size_t outSize);
 
-struct PipeStage barconfig_getStage() {
+struct PipeStage barconfig_getStage(jmp_buf jmpBuf) {
 	struct PipeStage stage;
-	stage.error = 0;
 	stage.enabled = true;
 	stage.obj = malloc(sizeof(Vector));
 	if(stage.obj == NULL)
-		stage.error = ENOMEM;
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
 	stage.create = barconfig_init;
 	stage.addUnits = NULL;
 	stage.getArgs = barconfig_getArg;
@@ -26,69 +26,101 @@ struct PipeStage barconfig_getStage() {
 	return stage;
 }
 
-static bool geometry(Vector* arg, const char* option) {
+static void geometry(jmp_buf jmpBuf, Vector* arg, const char* option) {
 	if(option == NULL)
-		return true;
-	vector_putListBack(arg, " -g \"", 5);
-	vector_putListBack(arg, option, strlen(option));
-	vector_putListBack(arg, "\"", 1);
-	return true;
+		return;
+	jmp_buf vecEx;
+	int errCode = setjmp(vecEx);
+	if(errCode == 0) {
+		vector_putListBack(vecEx, arg, " -g \"", 5);
+		vector_putListBack(vecEx, arg, option, strlen(option));
+		vector_putListBack(vecEx, arg, "\"", 1);
+	} else if(errCode == MYERR_ALLOCFAIL) {
+		log_write(LEVEL_ERROR, "Failed to allocate more space for geometry string");
+		longjmp(jmpBuf, errCode);
+	}
 }
 
-static bool background(Vector* arg, const char* option) {
+static void background(jmp_buf jmpBuf, Vector* arg, const char* option) {
 	if(option == NULL)
-		return true;
-	vector_putListBack(arg, " -B \"", 5);
-	char* out;
-	colorize(option, &out);
-	vector_putListBack(arg, out, strlen(out));
-	free(out);
-	vector_putListBack(arg, "\"", 1);
-	return true;
+		return;
+	jmp_buf vecEx;
+	int errCode = setjmp(vecEx);
+	if(errCode == 0) {
+		vector_putListBack(vecEx, arg, " -B \"", 5);
+
+		jmp_buf colorEx;
+		int errCode2 = setjmp(colorEx);
+		char* out;
+		if(errCode2 == 0) {
+			colorize(colorEx, option, &out);
+			vector_putListBack(vecEx, arg, out, strlen(out));
+			free(out);
+			vector_putListBack(vecEx, arg, "\"", 1);
+		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
+			vector_putListBack(vecEx, arg, option, strlen(option));
+			vector_putListBack(vecEx, arg, "\"", 1);
+		}
+
+	} else if(errCode == MYERR_ALLOCFAIL) {
+		log_write(LEVEL_ERROR, "Failed to allocate more space for bg string");
+		longjmp(jmpBuf, errCode);
+	}
 }
 
-static bool foreground(Vector* arg, const char* option) {
+static void foreground(jmp_buf jmpBuf, Vector* arg, const char* option) {
 	if(option == NULL)
-		return true;
-	vector_putListBack(arg, " -F \"", 5);
-	char* out;
-	colorize(option, &out);
-	vector_putListBack(arg, out, strlen(out));
-	free(out);
-	vector_putListBack(arg, "\"", 1);
-	return true;
+		return;
+	jmp_buf vecEx;
+	int errCode = setjmp(vecEx);
+	if(errCode == 0) {
+		vector_putListBack(vecEx, arg, " -F \"", 5);
+		jmp_buf colorEx;
+		int errCode2 = setjmp(colorEx);
+		char* out;
+		if(errCode2 == 0) {
+			colorize(colorEx, option, &out);
+			vector_putListBack(vecEx, arg, out, strlen(out));
+			free(out);
+			vector_putListBack(vecEx, arg, "\"", 1);
+		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
+			vector_putListBack(vecEx, arg, option, strlen(option));
+			vector_putListBack(vecEx, arg, "\"", 1);
+		}
+	} else if(errCode == MYERR_ALLOCFAIL) {
+		log_write(LEVEL_ERROR, "Failed to allocate more space for fg string");
+		longjmp(jmpBuf, errCode);
+	}
 }
 
-int barconfig_init(void* obj, char* configDir) {
-	vector_init(obj, sizeof(char), 128);
-	vector_putListBack(obj, configDir, strlen(configDir)+1);
-	return 0;
+void barconfig_init(jmp_buf jmpBuf, void* obj, char* configDir) {
+	vector_init(jmpBuf, obj, sizeof(char), 128);
+	vector_putListBack(jmpBuf, obj, configDir, strlen(configDir)+1);
+	return;
 }
 
-int barconfig_getArg(void* obj, char* out, size_t outSize) {
+void barconfig_getArg(jmp_buf jmpBuf, void* obj, char* out, size_t outSize) {
 	Vector args;
-	vector_init(&args, sizeof(char), 128);
+	vector_init(jmpBuf, &args, sizeof(char), 128);
 	struct ConfigParser parser;
 	struct ConfigParserEntry entry[] = {
 		StringConfigEntry("bar:geometry", geometry, NULL),
 		StringConfigEntry("bar:background", background, NULL),
 		StringConfigEntry("bar:foreground", foreground, NULL),
 	};
-	cp_init(&parser, entry);
+	cp_init(jmpBuf, &parser, entry);
 	char* path = pathAppend(((Vector*)obj)->data, "bard.conf");
-	cp_load(&parser, path, &args);
+	cp_load(jmpBuf, &parser, path, &args);
 	free(path);
 	cp_kill(&parser);
-	vector_putBack(&args, "\0");
+	vector_putBack(jmpBuf, &args, "\0");
 
 	size_t argLen = strlen(out);
 	if(argLen + vector_size(&args) > outSize)
-		return ENOMEM;
+		longjmp(jmpBuf, MYERR_NOSPACE);
 	strcpy(out + argLen, args.data);
-	return 0;
 }
 
-int barconfig_kill(void* obj) {
+void barconfig_kill(void* obj) {
 	vector_kill(obj); //OBJ IS A VECTOR
-	return 0;
 }

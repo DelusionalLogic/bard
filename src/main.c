@@ -9,7 +9,9 @@
 #include <stdbool.h>
 #include <time.h>
 #include <unistd.h>
+#include <setjmp.h>
 
+#include "myerror.h"
 #include "xlib_color.h"
 #include "strcolor.h"
 #include "barconfig.h"
@@ -76,38 +78,47 @@ struct PatternMatch{
 	size_t endPos;
 };
 
-int colorize(const char* str, char** out) {
+void colorize(jmp_buf jmpBuf, const char* str, char** out) {
 	bool first = true;
 	char* curStr = str;
 	Vector vec;
-	vector_init(&vec, sizeof(char), 64);
+
+	jmp_buf newEx;
+	int errCode = setjmp(newEx);
+	if(errCode == 0)
+		vector_init(newEx, &vec, sizeof(char), 64);
+	else if(errCode == MYERR_ALLOCFAIL) {
+		log_write(LEVEL_ERROR, "Failed to allocate output string");
+		longjmp(jmpBuf, errCode);
+	}
+
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
 		if(stage.enabled != true)
 			continue;
-		int err = 0;
 		if(stage.colorString != NULL) {
-			err = stage.colorString(stage.obj, str, &vec);
-			if(err != 0) {
-				log_write(LEVEL_ERROR, "Could not color string");
-			} else {
-				if(!first)
-					free(curStr);
-				curStr = vector_detach(&vec);
-				vector_init(&vec, sizeof(char), 64);
-				first = false;
+			stage.colorString(jmpBuf, stage.obj, curStr, &vec);
+			if(!first)
+				free(curStr);
+			first = false;
+			curStr = vector_detach(&vec);
+			jmp_buf newEx;
+			int errCode = setjmp(newEx);
+			if(errCode == 0)
+				vector_init(newEx, &vec, sizeof(char), 64);
+			else if(errCode == MYERR_ALLOCFAIL){
+				log_write(LEVEL_ERROR, "Failed to allocate output string");
+				longjmp(jmpBuf, errCode);
 			}
 		}
 	}
-	vector_kill(&vec);
 	*out = curStr;
-	return 0;
 }
 
 struct Output outputter;
 FILE* bar;
 
-int executeUnit(struct Unit* unit)
+bool executeUnit(jmp_buf jmpBuf, struct Unit* unit)
 {
 	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
@@ -116,30 +127,31 @@ int executeUnit(struct Unit* unit)
 		struct PipeStage stage = pipeline[i];
 		if(stage.enabled != true)
 			continue;
-		int err = 0;
-		if(stage.process != NULL)
-			err = stage.process(stage.obj, unit);
-		if(err == -1) //Hash was identical to previous run
-			return -1;
-		if(err != 0) {
-			log_write(LEVEL_ERROR, "Unknown error while truing to execute %s:%d", unit->name, i);
-			stage.enabled = false;
+		if(stage.process != NULL) {
+			jmp_buf procEx;
+			int errCode = setjmp(procEx);
+			if(errCode == 0) {
+				if(!stage.process(procEx, stage.obj, unit))
+					return false;
+			} else {
+				stage.enabled = false;
+				longjmp(jmpBuf, errCode);
+			}
 		}
 	}
-
-	return 0;
+	return true;
 }
 
-int render() {
+void render(jmp_buf jmpBuf) {
 	//What to do about this? It can't be pipelined because then i might run more than once
 	//per sleep
-	char* out = out_format(&outputter, NULL);
+	char* out = out_format(jmpBuf, &outputter, NULL);
 	fprintf(bar, "%s\n", out);
 	fprintf(stdout, "%s\n", out);
 	free(out);
 	fflush(bar);
 	fflush(stdout);
-	return 0;
+	return true;
 }
 
 int main(int argc, char **argv)
@@ -153,34 +165,34 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	//Setup pipeline
-	pipeline[0] = barconfig_getStage();
-	pipeline[1] = unitexec_getStage();
-	pipeline[2] = runner_getStage();
-	pipeline[3] = formatter_getStage();
-	pipeline[4] = advFormatter_getStage();
-	pipeline[5] = font_getStage();
-	pipeline[6] = color_getStage();
-	for(int i = 0; i < NUM_STAGES; i++) {
-		struct PipeStage stage = pipeline[i];
-		if(stage.enabled != true)
-			continue;
-		if(stage.error == ENOMEM) {
-			log_write(LEVEL_FATAL, "Couldn't allocate stage %d", i);
-			exit(ENOMEM);
-		}
-		if(stage.error != 0) {
-			log_write(LEVEL_WARNING, "Unknown error with stage %d, error: %d", i, stage.error);
-		}
+	jmp_buf pipeEx;
+	int errCode = setjmp(pipeEx);
+	if(errCode == 0) {
+		//Setup pipeline
+		pipeline[0] = barconfig_getStage(pipeEx);
+		pipeline[1] = unitexec_getStage(pipeEx);
+		pipeline[2] = runner_getStage(pipeEx);
+		pipeline[3] = formatter_getStage(pipeEx);
+		pipeline[4] = advFormatter_getStage(pipeEx);
+		pipeline[5] = font_getStage(pipeEx);
+		pipeline[6] = color_getStage(pipeEx);
+	} else if(errCode == MYERR_ALLOCFAIL) {
+		log_write(LEVEL_FATAL, "Couldn't allocate a stage");
+		exit(MYERR_ALLOCFAIL);
+	} else {
+		log_write(LEVEL_WARNING, "Unknown error with a stage, error: %d", errCode);
 	}
 
 	struct Units units;
-	units_init(&units);
 
-	int err = units_load(&units, arguments.configDir);
-	if(err) {
-		log_write(LEVEL_ERROR, "Failed to load units");
-		exit(err);
+	jmp_buf loadEx;
+	errCode = setjmp(loadEx);
+	if(errCode == 0) {
+		units_init(loadEx, &units);
+		units_load(loadEx, &units, arguments.configDir);
+	} else {
+		log_write(LEVEL_ERROR, "Failed to load units: %d", errCode);
+		exit(errCode);
 	}
 
 	//Initialize all stages in pipeline (This is where they load the configuration)
@@ -188,12 +200,15 @@ int main(int argc, char **argv)
 		struct PipeStage stage = pipeline[i];
 		if(stage.enabled != true)
 			continue;
-		int err = 0;
-		if(stage.create != NULL)
-			err = stage.create(stage.obj, arguments.configDir);
-		if(err != 0) {
-			log_write(LEVEL_WARNING, "Unknown error creating pipe stage %d, error: %d", i, err);
-			stage.enabled = false;
+		if(stage.create != NULL) {
+			jmp_buf stageEx;
+			int errCode = setjmp(stageEx);
+			if(errCode == 0) {
+				stage.create(stageEx, stage.obj, arguments.configDir);
+			} else {
+				log_write(LEVEL_WARNING, "Unknown error creating pipe stage %d, error: %d", i, errCode);
+				stage.enabled = false;
+			}
 		}
 	}
 
@@ -201,12 +216,15 @@ int main(int argc, char **argv)
 		struct PipeStage stage = pipeline[i];
 		if(stage.enabled != true)
 			continue;
-		int err = 0;
-		if(stage.addUnits != NULL)
-			err = stage.addUnits(stage.obj, &units);
-		if(err != 0) {
-			log_write(LEVEL_ERROR, "Unknown error while adding units to stage %d, error: %d", i, err);
-			stage.enabled = false;
+		if(stage.addUnits != NULL) {
+			jmp_buf stageEx;
+			int errCode = setjmp(stageEx);
+			if(errCode == 0) {
+				stage.addUnits(stageEx, stage.obj, &units);
+			} else {
+				log_write(LEVEL_ERROR, "Unknown error while adding units to stage %d, error: %d", i, errCode);
+				stage.enabled = false;
+			}
 		}
 	}
 
@@ -222,15 +240,17 @@ int main(int argc, char **argv)
 		struct PipeStage stage = pipeline[i];
 		if(stage.enabled != true)
 			continue;
-		int err = 0;
-		if(stage.getArgs != NULL)
-			err = stage.getArgs(stage.obj, lBuff, 2048);
-		if(err == ENOMEM) {
-			log_write(LEVEL_ERROR, "Couldn't prepare bar launch string. It would have been too long");
-			exit(err);
-		}
-		if(err != 0) {
-			log_write(LEVEL_WARNING, "Unknown error when constructing bar arg string in unit %d, error: %d", i, err);
+		if(stage.getArgs != NULL) {
+			jmp_buf stageEx;
+			int errCode = setjmp(stageEx);
+			if(errCode == 0) {
+				stage.getArgs(stageEx, stage.obj, lBuff, 2048);
+			} else if(errCode == MYERR_ALLOCFAIL) {
+				log_write(LEVEL_ERROR, "Couldn't prepare bar launch string. It would have been too long");
+				exit(errCode);
+			} else {
+				log_write(LEVEL_WARNING, "Unknown error when constructing bar arg string in unit %d, error: %d", i, errCode);
+			}
 		}
 	}
 
@@ -238,16 +258,39 @@ int main(int argc, char **argv)
 	//Lets load that bar!
 	log_write(LEVEL_INFO, "Starting %s", lBuff);
 	bar = popen(lBuff, "w");
-	
-	//Now lets run the units in a loop and write to bar
-	out_init(&outputter, arguments.configDir); // Out is called from workmanager_run. It has to be ready before that is called
-	out_addUnits(&outputter, &units);
+
+	jmp_buf outEx;
+	errCode = setjmp(outEx);
+	if(errCode == 0) {
+		//Now lets run the units in a loop and write to bar
+		out_init(outEx, &outputter, arguments.configDir); // Out is called from workmanager_run. It has to be ready before that is called
+		out_addUnits(outEx, &outputter, &units);
+	} else {
+		log_write(LEVEL_FATAL, "Could not init outputter");
+		exit(errCode);
+	}
 
 	struct WorkManager wm;
-	workmanager_init(&wm);
-	workmanager_addUnits(&wm, &units);
+	jmp_buf manEx;
+	errCode = setjmp(manEx);
+	if(errCode == 0) {
+		workmanager_init(manEx, &wm);
 
-	workmanager_run(&wm, executeUnit, render); //Blocks until the program should exit
+		int errCode = setjmp(manEx);
+		if(errCode == 0) {
+			workmanager_addUnits(manEx, &wm, &units);
+
+			workmanager_run(manEx, &wm, executeUnit, render); //Blocks until the program should exit
+		} else {
+			log_write(LEVEL_FATAL, "Unknown error while executing workqueue %d", errCode);
+			exit(errCode);
+		}
+	} else if(errCode == MYERR_ALLOCFAIL) {
+		log_write(LEVEL_FATAL, "Allocation error while making the work queue");
+		exit(errCode);
+	} else {
+		log_write(LEVEL_FATAL, "Unknown error while initializing workmanager");
+	}
 
 	workmanager_kill(&wm);
 

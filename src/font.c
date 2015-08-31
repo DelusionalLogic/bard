@@ -2,24 +2,24 @@
 #include "errno.h"
 #include <string.h>
 #include <stdio.h>
+#include "myerror.h"
 #include "fs.h"
 #include "logger.h"
 #include "configparser.h"
 
 #define MAXFONTS 10
 
-struct PipeStage font_getStage(){
+struct PipeStage font_getStage(jmp_buf jmpBuf){
 	struct PipeStage stage;
-	stage.error = 0;
 	stage.enabled = true;
 	stage.obj = calloc(1, sizeof(struct Font));
 	if(stage.obj == NULL)
-		stage.error = ENOMEM;
-	stage.create = (int (*)(void*, char*))font_init;
-	stage.addUnits = (int (*)(void*, struct Units*))font_addUnits;
-	stage.getArgs = (int (*)(void*, char*, size_t))font_getArgs;
-	stage.process = (int (*)(void*, struct Unit*))font_format;
-	stage.destroy = (int (*)(void*))font_kill;
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	stage.create = (void (*)(jmp_buf, void*, char*))font_init;
+	stage.addUnits = (void (*)(jmp_buf, void*, struct Units*))font_addUnits;
+	stage.getArgs = (void (*)(jmp_buf, void*, char*, size_t))font_getArgs;
+	stage.process = (bool (*)(jmp_buf, void*, struct Unit*))font_format;
+	stage.destroy = (void (*)(void*))font_kill;
 	return stage;
 }
 
@@ -31,8 +31,8 @@ struct FontCont{
 struct addFontsData {
 	Vector* fonts;
 };
-static int addFonts(void* key, void* value, void* userdata);
-int defFont(struct Font* font, const char* defFont) {
+static bool addFonts(jmp_buf jmpBuf, void* key, void* value, void* userdata);
+int defFont(jmp_buf jmpBuf, struct Font* font, const char* defFont) {
 	log_write(LEVEL_INFO, "Font: %s", defFont);
 	struct FontContainer* contPtr = malloc(sizeof(struct FontContainer));
 	contPtr->fontID = 0;
@@ -41,29 +41,26 @@ int defFont(struct Font* font, const char* defFont) {
 	struct addFontsData data = {
 		.fonts = &font->fonts,
 	};
-	addFonts(/*UNUSED*/ NULL, &contPtr, &data);
-	return 0;
+	addFonts(jmpBuf, /*UNUSED*/ NULL, &contPtr, &data);
+	return true;
 }
 
-int font_init(struct Font* font, char* configDir) {
-	vector_init(&font->fonts, sizeof(struct FontCont), 8);
+void font_init(jmp_buf jmpBuf, struct Font* font, char* configDir) {
+	vector_init(jmpBuf, &font->fonts, sizeof(struct FontCont), 8);
 
 	struct ConfigParser parser;
 	struct ConfigParserEntry entry[] = {
 		StringConfigEntry("display:font", defFont, NULL),
 	};
-	cp_init(&parser, entry);
+	cp_init(jmpBuf, &parser, entry);
 	char* path = pathAppend(configDir, "bard.conf");
-	cp_load(&parser, path, font);
+	cp_load(jmpBuf, &parser, path, font);
 	free(path);
 	cp_kill(&parser);
-
-	return 0;
 }
 
-int font_kill(struct Font* font) {
+void font_kill(struct Font* font) {
 	vector_kill(&font->fonts);
-	return 0;
 }
 
 static unsigned long hashString(const char *str)
@@ -81,17 +78,17 @@ struct findFontData {
 	unsigned long needle;
 	int index;
 };
-static int findFont(void* elem, void* userdata) {
+static bool findFont(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct FontCont *cont = (struct FontCont*)elem;
 	struct findFontData *data = (struct findFontData*)userdata;
 
 	if(cont->hash == data->needle)
-		return -1;
+		return false;
 	data->index++;
-	return 0;
+	return true;
 }
 
-static int addFonts(void* key, void* value, void* userdata) {
+static bool addFonts(jmp_buf jmpBuf, void* key, void* value, void* userdata) {
 	struct FontContainer* v = *(struct FontContainer**)value;
 	struct addFontsData* data = (struct addFontsData*)userdata;
 
@@ -99,9 +96,9 @@ static int addFonts(void* key, void* value, void* userdata) {
 		.needle = hashString(v->font),
 		.index = 0,
 	};
-	if(vector_foreach(data->fonts, findFont, &findData) == -1) {
+	if(!vector_foreach(jmpBuf, data->fonts, findFont, &findData)) {
 		v->fontID = findData.index+1; //technically we should look it up and use the fontID, this is a quick hack
-		return 0;
+		return true;
 	}
 
 	int nextIndex = vector_size(data->fonts);
@@ -112,59 +109,58 @@ static int addFonts(void* key, void* value, void* userdata) {
 		.font = v->font,
 		.hash = hashString(v->font),
 	};
-	return vector_putBack(data->fonts, &cont);
+	vector_putBack(jmpBuf, data->fonts, &cont);
+	return true;
 }
 
 struct addUnitFontsData{
 	Vector* fonts;
 };
-static int addUnitFonts(void* elem, void* userdata) {
+static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	struct addUnitFontsData* data = (struct addUnitFontsData*)userdata;
 	struct addFontsData newData = {
 		.fonts = data->fonts,
 	};
-	return map_foreach(&unit->fontMap, addFonts, &newData);
+	return map_foreach(jmpBuf, &unit->fontMap, addFonts, &newData);
 }
 
-int font_addUnits(struct Font* font, struct Units* units){
+void font_addUnits(jmp_buf jmpBuf, struct Font* font, struct Units* units){
 	struct addUnitFontsData fontData = {
 		.fonts = &font->fonts,
 	};
-	vector_foreach(&units->left, addUnitFonts, &fontData);
-	vector_foreach(&units->center, addUnitFonts, &fontData);
-	vector_foreach(&units->right, addUnitFonts, &fontData);
-	return 0;
+	vector_foreach(jmpBuf, &units->left, addUnitFonts, &fontData);
+	vector_foreach(jmpBuf, &units->center, addUnitFonts, &fontData);
+	vector_foreach(jmpBuf, &units->right, addUnitFonts, &fontData);
 }
 
 struct fontSelectorData{
 	Vector* fontSelector;
 };
-static int fontSelector(void* elem, void* userdata) {	
+static bool fontSelector(jmp_buf jmpBuf, void* elem, void* userdata) {	
 	char* font = *(char**)elem;
 	struct fontSelectorData* data = (struct fontSelectorData*)userdata;
 
 	int fontLen = strlen(font);
-	vector_putListBack(data->fontSelector, " -f \"", 5);
-	vector_putListBack(data->fontSelector, font, fontLen); 
-	vector_putListBack(data->fontSelector, "\"", 1);
-	return 0;
+	vector_putListBack(jmpBuf, data->fontSelector, " -f \"", 5);
+	vector_putListBack(jmpBuf, data->fontSelector, font, fontLen); 
+	vector_putListBack(jmpBuf, data->fontSelector, "\"", 1);
+	return true;
 }
 
-int font_getArgs(struct Font* font, char* argString, size_t maxLen) {
+void font_getArgs(jmp_buf jmpBuf, struct Font* font, char* argString, size_t maxLen) {
 	Vector fontSel;
-	vector_init(&fontSel, sizeof(char), 256);
+	vector_init(jmpBuf, &fontSel, sizeof(char), 256);
 	struct fontSelectorData data = {
 		.fontSelector = &fontSel,
 	};
-	vector_foreach(&font->fonts, fontSelector, &data);
-	vector_putListBack(&fontSel, "\0", 1);
+	vector_foreach(jmpBuf, &font->fonts, fontSelector, &data);
+	vector_putListBack(jmpBuf, &fontSel, "\0", 1);
 	size_t argLen = strlen(argString);
 	if(argLen + vector_size(&fontSel) >= maxLen)
-		return ENOMEM;
+		longjmp(jmpBuf, MYERR_NOSPACE);
 	strcpy(argString + argLen, fontSel.data);
 	vector_kill(&fontSel);
-	return 0;
 }
 
 #define LOOKUP_MAX 20
@@ -195,7 +191,7 @@ struct createLookupData {
 	int (*ids)[MAXFONTS];
 	int index;
 };
-static int createLookup(void* key, void* data, void* userdata) {
+static bool createLookup(jmp_buf jmpBuf, void* key, void* data, void* userdata) {
 	char* fontName = *(char**)key;
 	struct FontContainer* container = *(struct FontContainer**)data;
 	struct createLookupData* udata = (struct createLookupData*)userdata;
@@ -206,12 +202,12 @@ static int createLookup(void* key, void* data, void* userdata) {
 	(*udata->ids)[udata->index] = container->fontID;
 	fflush(stderr);
 	udata->index++;
-	return 0;
+	return true;
 }
 
-int font_format(struct Font* font, struct Unit* unit) {
+bool font_format(jmp_buf jmpBuf, struct Font* font, struct Unit* unit) {
 	Vector newOut;
-	vector_init(&newOut, sizeof(char), UNIT_BUFFLEN); 
+	vector_init(jmpBuf, &newOut, sizeof(char), UNIT_BUFFLEN); 
 	
 	char lookupmem[MAXFONTS*LOOKUP_MAX] = {0}; //the string we are looking for. Depending on the MAX_MATCH this might have to be longer
 	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
@@ -221,11 +217,7 @@ int font_format(struct Font* font, struct Unit* unit) {
 		.ids = &ids,
 		.index = 0,
 	};
-	int err = map_foreach(&unit->fontMap, createLookup, &data);
-	if(err != 0) {
-		log_write(LEVEL_ERROR, "Failed to construct font selectors");
-		return err;
-	}
+	map_foreach(jmpBuf, &unit->fontMap, createLookup, &data);
 	size_t formatLen = strlen(unit->buffer)+1;
 	const char* curPos = unit->buffer;
 	const char* prevPos = NULL;
@@ -238,18 +230,18 @@ int font_format(struct Font* font, struct Unit* unit) {
 		if(curPos == NULL)
 			break;
 
-		vector_putListBack(&newOut, prevPos, curPos-prevPos);
+		vector_putListBack(jmpBuf, &newOut, prevPos, curPos-prevPos);
 		char buff[50];
 		snprintf(buff, 50, "%d", ids[index]);
-		vector_putListBack(&newOut, buff, strlen(buff));
+		vector_putListBack(jmpBuf, &newOut, buff, strlen(buff));
 		curPos += strlen(lookup[index]);
 	}
-	vector_putListBack(&newOut, prevPos, unit->buffer + formatLen - prevPos);
+	vector_putListBack(jmpBuf, &newOut, prevPos, unit->buffer + formatLen - prevPos);
 	if(vector_size(&newOut) > UNIT_BUFFLEN) {
 		log_write(LEVEL_ERROR, "Output too long");
-		return 1;
+		longjmp(jmpBuf, MYERR_NOSPACE);
 	}
 	strncpy(unit->buffer, newOut.data, vector_size(&newOut));
 	vector_kill(&newOut);
-	return 0;
+	return true;
 }

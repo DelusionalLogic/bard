@@ -21,6 +21,6 @@ struct XlibColor {
 struct PipeStage color_getStage();
 
 //Parses a string for color
-int color_parseString(struct XlibColor* cobj, char* input, Vector* output);
+void color_parseString(jmp_buf jmpBuf, struct XlibColor* cobj, char* input, Vector* output);
 
 #endif
