@@ -15,7 +15,7 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
-The bard(1) daemon manages, formats, and prints information to lemonboy bar.
+The bard(1) daemon manages, formats, and prints information to lemonbar.
 
 
 OPTIONS
@@ -25,7 +25,7 @@ OPTIONS
 	the main 'bard.conf' configuration file 
 	(see <<X1, *GLOBAL CONFIGURATION*>>). It should also contain the 
 	'left', 'center', and 'right' directories, each containing the unit
-	files for that alignment.
+	files for that alignment (see <<X2, *UNIT CONFIGURATION*>>).
 
 
 SYNTAX

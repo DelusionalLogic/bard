@@ -1,6 +1,6 @@
-AC_INIT([bard], [1.0], [bug-report@address])
+AC_INIT([bard], [1.0], [https://github.com/DelusionalLogic/bard/issues])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
-AC_CONFIG_SRCDIR([src/main.c])
+AC_CONFIG_SRCDIR([src/xlib_color.c])
 : ${CFLAGS="-g -O0 -Wall"}
 AC_PROG_CC
 AC_PROG_CC_STDC
@@ -11,7 +11,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_PATH_PROG(A2X, a2x, no)
 AM_CONDITIONAL(HAVE_A2X, test "x$A2X" != "xno")
 if test x"$A2X" = x"no"; then
-  AC_MSG_ERROR([Test for asciidoc failed. See the file 'INSTALL' for help.])
+	AC_MSG_ERROR([Asciidoc is required to build documentation])
 fi
 
 AC_CONFIG_FILES([

@@ -16,5 +16,5 @@ else
 endif
 
 CLEANFILES = \
-	$(MAN5_FILES:.txt=.1) \
-	$(MAN5_FILES:.txt=.xml)
+	$(MAN1_FILES:.txt=.1) \
+	$(MAN1_FILES:.txt=.xml)

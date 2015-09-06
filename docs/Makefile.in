@@ -247,8 +247,8 @@ man_MANS = \
 	$(MAN1_FILES:.txt=.1)
 
 CLEANFILES = \
-	$(MAN5_FILES:.txt=.1) \
-	$(MAN5_FILES:.txt=.xml)
+	$(MAN1_FILES:.txt=.1) \
+	$(MAN1_FILES:.txt=.xml)
 
 all: all-am
 
