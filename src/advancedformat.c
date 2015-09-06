@@ -135,7 +135,7 @@ bool advFormatter_format(jmp_buf jmpBuf, struct AdvFormatter* formatter, struct 
 			log_write(LEVEL_ERROR, "Error in %s's regex: %s\n", unit->name, errBuff);
 			free(errBuff);
 			unit->buffer[0] = '\0';
-			return true;
+			return false;
 		}
 	} else {
 		matches[0].rm_so = 0;
