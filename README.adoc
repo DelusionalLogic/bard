@@ -1,0 +1,199 @@
+BARD(1)
+=======
+:doctype: manpage
+
+
+NAME
+----
+bard - Manages lemonboy bar with atomic units
+
+
+SYNOPSIS
+--------
+*bard* ['OPTIONS']
+
+
+DESCRIPTION
+-----------
+The bard(1) daemon manages, formats, and prints information to lemonboy bar.
+
+
+OPTIONS
+-------
+*-c, --config*='CONFIG'::
+    The configuration directory. The directory is expected to contain
+	the main 'bard.conf' configuration file 
+	(see <<X1, *GLOBAL CONFIGURATION*>>). It should also contain the 
+	'left', 'center', and 'right' directories, each containing the unit
+	files for that alignment.
+
+
+SYNTAX
+------
+Bard(1) uses the ini format for configuration files. Syntax:
+
+[Group]::
+    Option="Value"
+
+In this document options will be denoted:
+
+*Group:Option*::
+    Description
+
+
+[[X1]]
+GLOBAL CONFIGURATION (bard.conf)
+--------------------------------
+The bard(1) global 'bard.conf' file determines the global options
+for bard(1). Options:
+
+*display:separator*::
+    A string to insert between each unit output. (OPTIONAL, default="")
+
+*display:font*::
+    The default font to use when units reset the used font. (REQUIRED)
+
+*bar:path*::
+	The path to the lemonbar. This does search through the path (REQUIRED)
+
+*bar:geometry*::
+    The geometry string to pass on to lemonbar. The format for this is
+	widthxheight+x+y. (OPTIONAL, default=NULL)
+
+*bar:background*::
+    The background to pass to lemonbar. The format is '#AARRGGBB'.
+	(OPTIONAL, default=NULL)
+
+*bar:foreground*::
+    The foreground to pass to lemonbar. The format is '#AARRGGBB'.
+	(OPTIONAL, default=NULL)
+
+[[X2]]
+UNIT CONFIGURATION
+------------------
+The 'left', 'right', and 'center' directories contain unit configurations.
+Options:
+
+*unit:name*::
+    The name of the unit. Mainly used for error reporting. (REQUIRED)
+
+*unit:type*::
+    The type of the unit. Can be 'poll' or 'running'. A 'poll' unit will
+	run about every *display:interval* seconds passing the entire output
+	into the unit formatting (see <<X3, *FORMATTING*>>). 'running' units
+	should never exit. They require a *process:delimiter*, [[delim]]when this
+	string is encountered in the output stream the output is ended and
+	passed into the unit formatting (see <<X3, *FORMATTING*>>).
+	(OPTIONAL, default=poll)
+
+*process:delimiter*::
+	This is only used for running processes. See <<delim, above>> for what
+	this does. (OPTIONAL, default="\n")
+
+*display:command*::
+    The command to execute. For 'running' processes this command should never exit.
+	For 'poll' units this is the command that will be run every iteration of the
+	unit. (REQUIRED)
+
+*display:regex*::
+	The regex to match the output on. This is a extended gnu regexp(n) syntax.
+	Groups are supported, they are explained further in <<X3, *FORMATTING*>>.
+	(OPTIONAL, default=NULL)
+
+*display:advformat*::
+    This is a boolean value. True if advanced formatting is used, false if not.
+	Please read <<X3, *FORMATTING*>> for further explanation. (OPTIONAL, default=false)
+
+*display:format*::
+    The formatting string/command. This is once against best explained in
+	<<X3, *FORMATTING*>>. (REQUIRED)
+
+*display:interval*::
+	The interval between iterations of *display:command* in 'poll' units.
+	The guarantee is that the unit will not be run before this time, it
+	might not be exactly on time though. (OPTIONAL, default=10)
+
+*font:<name>*::
+    Allows you to specify unit specific fonts. These can be used in the format
+	string. The option name is user specified, multiple fonts are supported.
+	The option name is used to denote the font in the format string.
+	(OPTIONAL, default=NULL)
+
+[[X3]]
+FORMATTING
+----------
+The unit invocation is best imagined as a pipeline. 
+
+*Step 1*::
+    Command execution.
+	For 'poll' units this is done after *display:interval* time. For 'running' units it's
+	every time the *process:delimiter* string is observed. If the output is identical
+	to the previous run the rest of the pipeline will not be invoked, and the bar will
+	not be refreshed.
+
+*Step 2*::
+    Formatting.
+	This is the most complicated step. For units without the *display:advformat* flag set
+	the regex is matched to the command output from the previous step. From there the group
+	matches get substituted into the *display:format* string. '$1' is the complete match. '$2-' is the
+	matched groups. +
+	For units with the *display:advformat* flag set the regex is matched and the groups are
+	passed as arguments to an execution of the program located at the path specified in the
+	*display:format* option. +
+	If the regex is left unset only the first matching option is set. In this case it will be set to
+	the entirety of the command output.
+
+*Step 3*::
+    Fonts.
+	Every unit has support for fonts. These fonts have a key (the option name you chose).
+	To select a font the syntax '$font[<key>]' is used. This would most commonly be wrapped
+	in the lemonbar font selector syntax. bard(1) will substitute the font index in for you.
+
+*Step 4*::
+	Color.
+	Because colors are most commonly matched between applications bard(1) supports
+	reading colors from xlib(3). This is done automatically on startup. lemonbar
+	color codes can be inserted at any place using the syntax '$color[<color>]'.
+	(see <<X4, *COLORS*>> for available colors). This would most commonly be used
+	in a standard lemonbar color syntax.
+	This step is also executed for the foreground, background, and delimiter options of global
+	configuration file.
+
+
+[[X4]]
+COLOR NAMES
+-----------
+Color names listed in order from 0 to 15::
+    black
+	red
+	green
+	yellow
+	blue
+	magenta
+	cyan
+	white
+	grey
+	brightred
+	brightgreen
+	brightyellow
+	brightblue
+	brightmagenta
+	brightcyan
+	brightwhite
+
+
+EXIT STATUS
+-----------
+*0*::
+    Success
+
+
+AUTHOR
+------
+bard is written by Jesper Jensen
+
+
+COPYING
+-------
+Copyright \(C) 2015 Jesper Jensen. Free use of this software is
+granted under the terms of the GNU General Public License (GPL).
