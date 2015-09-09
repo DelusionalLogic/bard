@@ -43,8 +43,7 @@ void getFiles(jmp_buf jmpBuf, const char* path, Vector* nameList)
 
 	if((dir = opendir(path)) == NULL)
 	{
-		log_write(LEVEL_ERROR, "Couldn't open directory");
-		exit(1);
+		longjmp(jmpBuf, 100);
 	}
 	while((ent = readdir(dir)) != NULL)
 	{
@@ -53,7 +52,7 @@ void getFiles(jmp_buf jmpBuf, const char* path, Vector* nameList)
 		if(ent->d_type != DT_REG && ent->d_type != DT_LNK)
 			continue;
 		Vector name;
-		vector_init(jmpBuf, &name, sizeof(char), 100);
+		vector_init(jmpBuf, &name, sizeof(char), 64);
 		vector_putListBack(jmpBuf, &name, path, strlen(path));
 		vector_putBack(jmpBuf, &name, &slash);
 		vector_putListBack(jmpBuf, &name, ent->d_name, strlen(ent->d_name)+1);

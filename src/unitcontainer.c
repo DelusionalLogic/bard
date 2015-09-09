@@ -17,6 +17,9 @@
 #include "unitcontainer.h"
 #include <errno.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include "myerror.h"
 #include "fs.h"
 #include "unit.h"
 #include "configparser.h"
@@ -65,7 +68,36 @@ static bool parseType(jmp_buf jmpBuf, struct Unit* unit, const char* type)
 static void loadSide(jmp_buf jmpBuf, Vector* units, struct ConfigParser* parser, const char* path) {
 	Vector files;
 	vector_init(jmpBuf, &files, sizeof(char*), 5);
-	getFiles(jmpBuf, path, &files);
+	jmp_buf getEx;
+	int errCode = setjmp(getEx);
+	if(errCode == 0) {
+		getFiles(getEx, path, &files);
+	} else if(errCode == MYERR_NODIR) {
+		int status = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		if(status != 0) {
+			int myerrCode = 0;
+			switch(errno) {
+				case EACCES:
+				case EROFS:
+					myerrCode = MYERR_NOPERM;
+					break;
+				case ENAMETOOLONG:
+					myerrCode = MYERR_PATHLENGTH;
+					break;
+				case ENOENT:
+				case ENOTDIR:
+					myerrCode = MYERR_NODIR;
+					break;
+				case ENOSPC:
+					myerrCode = MYERR_NOSPACE;
+					break;
+			}
+			longjmp(jmpBuf, myerrCode);
+		}
+		getFiles(jmpBuf, path, &files);
+	} else {
+		longjmp(jmpBuf, errCode);
+	}
 	for(int i = 0; i < vector_size(&files); i++)
 	{
 		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(jmpBuf, &files, i));
