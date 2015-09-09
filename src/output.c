@@ -37,11 +37,16 @@ static void separator(jmp_buf jmpBuf, struct Output* output, const char* separat
 	strcpy(output->separator, colors);
 	free(colors);
 }
+static void monitors(jmp_buf jmpBuf, struct Output* output, int monitors) {
+	output->maxMon = monitors;
+}
 
 void out_init(jmp_buf jmpBuf, struct Output* output, char* configDir) {
 	struct ConfigParser parser;
 	struct ConfigParserEntry entry[] = {
 		StringConfigEntry("display:separator", separator, NULL),
+		IntConfigEntry("display:monitors", monitors, 1),
+		EndConfigEntry(),
 	};
 	cp_init(jmpBuf, &parser, entry);
 	char* path = pathAppend(configDir, "bard.conf");
@@ -104,15 +109,22 @@ static bool vecPrintUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 char* out_format(jmp_buf jmpBuf, struct Output* output, struct Unit* unit) {
 	Vector vec;
 	vector_init(jmpBuf, &vec, sizeof(char), 128);
-	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
-		vector_putListBack(jmpBuf, &vec, AlignStr[i], strlen(AlignStr[i]));
-		struct PrintUnitData data = {
-			.first = true,
-			.sep = output->separator,
-			.sepLen = strlen(output->separator),
-			.vec = &vec,
-		};
-		vector_foreach(jmpBuf, &output->out[i], vecPrintUnit, &data);
+	for(int mon = 0; mon < output->maxMon; mon++) {
+		char monStr[33];
+		int monStrLen = snprintf(monStr, 33, "%d", mon);
+		vector_putListBack(jmpBuf, &vec, "%{S", 3);
+		vector_putListBack(jmpBuf, &vec, monStr, monStrLen);
+		vector_putListBack(jmpBuf, &vec, "}", 1);
+		for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
+			vector_putListBack(jmpBuf, &vec, AlignStr[i], strlen(AlignStr[i]));
+			struct PrintUnitData data = {
+				.first = true,
+				.sep = output->separator,
+				.sepLen = strlen(output->separator),
+				.vec = &vec,
+			};
+			vector_foreach(jmpBuf, &output->out[i], vecPrintUnit, &data);
+		}
 	}
 	//Remember to add the terminator back on
 	static char term = '\0';

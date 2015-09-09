@@ -25,6 +25,7 @@
 struct Output {
 	char* separator;
 	Vector out[ALIGN_NUM];
+	int maxMon;
 };
 
 void out_init(jmp_buf jmpBuf, struct Output* output, char* configDir);

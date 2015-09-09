@@ -137,7 +137,7 @@ bool runner_process(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
 				break;
 			if(n == -1) {
 				log_write(LEVEL_ERROR, "Could not read from pipe: %s", strerror(errno));
-				return 2;
+				longjmp(procEx, 0xDEADBEEF); //TODO: ERR CODE
 			}
 			vector_putBack(procEx, &str, window + delimiterLen-1); //Put last char onto the final string
 			memcpy(window+1, window, delimiterLen-1); //This should move everything over one
@@ -157,6 +157,7 @@ bool runner_process(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
 		unit->buffoff = 0;
 		return true;
 	} else {
+		log_write(LEVEL_ERROR, "Error while retrieving input from running unit: %s", unit->name);
 		unit->buffer[0] = '\0';
 		longjmp(jmpBuf, errCode);
 	}

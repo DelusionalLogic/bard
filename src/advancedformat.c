@@ -191,5 +191,5 @@ bool advFormatter_format(jmp_buf jmpBuf, struct AdvFormatter* formatter, struct 
 	strcpy(unit->buffer, buff.data);
 	vector_kill(&buff);
 	pclose(f);
-	return 0;
+	return true;
 }

@@ -105,6 +105,8 @@ void colorize(jmp_buf jmpBuf, const char* str, char** out) {
 	else if(errCode == MYERR_ALLOCFAIL) {
 		log_write(LEVEL_ERROR, "Failed to allocate output string");
 		longjmp(jmpBuf, errCode);
+	}else{
+		log_write(LEVEL_ERROR, "Failed to allocate output string");
 	}
 
 	for(int i = 0; i < NUM_STAGES; i++) {
@@ -124,6 +126,8 @@ void colorize(jmp_buf jmpBuf, const char* str, char** out) {
 			else if(errCode == MYERR_ALLOCFAIL){
 				log_write(LEVEL_ERROR, "Failed to allocate output string");
 				longjmp(jmpBuf, errCode);
+			}else{
+				log_write(LEVEL_ERROR, "Failed while initializing output string");
 			}
 		}
 	}
@@ -146,10 +150,11 @@ bool executeUnit(jmp_buf jmpBuf, struct Unit* unit)
 			jmp_buf procEx;
 			int errCode = setjmp(procEx);
 			if(errCode == 0) {
-				if(!stage.process(procEx, stage.obj, unit))
+				if(!stage.process(procEx, stage.obj, unit)) {
+					log_write(LEVEL_INFO, "Stage %d asked to stop processing", i);
 					return false;
+				}
 			} else {
-				stage.enabled = false;
 				longjmp(jmpBuf, errCode);
 			}
 		}
