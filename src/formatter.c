@@ -159,7 +159,12 @@ bool formatter_format(jmp_buf jmpBuf, struct Formatter* formatter, struct Unit* 
 	if(unit->hasRegex) {
 		cache = getBuffer(jmpBuf, formatter, unit);
 		int err = regexec(&cache->regex, buffer, MAX_MATCH, matches, 0);
-		if(err) {
+		if(err == REG_NOMATCH) {
+			log_write(LEVEL_INFO, "No match in %s", unit->name);
+			matches[0].rm_so = 0;
+			matches[0].rm_eo = strlen(buffer)+1;
+			matches[1].rm_so = -1;
+		}else if(err) {
 			size_t reqSize = regerror(err, &cache->regex, NULL, 0);
 			char *errBuff = malloc(reqSize * sizeof(char));
 			regerror(err, &cache->regex, errBuff, reqSize);
