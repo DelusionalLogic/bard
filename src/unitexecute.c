@@ -52,11 +52,13 @@ static unsigned long hashString(char *str)
 bool unitexec_process(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
 	if(unit->type != UNIT_POLL)
 		return true;
+	if(unit->command == NULL)
+		return true;
 	/* Execute process */
 	FILE* f = (FILE*)popen(unit->command, "r");
 	Vector buff;
 	vector_init(jmpBuf, &buff, sizeof(char), 32);
-	ssize_t readLen;
+	size_t readLen;
 	char null = '\0';
 
 
