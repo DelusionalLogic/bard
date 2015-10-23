@@ -190,6 +190,8 @@ bool advFormatter_format(jmp_buf jmpBuf, struct AdvFormatter* formatter, struct 
 		vector_putBack(jmpBuf, &buff, &null);
 	strcpy(unit->buffer, buff.data);
 	vector_kill(&buff);
-	pclose(f);
+	int exitCode = WEXITSTATUS(pclose(f));
+	log_write(LEVEL_INFO, "Done: %d", exitCode);
+	unit->render = exitCode == 0;
 	return true;
 }

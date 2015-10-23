@@ -65,6 +65,9 @@ struct Unit {
 	/* Pipe descriptor if applicable */
 	int pipe;
 	int writefd;
+
+	/* True if we should be rendered */
+	bool render;
 };
 
 void unit_init(jmp_buf jmpBuf, struct Unit* unit);

@@ -48,6 +48,8 @@ void unit_init(jmp_buf jmpBuf, struct Unit* unit) {
 
 	unit->pipe = -1;
 	unit->writefd = -1;
+	
+	unit->render = true;
 }
 
 void unit_kill(struct Unit* unit) {
