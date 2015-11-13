@@ -55,7 +55,7 @@ void out_init(jmp_buf jmpBuf, struct Output* output, char* configDir) {
 	cp_kill(&parser);
 	
 	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
-		vector_init(jmpBuf, &output->out[i], sizeof(char*), 10);
+		vector_init(jmpBuf, &output->out[i], sizeof(struct Unit*), 10);
 	}
 }
 
@@ -71,8 +71,7 @@ struct AddUnitData {
 static bool vecAddUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct AddUnitData* data = (struct AddUnitData*)userdata;
 	struct Unit* unit = (struct Unit*)elem;
-	char** outPtr = (char**)&unit->buffer;
-	vector_putBack(jmpBuf, data->list, &outPtr);
+	vector_putBack(jmpBuf, data->list, &unit); //Copy pointer to vector
 	return true;
 }
 
@@ -95,12 +94,14 @@ struct PrintUnitData {
 };
 static bool vecPrintUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct PrintUnitData* data = (struct PrintUnitData*)userdata;
-	char** unit = (char**)elem;
+	struct Unit* unit = *(struct Unit**)elem;
+	if(!unit->render)
+		return true;
 	vector_putListBack(jmpBuf, data->vec, "%{F-}%{B-}%{T-}", 15);
 	if(!data->first)
 		vector_putListBack(jmpBuf, data->vec, data->sep, data->sepLen);
 	vector_putListBack(jmpBuf, data->vec, "%{F-}%{B-}%{T-}", 15);
-	vector_putListBack(jmpBuf, data->vec, *unit, strlen(*unit));
+	vector_putListBack(jmpBuf, data->vec, unit->buffer, strlen(unit->buffer));
 	data->first = false;
 	return true;
 }
