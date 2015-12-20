@@ -140,7 +140,7 @@ bool runner_process(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
 				longjmp(procEx, 0xDEADBEEF); //TODO: ERR CODE
 			}
 			vector_putBack(procEx, &str, window + delimiterLen-1); //Put last char onto the final string
-			memcpy(window+1, window, delimiterLen-1); //This should move everything over one
+			memmove(window+1, window, delimiterLen-1); //This should move everything over one
 			n = read(unit->pipe, window, 1);
 		}
 		vector_putListBack(procEx, &str, window, delimiterLen+1); //Put the \0 on there too

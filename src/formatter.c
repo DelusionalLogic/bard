@@ -185,8 +185,10 @@ bool formatter_format(jmp_buf jmpBuf, struct Formatter* formatter, struct Unit* 
 	for(int i = 0; i < MAX_MATCH; i++)
 	{
 		regmatch_t* match = &matches[i];
-		if(match->rm_so != -1)
-			numMatches = i+1;
+		if(match->rm_so == -1)
+			break;
+
+		numMatches = i+1;
 
 		int written = snprintf(lookup[i], LOOKUP_MAX, "$%d", i+1); //This should probably be computed at compiletime
 		if(written < 0)

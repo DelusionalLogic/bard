@@ -83,7 +83,7 @@ void sl_reorder(jmp_buf jmpBuf, struct SortedList* list, size_t index) {
 	this->next = cur;
 }
 
-int sl_foreach(jmp_buf jmpBuf, struct SortedList* list, int (*cb)(void*, void*), void* userdata) {
+int sl_foreach(jmp_buf jmpBuf, struct SortedList* list, bool (*cb)(jmp_buf, void*, void*), void* userdata) {
 	return ll_foreach(jmpBuf, &list->list, cb, userdata);
 }
 
