@@ -20,7 +20,7 @@
 #include "myerror.h"
 #include "logger.h"
 
-bool fontCmp(const void* straw, const void* needle, size_t eSize) {
+bool fontCmp(jmp_buf jmpBuf, const void* straw, const void* needle, size_t eSize) {
 	char* e1 = *(char**)straw;
 	return strcmp(e1, needle) == 0;
 }
