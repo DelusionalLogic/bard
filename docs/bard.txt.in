@@ -129,7 +129,8 @@ The unit invocation is best imagined as a pipeline.
 	For 'poll' units this is done after *display:interval* time. For 'running' units it's
 	every time the *process:delimiter* string is observed. If the output is identical
 	to the previous run the rest of the pipeline will not be invoked, and the bar will
-	not be refreshed.
+	not be refreshed. If the command string is empty, the execution is skipped and nothing
+	is passed to the formatting step.
 
 *Step 2*::
     Formatting.
@@ -139,7 +140,7 @@ The unit invocation is best imagined as a pipeline.
 	matched groups. +
 	For units with the *display:advformat* flag set the regex is matched and the groups are
 	passed as arguments to an execution of the program located at the path specified in the
-	*display:format* option. +
+	*display:format* option. This program has can exit with a code different from 0 to disable rendering. +
 	If the regex is left unset only the first matching option is set. In this case it will be set to
 	the entirety of the command output.
 
