@@ -22,17 +22,19 @@
 #include "configparser.h"
 #include "strcolor.h"
 
-void barconfig_init(jmp_buf jmpBuf, void* obj, char* configDir);
+void barconfig_init(jmp_buf jmpBuf, void* obj);
+void barconfig_reload(jmp_buf jmpBuf, void* obj, char* configDir);
 void barconfig_kill(void* obj);
 void barconfig_getArg(jmp_buf jmpBuf, void* obj, char* out, size_t outSize);
 
 struct PipeStage barconfig_getStage(jmp_buf jmpBuf) {
 	struct PipeStage stage;
 	stage.enabled = true;
-	stage.obj = malloc(sizeof(Vector));
+	stage.obj = malloc(sizeof(struct BarConfig));
 	if(stage.obj == NULL)
 		longjmp(jmpBuf, MYERR_ALLOCFAIL);
 	stage.create = barconfig_init;
+	stage.reload = barconfig_reload;
 	stage.addUnits = NULL;
 	stage.getArgs = barconfig_getArg;
 	stage.colorString = NULL;
@@ -108,15 +110,17 @@ static void foreground(jmp_buf jmpBuf, Vector* arg, const char* option) {
 	}
 }
 
-void barconfig_init(jmp_buf jmpBuf, void* obj, char* configDir) {
-	vector_init(jmpBuf, obj, sizeof(char), 128);
-	vector_putListBack(jmpBuf, obj, configDir, strlen(configDir)+1);
-	return;
+void barconfig_init(jmp_buf jmpBuf, void* obj) {
+	struct BarConfig* self = obj;
+	vector_init(jmpBuf, &self->arg, sizeof(char), 128);
 }
 
-void barconfig_getArg(jmp_buf jmpBuf, void* obj, char* out, size_t outSize) {
-	Vector args;
-	vector_init(jmpBuf, &args, sizeof(char), 128);
+void barconfig_reload(jmp_buf jmpBuf, void* obj, char* configDir) {
+	struct BarConfig* self = obj;
+
+	if(vector_size(&self->arg) != 0)
+		vector_clear(&self->arg);
+
 	struct ConfigParser parser;
 	struct ConfigParserEntry entry[] = {
 		StringConfigEntry("bar:geometry", geometry, NULL),
@@ -124,18 +128,22 @@ void barconfig_getArg(jmp_buf jmpBuf, void* obj, char* out, size_t outSize) {
 		StringConfigEntry("bar:foreground", foreground, NULL),
 	};
 	cp_init(jmpBuf, &parser, entry);
-	char* path = pathAppend(((Vector*)obj)->data, "bard.conf");
-	cp_load(jmpBuf, &parser, path, &args);
+	char* path = pathAppend(configDir, "bard.conf");
+	cp_load(jmpBuf, &parser, path, &self->arg);
 	free(path);
 	cp_kill(&parser);
-	vector_putBack(jmpBuf, &args, "\0");
+	vector_putBack(jmpBuf, &self->arg, "\0");
+}
 
+void barconfig_getArg(jmp_buf jmpBuf, void* obj, char* out, size_t outSize) {
+	struct BarConfig* self = obj;
 	size_t argLen = strlen(out);
-	if(argLen + vector_size(&args) > outSize)
+	if(argLen + vector_size(&self->arg) > outSize)
 		longjmp(jmpBuf, MYERR_NOSPACE);
-	strcpy(out + argLen, args.data);
+	strcpy(out + argLen, self->arg.data);
 }
 
 void barconfig_kill(void* obj) {
-	vector_kill(obj); //OBJ IS A VECTOR
+	struct BarConfig* self = obj;
+	vector_kill(&self->arg); //OBJ IS A VECTOR
 }

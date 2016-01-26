@@ -24,7 +24,8 @@
 struct PipeStage {
 	bool enabled;
 	void* obj;
-	void (*create)(jmp_buf jmpBuf, void* obj, char* configPath);
+	void (*create)(jmp_buf jmpBuf, void* obj);
+	void (*reload)(jmp_buf jmpBuf, void* obj, char* configPath);
 	void (*addUnits)(jmp_buf jmpBuf, void* obj, struct Units* units); //Temp name
 	void (*getArgs)(jmp_buf jmpBuf, void* obj, char* arg, size_t maxLen);
 	void (*colorString)(jmp_buf jmpBuf, void* obj, char* str, Vector* vec);

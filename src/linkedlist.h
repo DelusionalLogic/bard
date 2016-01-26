@@ -37,6 +37,8 @@ typedef bool (*Callback)(jmp_buf jmpBuf, void* element, void* userdata);
 void ll_init(jmp_buf jmpBuf, LinkedList* list, size_t elementSize);
 void ll_kill(LinkedList* list);
 
+void ll_clear(LinkedList* list);
+
 void* ll_insert(jmp_buf jmpBuf, LinkedList* list, size_t index, void* data);
 void* ll_get(jmp_buf jmpBuf, LinkedList* list, size_t index);
 

@@ -18,6 +18,11 @@
 
 #include "pipestage.h"
 #include "unit.h"
+#include "vector.h"
+
+struct BarConfig {
+	Vector arg;
+};
 
 struct PipeStage barconfig_getStage();
 

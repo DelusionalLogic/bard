@@ -35,6 +35,16 @@ void ll_kill(LinkedList* list)
 	} //Discard errors. That's too bad
 }
 
+void ll_clear(LinkedList* list)
+{
+	jmp_buf jmpBuf;
+	int errCode = setjmp(jmpBuf);
+	if(errCode == 0) {
+		while(list->length > 0)
+			ll_remove(jmpBuf, list, 0);
+	} //Discard errors. That's too bad
+}
+
 static struct llElement* construct(jmp_buf jmpBuf, size_t elementSize, void* data)
 {
 	void* newDat = malloc(elementSize);

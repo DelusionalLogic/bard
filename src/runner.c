@@ -32,6 +32,7 @@ struct PipeStage runner_getStage(jmp_buf jmpBuf) {
 	stage.enabled = true;
 	stage.obj = NULL;
 	stage.create = NULL;
+	stage.reload = NULL;
 	stage.addUnits = (void (*)(jmp_buf, void*, struct Units*))runner_addUnits;
 	stage.getArgs = NULL;
 	stage.colorString = NULL;

@@ -59,7 +59,8 @@ const char* colorName[MAXCOLOR] = {
 	"brightwhite",
 };
 
-void color_init(jmp_buf jmpBuf, void* obj, char* configPath);
+void color_init(jmp_buf jmpBuf, void* obj);
+void color_reload(jmp_buf jmpBuf, void* obj, char* configPath);
 void color_kill(void* obj);
 bool color_parseColor(jmp_buf jmpBuf, void* obj, struct Unit* unit);
 
@@ -70,6 +71,7 @@ struct PipeStage color_getStage(jmp_buf jmpBuf) {
 	if(stage.obj == NULL)
 		longjmp(jmpBuf, MYERR_ALLOCFAIL);
 	stage.create = color_init;
+	stage.reload = color_reload;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
 	stage.colorString = NULL;
@@ -79,10 +81,13 @@ struct PipeStage color_getStage(jmp_buf jmpBuf) {
 	return stage;
 }
 
-void color_init(jmp_buf jmpBuf, void* obj, char* configPath) {	
+void color_init(jmp_buf jmpBuf, void* obj) {	
 	struct XlibColor* cobj = (struct XlibColor*)obj;
-
 	cobj->color = (char (*)[COLORLEN])cobj->colormem;
+}
+
+void color_reload(jmp_buf jmpBuf, void* obj, char* configPath) {	
+	struct XlibColor* cobj = (struct XlibColor*)obj;
 
 	log_write(LEVEL_INFO, "Getting config for display");
 	Display* display  = XOpenDisplay(NULL);

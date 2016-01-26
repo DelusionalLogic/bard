@@ -30,6 +30,7 @@ struct PipeStage unitexec_getStage() {
 	stage.enabled = true;
 	stage.obj = NULL;
 	stage.create = NULL;
+	stage.reload = NULL;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
 	stage.colorString = NULL;

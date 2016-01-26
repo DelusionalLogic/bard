@@ -30,7 +30,8 @@ struct PipeStage font_getStage(jmp_buf jmpBuf){
 	stage.obj = calloc(1, sizeof(struct Font));
 	if(stage.obj == NULL)
 		longjmp(jmpBuf, MYERR_ALLOCFAIL);
-	stage.create = (void (*)(jmp_buf, void*, char*))font_init;
+	stage.create = (void (*)(jmp_buf, void*))font_init;
+	stage.reload = (void (*)(jmp_buf, void*, char*))font_reload;
 	stage.addUnits = (void (*)(jmp_buf, void*, struct Units*))font_addUnits;
 	stage.getArgs = (void (*)(jmp_buf, void*, char*, size_t))font_getArgs;
 	stage.process = (bool (*)(jmp_buf, void*, struct Unit*))font_format;
@@ -63,8 +64,12 @@ int defFont(jmp_buf jmpBuf, struct Font* font, const char* defFont) {
 	return true;
 }
 
-void font_init(jmp_buf jmpBuf, struct Font* font, char* configDir) {
+void font_init(jmp_buf jmpBuf, struct Font* font) {
 	vector_init(jmpBuf, &font->fonts, sizeof(struct FontCont), 8);
+}
+
+void font_reload(jmp_buf jmpBuf, struct Font* font, char* configDir) {
+	vector_clear(&font->fonts);
 
 	struct ConfigParser parser;
 	struct ConfigParserEntry entry[] = {
@@ -144,6 +149,9 @@ static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
 }
 
 void font_addUnits(jmp_buf jmpBuf, struct Font* font, struct Units* units){
+	if(vector_size(&font->fonts) != 0)
+			vector_clear(&font->fonts);
+
 	struct addUnitFontsData fontData = {
 		.fonts = &font->fonts,
 	};

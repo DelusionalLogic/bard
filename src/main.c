@@ -215,7 +215,7 @@ int main(int argc, char **argv)
 		exit(errCode);
 	}
 
-	//Initialize all stages in pipeline (This is where they load the configuration)
+	//Initialize all stages in pipeline
 	for(int i = 0; i < NUM_STAGES; i++) {
 		struct PipeStage stage = pipeline[i];
 		if(stage.enabled != true)
@@ -224,7 +224,40 @@ int main(int argc, char **argv)
 			jmp_buf stageEx;
 			int errCode = setjmp(stageEx);
 			if(errCode == 0) {
-				stage.create(stageEx, stage.obj, arguments.configDir);
+				stage.create(stageEx, stage.obj);
+			} else {
+				log_write(LEVEL_WARNING, "Unknown error creating pipe stage %d, error: %d", i, errCode);
+				stage.enabled = false;
+			}
+		}
+	}
+
+	//TODO: This is ugly, i need to think about how to fix this
+	//Ideally barconfig should not use the color script while reloading
+	//Maybe in getargs?
+	{
+		struct PipeStage stage = pipeline[6];
+		if(stage.enabled && stage.create != NULL) {
+			jmp_buf stageEx;
+			int errCode = setjmp(stageEx);
+			if(errCode == 0) {
+				stage.reload(stageEx, stage.obj, arguments.configDir);
+			} else {
+				log_write(LEVEL_WARNING, "Unknown error creating pipe stage %d, error: %d", 6, errCode);
+				stage.enabled = false;
+			}
+		}
+	}
+
+	for(int i = 0; i < NUM_STAGES; i++) {
+		struct PipeStage stage = pipeline[i];
+		if(stage.enabled != true)
+			continue;
+		if(stage.create != NULL) {
+			jmp_buf stageEx;
+			int errCode = setjmp(stageEx);
+			if(errCode == 0) {
+				stage.reload(stageEx, stage.obj, arguments.configDir);
 			} else {
 				log_write(LEVEL_WARNING, "Unknown error creating pipe stage %d, error: %d", i, errCode);
 				stage.enabled = false;

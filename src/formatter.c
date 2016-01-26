@@ -41,7 +41,8 @@ struct PipeStage formatter_getStage(jmp_buf jmpBuf) {
 	stage.obj = calloc(1, sizeof(struct Formatter));
 	if(stage.obj == NULL)
 		longjmp(jmpBuf, MYERR_ALLOCFAIL);
-	stage.create = (void (*)(jmp_buf, void*, char*))formatter_init;
+	stage.create = (void (*)(jmp_buf, void*))formatter_init;
+	stage.reload = (void (*)(jmp_buf, void*, char*))formatter_reload;
 	stage.addUnits = NULL;
 	stage.getArgs = NULL;
 	stage.colorString = NULL;
@@ -50,9 +51,15 @@ struct PipeStage formatter_getStage(jmp_buf jmpBuf) {
 	return stage;
 }
 
-void formatter_init(jmp_buf jmpBuf, struct Formatter* formatter, char* configDir)
+void formatter_init(jmp_buf jmpBuf, struct Formatter* formatter)
 {
 	ll_init(jmpBuf, &formatter->bufferList, sizeof(struct RegBuff));
+}
+
+void formatter_reload(jmp_buf jmpBuf, struct Formatter* formatter, char* configDir)
+{
+	ll_foreach(NULL, &formatter->bufferList, regBuffFree, NULL);
+	ll_clear(&formatter->bufferList);
 }
 
 void formatter_kill(struct Formatter* formatter)
