@@ -154,7 +154,7 @@ bool advFormatter_format(jmp_buf jmpBuf, struct AdvFormatter* formatter, struct 
 		}
 	} else {
 		matches[0].rm_so = 0;
-		matches[0].rm_eo = strlen(buffer)+1;
+		matches[0].rm_eo = strlen(buffer);
 		matches[1].rm_so = -1;
 	}
 
