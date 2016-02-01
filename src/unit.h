@@ -58,14 +58,6 @@ struct Unit {
 	/* Command buffering */
 	unsigned long hash;
 
-	/* Scratch buffer between stages */
-	char buffer[UNIT_BUFFLEN];
-	size_t buffoff; //If we did a partial buffer fill last run
-
-	/* Pipe descriptor if applicable */
-	int pipe;
-	int writefd;
-
 	/* True if we should be rendered */
 	bool render;
 };

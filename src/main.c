@@ -26,11 +26,11 @@
 #include <unistd.h>
 #include <setjmp.h>
 
+#include "regex.h"
 #include "myerror.h"
 #include "xlib_color.h"
 #include "strcolor.h"
 #include "barconfig.h"
-#include "pipestage.h"
 #include "unitcontainer.h"
 #include "map.h"
 #include "unit.h"
@@ -79,9 +79,6 @@ static error_t parse_opt(int key, char* arg, struct argp_state *state)
 
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
-#define NUM_STAGES 10
-struct PipeStage pipeline[NUM_STAGES] = {0};
-
 int freePtr(void* elem, void* userdata) {
 	char** data = (char**) elem;
 	free(*data);
@@ -93,47 +90,6 @@ struct PatternMatch{
 	size_t endPos;
 };
 
-void colorize(jmp_buf jmpBuf, const char* str, char** out) {
-	bool first = true;
-	char* curStr = str;
-	Vector vec;
-
-	jmp_buf newEx;
-	int errCode = setjmp(newEx);
-	if(errCode == 0)
-		vector_init(newEx, &vec, sizeof(char), 64);
-	else if(errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_ERROR, "Failed to allocate output string");
-		longjmp(jmpBuf, errCode);
-	}else{
-		log_write(LEVEL_ERROR, "Failed to allocate output string");
-	}
-
-	for(int i = 0; i < NUM_STAGES; i++) {
-		struct PipeStage stage = pipeline[i];
-		if(stage.enabled != true)
-			continue;
-		if(stage.colorString != NULL) {
-			stage.colorString(jmpBuf, stage.obj, curStr, &vec);
-			if(!first)
-				free(curStr);
-			first = false;
-			curStr = vector_detach(&vec);
-			jmp_buf newEx;
-			int errCode = setjmp(newEx);
-			if(errCode == 0)
-				vector_init(newEx, &vec, sizeof(char), 64);
-			else if(errCode == MYERR_ALLOCFAIL){
-				log_write(LEVEL_ERROR, "Failed to allocate output string");
-				longjmp(jmpBuf, errCode);
-			}else{
-				log_write(LEVEL_ERROR, "Failed while initializing output string");
-			}
-		}
-	}
-	*out = curStr;
-}
-
 struct Output outputter;
 FILE* bar;
 
@@ -142,21 +98,17 @@ bool executeUnit(jmp_buf jmpBuf, struct Unit* unit)
 	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
 	/* Format the output for the bar */
-	for(int i = 0; i < NUM_STAGES; i++) {
-		struct PipeStage stage = pipeline[i];
-		if(stage.enabled != true)
-			continue;
-		if(stage.process != NULL) {
-			jmp_buf procEx;
-			int errCode = setjmp(procEx);
-			if(errCode == 0) {
-				if(!stage.process(procEx, stage.obj, unit)) {
-					log_write(LEVEL_INFO, "Stage %d asked to stop processing", i);
-					return false;
-				}
-			} else {
-				longjmp(jmpBuf, errCode);
+	{
+		char* unitStr;
+
+		jmp_buf procEx;
+		int errCode = setjmp(procEx);
+		if(errCode == 0) {
+			if(!unitexec_execUnit(procEx, unit, &unitStr)) {
+				return false;
 			}
+		} else {
+			longjmp(jmpBuf, errCode);
 		}
 	}
 	return true;
@@ -171,7 +123,6 @@ void render(jmp_buf jmpBuf) {
 	free(out);
 	fflush(bar);
 	fflush(stdout);
-	return true;
 }
 
 int main(int argc, char **argv)
@@ -185,28 +136,10 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	jmp_buf pipeEx;
-	int errCode = setjmp(pipeEx);
-	if(errCode == 0) {
-		//Setup pipeline
-		pipeline[0] = barconfig_getStage(pipeEx);
-		pipeline[1] = unitexec_getStage(pipeEx);
-		pipeline[2] = runner_getStage(pipeEx);
-		pipeline[3] = formatter_getStage(pipeEx);
-		pipeline[4] = advFormatter_getStage(pipeEx);
-		pipeline[5] = font_getStage(pipeEx);
-		pipeline[6] = color_getStage(pipeEx);
-	} else if(errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_FATAL, "Couldn't allocate a stage");
-		exit(MYERR_ALLOCFAIL);
-	} else {
-		log_write(LEVEL_WARNING, "Unknown error with a stage, error: %d", errCode);
-	}
-
 	struct Units units;
 
 	jmp_buf loadEx;
-	errCode = setjmp(loadEx);
+	int errCode = setjmp(loadEx);
 	if(errCode == 0) {
 		units_init(loadEx, &units);
 		units_load(loadEx, &units, arguments.configDir);
@@ -215,74 +148,45 @@ int main(int argc, char **argv)
 		exit(errCode);
 	}
 
-	//Initialize all stages in pipeline (This is where they load the configuration)
-	for(int i = 0; i < NUM_STAGES; i++) {
-		struct PipeStage stage = pipeline[i];
-		if(stage.enabled != true)
-			continue;
-		if(stage.create != NULL) {
+	{
+		Vector launch;
+		jmp_buf launchEx;
+		int errCode = setjmp(launchEx);
+		if(errCode == 0) {
+			vector_init(launchEx, &launch, sizeof(char), 1024);
+
+			//Make the lemonbar launch string
+			char* confPath = pathAppend(arguments.configDir, "bard.conf");
+			dictionary* dict = iniparser_load(confPath);
+			const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
+			vector_putListBack(launchEx, &launch, executable, strlen(executable));
+
+			iniparser_freedict(dict);
 			jmp_buf stageEx;
 			int errCode = setjmp(stageEx);
 			if(errCode == 0) {
-				stage.create(stageEx, stage.obj, arguments.configDir);
+				barconfig_getArgs(stageEx, &launch, confPath);
 			} else {
-				log_write(LEVEL_WARNING, "Unknown error creating pipe stage %d, error: %d", i, errCode);
-				stage.enabled = false;
+				log_write(LEVEL_ERROR, "Unknown error when constructing bar arg string, error: %d", errCode);
 			}
+
+			free(confPath);
+
+			//TODO: Where the hell does this belong?
+			//Lets load that bar!
+			log_write(LEVEL_INFO, "Starting %s", launch.data);
+			bar = popen(launch.data, "w");
+			vector_kill(&launch);
+
+		} else {
+			log_write(LEVEL_FATAL, "Couldn't allocate space for launch string");
+			exit(errCode);
 		}
 	}
-
-	for(int i = 0; i < NUM_STAGES; i++) {
-		struct PipeStage stage = pipeline[i];
-		if(stage.enabled != true)
-			continue;
-		if(stage.addUnits != NULL) {
-			jmp_buf stageEx;
-			int errCode = setjmp(stageEx);
-			if(errCode == 0) {
-				stage.addUnits(stageEx, stage.obj, &units);
-			} else {
-				log_write(LEVEL_ERROR, "Unknown error while adding units to stage %d, error: %d", i, errCode);
-				stage.enabled = false;
-			}
-		}
-	}
-
-	char* confPath = pathAppend(arguments.configDir, "bard.conf");
-	dictionary* dict = iniparser_load(confPath);
-	free(confPath);
-	const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
-
-	char lBuff[2048];
-	strcpy(lBuff, executable);
-	iniparser_freedict(dict);
-	for(int i = 0; i < NUM_STAGES; i++) {
-		struct PipeStage stage = pipeline[i];
-		if(stage.enabled != true)
-			continue;
-		if(stage.getArgs != NULL) {
-			jmp_buf stageEx;
-			int errCode = setjmp(stageEx);
-			if(errCode == 0) {
-				stage.getArgs(stageEx, stage.obj, lBuff, 2048);
-			} else if(errCode == MYERR_ALLOCFAIL) {
-				log_write(LEVEL_ERROR, "Couldn't prepare bar launch string. It would have been too long");
-				exit(errCode);
-			} else {
-				log_write(LEVEL_WARNING, "Unknown error when constructing bar arg string in unit %d, error: %d", i, errCode);
-			}
-		}
-	}
-
-	//TODO: Where the hell does this belong?
-	//Lets load that bar!
-	log_write(LEVEL_INFO, "Starting %s", lBuff);
-	bar = popen(lBuff, "w");
 
 	jmp_buf outEx;
 	errCode = setjmp(outEx);
 	if(errCode == 0) {
-		//Now lets run the units in a loop and write to bar
 		out_init(outEx, &outputter, arguments.configDir); // Out is called from workmanager_run. It has to be ready before that is called
 		out_addUnits(outEx, &outputter, &units);
 	} else {
@@ -290,11 +194,54 @@ int main(int argc, char **argv)
 		exit(errCode);
 	}
 
+	{
+		struct Regex regexCache;
+		regex_init(&regexCache);
+		struct FormatArray regexArr = {0};
+
+		jmp_buf regexEx;
+		int errCode = setjmp(regexEx);
+		if(errCode == 0) {
+			regex_compile(regexEx, &regexCache, &units);
+			regex_match(regexEx, &regexCache, vector_get(regexEx, &units.left, 0), NULL, &regexArr);
+			char* str;
+			formatter_format(regexEx, "$regex[a]hello $regex[a]world", &regexArr, 1, &str);
+			log_write(LEVEL_INFO, "STR STR: %s", str);
+			free(str);
+		} else {
+			log_write(LEVEL_FATAL, "Could not regex");
+			exit(errCode);
+		}
+
+		regex_kill(&regexCache);
+	}
+
+	{
+		struct XlibColor xColor;
+		struct FormatArray xcolorArr = {0};
+
+		jmp_buf regexEx;
+		int errCode = setjmp(regexEx);
+		if(errCode == 0) {
+			xcolor_loadColors(regexEx, &xColor);
+			xcolor_formatArray(regexEx, &xColor, vector_get(regexEx, &units.left, 0), &xcolorArr);
+			char* str;
+			formatter_format(regexEx, "$xcolor[black]hello $xcolor[white]world", &xcolorArr, 1, &str);
+			log_write(LEVEL_INFO, "STR STR: %s", str);
+			free(str);
+		} else {
+			log_write(LEVEL_FATAL, "Could not color");
+			exit(errCode);
+		}
+	}
+
 	struct WorkManager wm;
 	jmp_buf manEx;
 	errCode = setjmp(manEx);
 	if(errCode == 0) {
-		workmanager_init(manEx, &wm);
+		struct RunnerBuffer buff;
+		runner_startPipes(manEx, &buff, &units);
+		workmanager_init(manEx, &wm, &buff);
 
 		int errCode = setjmp(manEx);
 		if(errCode == 0) {
@@ -315,14 +262,6 @@ int main(int argc, char **argv)
 	workmanager_kill(&wm);
 
 	out_kill(&outputter);
-
-	for(int i = 0; i < NUM_STAGES; i++) {
-		struct PipeStage stage = pipeline[i];
-		if(stage.enabled != true)
-			continue;
-		if(stage.destroy != NULL)
-			stage.destroy(stage.obj);
-	}
 
 	pclose(bar);
 

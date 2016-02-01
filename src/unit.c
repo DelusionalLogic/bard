@@ -43,12 +43,7 @@ void unit_init(jmp_buf jmpBuf, struct Unit* unit) {
 	unit->delimiter = NULL;
 
 	unit->hash = 0;
-	memset(unit->buffer, 0x00, sizeof(unit->buffer));
-	unit->buffoff = 0;
 
-	unit->pipe = -1;
-	unit->writefd = -1;
-	
 	unit->render = true;
 }
 

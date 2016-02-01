@@ -25,19 +25,6 @@
 
 static int min(int a, int b) { return a < b ? a : b; }
 
-struct PipeStage unitexec_getStage() {
-	struct PipeStage stage;
-	stage.enabled = true;
-	stage.obj = NULL;
-	stage.create = NULL;
-	stage.addUnits = NULL;
-	stage.getArgs = NULL;
-	stage.colorString = NULL;
-	stage.process = unitexec_process;
-	stage.destroy = NULL;
-	return stage;
-}
-
 static unsigned long hashString(char *str)
 {
 	unsigned long hash = 5381;
@@ -49,7 +36,7 @@ static unsigned long hashString(char *str)
 	return hash;
 }
 
-bool unitexec_process(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
+bool unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out) {
 	if(unit->type != UNIT_POLL)
 		return true;
 	if(unit->command == NULL)
@@ -82,7 +69,6 @@ bool unitexec_process(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
 		return false;
 	}
 	unit->hash = newHash;
-	strncpy(unit->buffer, buff.data, min(vector_size(&buff), UNIT_BUFFLEN));
-	vector_kill(&buff);
+	*out = vector_detach(&buff);
 	return true;
 }

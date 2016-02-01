@@ -17,10 +17,8 @@
 #define UNITEXECUTE_H
 
 #include <setjmp.h>
-#include "pipestage.h"
+#include <stdbool.h>
+#include "unit.h"
 
-struct PipeStage unitexec_getStage();
-
-bool unitexec_process(jmp_buf, void*, struct Unit* unit);
-
+bool unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out);
 #endif

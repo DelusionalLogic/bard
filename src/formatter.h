@@ -16,19 +16,10 @@
 #ifndef FORMATTER_H
 #define FORMATTER_H
 
-#include "pipestage.h"
-#include "unit.h"
+#include "vector.h"
 #include "linkedlist.h"
+#include "formatarray.h"
 
-struct Formatter {
-	LinkedList bufferList;
-}; 
-
-struct PipeStage formatter_getStage();
-
-void formatter_init(jmp_buf jmpBuf, struct Formatter* formatter, char* configDir);
-void formatter_kill(struct Formatter* formatter);
-
-bool formatter_format(jmp_buf jmpBuf, struct Formatter* formatter, struct Unit* unit);
+bool formatter_format(jmp_buf jmpBuf, char* input, struct FormatArray arrays[], size_t arraysCnt, char** Poutput);
 
 #endif

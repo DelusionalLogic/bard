@@ -22,13 +22,13 @@
 #include "vector.h"
 #include "logger.h"
 #include "unit.h"
-#include "strcolor.h"
 
 static void separator(jmp_buf jmpBuf, struct Output* output, const char* separator) {
-	if(separator == NULL) {
+	if(separator == NULL || true) {
 		output->separator = "";
 		return;
 	}
+	/*
 	output->separator = malloc(strlen(separator) * sizeof(char));
 	if(output->separator == NULL)
 		longjmp(jmpBuf, MYERR_ALLOCFAIL);
@@ -36,6 +36,7 @@ static void separator(jmp_buf jmpBuf, struct Output* output, const char* separat
 	colorize(jmpBuf, separator, &colors);
 	strcpy(output->separator, colors);
 	free(colors);
+	*/
 }
 static void monitors(jmp_buf jmpBuf, struct Output* output, int monitors) {
 	output->maxMon = monitors;
@@ -101,7 +102,7 @@ static bool vecPrintUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 	if(!data->first)
 		vector_putListBack(jmpBuf, data->vec, data->sep, data->sepLen);
 	vector_putListBack(jmpBuf, data->vec, "%{F-}%{B-}%{T-}", 15);
-	vector_putListBack(jmpBuf, data->vec, unit->buffer, strlen(unit->buffer));
+	//vector_putListBack(jmpBuf, data->vec, unit->buffer, strlen(unit->buffer));
 	data->first = false;
 	return true;
 }

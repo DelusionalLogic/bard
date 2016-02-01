@@ -136,6 +136,16 @@ bool vector_foreach(jmp_buf jmpBuf, Vector* vector, bool (*callback)(jmp_buf jmp
 	return true;
 }
 
+void* vector_getFirst(jmp_buf jmpBuf, Vector* vector, int* index) {
+	*index = 0;
+	return vector_get(jmpBuf, vector, *index);
+}
+
+void* vector_getNext(jmp_buf jmpBuf, Vector* vector, int* index) {
+	++(*index);
+	return vector_get(jmpBuf, vector, *index);
+}
+
 int vector_size(Vector* vector)
 {
 	assert(vector->elementSize != 0);

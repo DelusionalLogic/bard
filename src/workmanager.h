@@ -19,17 +19,19 @@
 #include <stdbool.h>
 #include <sys/select.h>
 #include "unitcontainer.h"
+#include "runner.h"
 #include "sortedlist.h"
 #include "vector.h"
 #include "unit.h"
 
 struct WorkManager {
+	struct RunnerBuffer* buffer;
 	struct SortedList list;
 	Vector pipeList;
 	fd_set fdset;
 };
 
-void workmanager_init(jmp_buf jmpBuf, struct WorkManager* manager);
+void workmanager_init(jmp_buf jmpBuf, struct WorkManager* manager, struct RunnerBuffer* buffers);
 void workmanager_kill(struct WorkManager* manager);
 
 void workmanager_addUnits(jmp_buf jmpBuf, struct WorkManager* manager, struct Units* units);

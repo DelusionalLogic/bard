@@ -16,8 +16,23 @@
 #ifndef RUNNER_H
 #define RUNNER_H
 
-#include "pipestage.h"
+#include <Judy.h>
+#include <stdbool.h>
+#include <setjmp.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include "unitcontainer.h"
+#include "unit.h"
 
-struct PipeStage runner_getStage();
+struct RunnerBuffer{
+	Pvoid_t buffers;
+	size_t longestKey;
+	Pvoid_t owners;
+};
+
+void runner_startPipes(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Units* units);
+fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers);
+bool runner_ready(jmp_buf jmpBuf, struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit);
+bool runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit, char** const out);
 
 #endif

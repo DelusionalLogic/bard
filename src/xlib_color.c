@@ -22,7 +22,7 @@
 #include "fs.h"
 #include "vector.h"
 
-const char* colorCode[MAXCOLOR] = {
+static const char* colorCode[MAXCOLOR] = {
 	"color0",
    	"color1",
 	"color2",
@@ -40,7 +40,7 @@ const char* colorCode[MAXCOLOR] = {
 	"color14",
 	"color15",
 };
-const char* colorName[MAXCOLOR] = {
+static const char* colorName[MAXCOLOR] = {
 	"black",
 	"red",
 	"green",
@@ -59,40 +59,18 @@ const char* colorName[MAXCOLOR] = {
 	"brightwhite",
 };
 
-void color_init(jmp_buf jmpBuf, void* obj, char* configPath);
-void color_kill(void* obj);
-bool color_parseColor(jmp_buf jmpBuf, void* obj, struct Unit* unit);
-
-struct PipeStage color_getStage(jmp_buf jmpBuf) {
-	struct PipeStage stage;
-	stage.enabled = true;
-	stage.obj = malloc(sizeof(struct XlibColor));
-	if(stage.obj == NULL)
-		longjmp(jmpBuf, MYERR_ALLOCFAIL);
-	stage.create = color_init;
-	stage.addUnits = NULL;
-	stage.getArgs = NULL;
-	stage.colorString = NULL;
-	stage.colorString = color_parseString;
-	stage.process = color_parseColor;
-	stage.destroy = color_kill;
-	return stage;
-}
-
-void color_init(jmp_buf jmpBuf, void* obj, char* configPath) {	
-	struct XlibColor* cobj = (struct XlibColor*)obj;
-
-	cobj->color = (char (*)[COLORLEN])cobj->colormem;
+void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj) {	
+	obj->color = (char (*)[COLORLEN])obj->colormem;
 
 	log_write(LEVEL_INFO, "Getting config for display");
 	Display* display  = XOpenDisplay(NULL);
 	XrmInitialize();
-	cobj->rdb = XrmGetDatabase(display);
-	if(!cobj->rdb){
+	obj->rdb = XrmGetDatabase(display);
+	if(!obj->rdb){
 		//Stolen from awesomewm, seems like quite the hack
 		(void)XGetDefault(display, "", "");
-		cobj->rdb = XrmGetDatabase(display);
-		if(!cobj->rdb) {
+		obj->rdb = XrmGetDatabase(display);
+		if(!obj->rdb) {
 			log_write(LEVEL_WARNING, "Failed opening the X resource manager");
 			longjmp(jmpBuf, MYERR_XOPEN);
 		}
@@ -102,12 +80,12 @@ void color_init(jmp_buf jmpBuf, void* obj, char* configPath) {
 	char* resType;
 	XrmValue res;
 	for(int i = 0; i < MAXCOLOR; i++) {
-		int resCode = XrmGetResource(cobj->rdb, colorCode[i], NULL, &resType, &res);
+		int resCode = XrmGetResource(obj->rdb, colorCode[i], NULL, &resType, &res);
 		if(resCode && (strcmp(resType, "String")) == 0){
-			snprintf(cobj->color[i], 4, "#FF");
+			snprintf(obj->color[i], 4, "#FF");
 			size_t cnt = 0;
 			while(*(res.addr + cnt) != '\0') {
-				*(cobj->color[i] + 3 + cnt) = toupper(*(res.addr + 1 + cnt));
+				*(obj->color[i] + 3 + cnt) = toupper(*(res.addr + 1 + cnt));
 				cnt++;
 			}
 		}
@@ -115,78 +93,17 @@ void color_init(jmp_buf jmpBuf, void* obj, char* configPath) {
 	XCloseDisplay(display); //This also destroys the database object (rdb)
 }
 
-void color_kill(void* obj) {
-}
+bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct Unit* unit, struct FormatArray* array) {
+	PWord_t val;
 
-#define LOOKUP_MAX 16
-static char* getNext(const char* curPos, int* index, char (*lookups)[LOOKUP_MAX], size_t lookupsLen)
-{
-	char* curMin = strstr(curPos, lookups[0]);
-	*index = 0;
-	char* thisPos = NULL;
-	for(size_t i = 1; i < lookupsLen; i++)
-	{
-		thisPos = strstr(curPos, lookups[i]);
-		if(thisPos == NULL)
-			continue;
-		if(curMin == NULL || thisPos < curMin)
-		{
-			curMin = thisPos;
-			*index = i;
-		}
+	strcpy(array->name, "xcolor");
+
+	for(int i = 0; i < MAXCOLOR; i++) {
+		JSLI(val, array->array, colorName[i]);
+		*val = xcolor->color[i];
 	}
-	return curMin;
-}
+	JSLI(val, array->array, "a");
+	*val = (unsigned long)"TEST";
 
-void color_parseString(jmp_buf jmpBuf, struct XlibColor* cobj, char* input, Vector* output) {
-	char lookupmem[(MAXCOLOR * 2)*LOOKUP_MAX] = {0}; //Mutliply by two because each color has two variants 
-	char (*lookup)[LOOKUP_MAX] = (char (*)[LOOKUP_MAX])lookupmem;
-	for(int i = 0; i < MAXCOLOR; i++)
-	{
-		snprintf(lookup[i], LOOKUP_MAX, "$color[%d]", i); //This should probably be computed at compiletime
-		snprintf(lookup[i+16], LOOKUP_MAX, "$color[%s]", colorName[i]); //This should probably be computed at compiletime
-		//TODO: Error checking
-	}	 
-	size_t formatLen = strlen(input)+1;
-	const char* curPos = input;
-	const char* prevPos = NULL;
-	while(curPos < input + formatLen)
-	{
-		prevPos = curPos;
-		int index = 0;
-		curPos = getNext(curPos, &index, lookup, MAXCOLOR*2);
-
-		if(curPos == NULL)
-			break;
-
-		int colorNum = index % 16; //We need to find the "shorter" code for the color
-		vector_putListBack(jmpBuf, output, prevPos, curPos-prevPos);
-		vector_putListBack(jmpBuf, output, cobj->color[colorNum], strlen(cobj->color[colorNum]));
-		curPos += strlen(lookup[index]);
-	}
-	vector_putListBack(jmpBuf, output, prevPos, input + formatLen - prevPos);
-}
-
-bool color_parseColor(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
-	struct XlibColor* cobj = (struct XlibColor*)obj;
-	Vector newOut;
-	vector_init(jmpBuf, &newOut, sizeof(char), UNIT_BUFFLEN); 
-
-	jmp_buf parseEx;
-	int errCode = setjmp(parseEx);
-	if(errCode == 0) {
-		color_parseString(jmpBuf, cobj, unit->buffer, &newOut);
-	} else {
-		log_write(LEVEL_ERROR, "Couldn't parse the color in %s", unit->name);
-		longjmp(jmpBuf, errCode);
-	}
-
-	if(vector_size(&newOut) > UNIT_BUFFLEN) {
-		log_write(LEVEL_ERROR, "No space in unit buffer");
-		log_write(LEVEL_ERROR, "-- While parsing color in %s", unit->name);
-		longjmp(jmpBuf, MYERR_NOSPACE);
-	}
-	strncpy(unit->buffer, newOut.data, vector_size(&newOut));
-	vector_kill(&newOut);
 	return true;
 }

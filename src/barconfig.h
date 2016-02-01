@@ -16,9 +16,9 @@
 #ifndef BARCONFIG_H
 #define BARCONFIG_H
 
-#include "pipestage.h"
+#include <setjmp.h>
 #include "unit.h"
 
-struct PipeStage barconfig_getStage();
+void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile);
 
 #endif

@@ -20,41 +20,21 @@
 #include <stdio.h>
 #include <wordexp.h>
 #include <errno.h>
+#include <assert.h>
 #include "myerror.h"
-#include "unitcontainer.h"
 #include "logger.h"
 
-void runner_addUnits(jmp_buf, void* obj, struct Units* units);
-bool runner_process(jmp_buf, void* obj, struct Unit* unit);
-
-struct PipeStage runner_getStage(jmp_buf jmpBuf) {
-	struct PipeStage stage;
-	stage.enabled = true;
-	stage.obj = NULL;
-	stage.create = NULL;
-	stage.addUnits = (void (*)(jmp_buf, void*, struct Units*))runner_addUnits;
-	stage.getArgs = NULL;
-	stage.colorString = NULL;
-	stage.process = (bool (*)(jmp_buf, void*, struct Unit* unit)) runner_process;
-	stage.destroy = NULL;
-	return stage;
-}
-
-static int run(jmp_buf jmpBuf, struct Unit* unit) {
-	if(unit->pipe == -1) {
-		log_write(LEVEL_ERROR, "Trying to execute unit %s, but the pipe isn't open\n", unit->name);
-		longjmp(jmpBuf, MYERR_BADFD);
-	}
+static int run(jmp_buf jmpBuf, char* command, int writefd) {
+	assert(writefd > 0);
+	assert(command != NULL);
 
 	wordexp_t wexp;
-	int err = wordexp(unit->command, &wexp, WRDE_NOCMD);
+	int err = wordexp(command, &wexp, WRDE_NOCMD);
 	if(err == WRDE_CMDSUB) {
-		log_write(LEVEL_ERROR, "Command substitution is disabled in %s", unit->name);
 		wordfree(&wexp);
 		longjmp(jmpBuf, MYERR_USERINPUTERR);
 	}
 	if(err != 0) {
-		log_write(LEVEL_ERROR, "Error in command argument of unit %s", unit->name);
 		if(err == WRDE_NOSPACE)
 			wordfree(&wexp);
 		longjmp(jmpBuf, MYERR_USERINPUTERR);
@@ -78,7 +58,7 @@ static int run(jmp_buf jmpBuf, struct Unit* unit) {
 		}
 	}
 	if(pid == 0) {
-		if(dup2(unit->writefd, STDOUT_FILENO) == -1) {
+		if(dup2(writefd, STDOUT_FILENO) == -1) {
 			exit(1); //If dup2 fails in the forked process all hope is lost
 		}
 		execvp(wexp.we_wordv[0], wexp.we_wordv);
@@ -87,78 +67,146 @@ static int run(jmp_buf jmpBuf, struct Unit* unit) {
 	return 0;
 }
 
+struct Buffer {
+	Vector buffer;
+	bool complete;
+	int fd;
+	int writefd;
+};
 struct initPipeData {
+	struct RunnerBuffer* buffers;
 };
 bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	struct initPipeData* data = (struct initPipeData*)userdata;
 
-	if(unit->type != UNIT_RUNNING || unit->pipe != -1)
+	if(unit->type != UNIT_RUNNING)
 		return true;
 
-	log_write(LEVEL_INFO, "Creating pipe for %s\n", unit->name);
+	struct Buffer** val;
+	JSLG(val, data->buffers->buffers, unit->command);
+	if(val == NULL) {
+		struct Buffer* newBuf = calloc(sizeof(struct Buffer), 1);
+		vector_init(jmpBuf, &newBuf->buffer, sizeof(char), 128);
+		log_write(LEVEL_INFO, "Creating pipe for %s\n", unit->name);
 
-	int fd[2];
-	pipe(fd);
-	log_write(LEVEL_INFO, "The new fd's are %d and %d\n", fd[0], fd[1]);
-	unit->pipe = fd[0];
-	unit->writefd = fd[1];
+		int fd[2];
+		pipe(fd);
+		log_write(LEVEL_INFO, "The new fd's are %d and %d\n", fd[0], fd[1]);
+		newBuf->fd = fd[0];
+		newBuf->writefd = fd[1];
 
-	run(jmpBuf, unit);
+		run(jmpBuf, unit->command, fd[1]);
+
+		size_t commandLen = strlen(unit->command);
+		if(commandLen > data->buffers->longestKey)
+			data->buffers->longestKey = commandLen;
+
+		JSLI(val, data->buffers->buffers, unit->command);
+		*val = newBuf;
+		int rc;
+		J1S(rc, data->buffers->owners, unit);
+	}
+
 	return true;
 }
 
-void runner_addUnits(jmp_buf jmpBuf, void* obj, struct Units* units) {
+void runner_startPipes(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Units* units) {
 	jmp_buf runEx;
 	int errCode = setjmp(runEx);
 	if(errCode == 0) {
-		vector_foreach(runEx, &units->left, initPipe, NULL);
-		vector_foreach(runEx, &units->center, initPipe, NULL);
-		vector_foreach(runEx, &units->right, initPipe, NULL);
+		struct initPipeData data = {
+			buffers,
+		};
+		vector_foreach(runEx, &units->left, initPipe, &data);
+		vector_foreach(runEx, &units->center, initPipe, &data);
+		vector_foreach(runEx, &units->right, initPipe, &data);
 	} else {
 		longjmp(jmpBuf, errCode);
 	}
 }
-bool runner_process(jmp_buf jmpBuf, void* obj, struct Unit* unit) {
-	if(unit->type != UNIT_RUNNING)
-		return true;
 
-	jmp_buf procEx;
-	int errCode = setjmp(procEx);
-	if(errCode == 0) {
-		Vector str;
-		vector_init(procEx, &str, sizeof(char), 1024);
-		size_t delimiterLen = strlen(unit->delimiter);
-		char* window = malloc((delimiterLen+1) * sizeof(char));
-		window[delimiterLen] = '\0';
-		int n = read(unit->pipe, window, delimiterLen);
-		while(strstr(window, unit->delimiter) == NULL) {
-			if(n == 0)
-				break;
-			if(n == -1) {
-				log_write(LEVEL_ERROR, "Could not read from pipe: %s", strerror(errno));
-				longjmp(procEx, 0xDEADBEEF); //TODO: ERR CODE
+fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers) {
+	fd_set set;
+	FD_ZERO(&set);
+	char* index = malloc(buffers->longestKey * sizeof(char));
+	struct Buffer** val;
+	JSLF(val, buffers->buffers, index);
+	while(val != NULL) {
+		FD_SET((*val)->fd, &set);
+		JSLN(val, buffers->buffers, index);
+	}
+	free(index);
+	return set;
+}
+
+bool runner_ready(jmp_buf jmpBuf, struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit) {
+	struct Buffer** val;
+	JSLG(val, buffers->buffers, unit->command);
+	return FD_ISSET((*val)->fd, fdset);
+}
+
+bool runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit, char** const out) {
+	assert(unit->type == UNIT_RUNNING);
+
+	struct Buffer* buffer;
+	{
+		struct Buffer** val;
+		JSLG(val, buffers->buffers, unit->command);
+		if(val == NULL) {
+			log_write(LEVEL_ERROR, "No command started for %s", unit->name);
+			longjmp(jmpBuf, MYERR_BADFD);
+		}
+		buffer = *val;
+	}
+
+	int rc;
+	J1T(rc, buffers->owners, unit);
+	if(rc == 1) {
+		//We own this buffer, so update it
+		if(buffer->complete)
+			vector_clear(&buffer->buffer);
+		jmp_buf procEx;
+		int errCode = setjmp(procEx);
+		if(errCode == 0) {
+			//A sliding window implementation for searching for the delimeter
+			size_t delimiterLen = strlen(unit->delimiter);
+			char* window = malloc((delimiterLen+1) * sizeof(char));
+			window[delimiterLen] = '\0';
+			int n = read(buffer->fd, window, delimiterLen);
+			while(strstr(window, unit->delimiter) == NULL) {
+				if(n == 0) {
+					buffer->complete = true;
+					break;
+				}else if(n == -1) {
+					log_write(LEVEL_ERROR, "Could not read from pipe: %s", strerror(errno));
+					longjmp(procEx, 0xDEADBEEF); //TODO: ERR CODE
+				}
+				vector_putBack(procEx, &buffer->buffer, window + delimiterLen-1); //Put last char onto the final string
+				memmove(window+1, window, delimiterLen-1); //Move everything over one
+				n = read(buffer->fd, window, 1);
 			}
-			vector_putBack(procEx, &str, window + delimiterLen-1); //Put last char onto the final string
-			memmove(window+1, window, delimiterLen-1); //This should move everything over one
-			n = read(unit->pipe, window, 1);
-		}
-		vector_putListBack(procEx, &str, window, delimiterLen+1); //Put the \0 on there too
+			vector_putListBack(procEx, &buffer->buffer, window, delimiterLen); //Put the remaining window on there
+			free(window);
 
-		if(vector_size(&str) + unit->buffoff > UNIT_BUFFLEN) {
-			longjmp(procEx, MYERR_NOSPACE);
+			if(buffer->complete) {
+				vector_putListBack(jmpBuf, &buffer->buffer, "\0", 1);
+				*out = buffer->buffer.data;
+				return true;
+			}
+
+			return false;
+		} else {
+			log_write(LEVEL_ERROR, "Error while retrieving input from running unit: %s", unit->name);
+			longjmp(jmpBuf, errCode);
 		}
-		strcpy(unit->buffer + unit->buffoff, str.data); //TODO: reverse str.data
-		vector_kill(&str);
-		if(n == 0) {
-			unit->buffoff += vector_size(&str)-1;
+	}else{
+		//We don't own this buffer, so just read if complete
+		if(buffer->complete) {
+			*out = buffer->buffer.data;
+			return true;
+		}else{
 			return false;
 		}
-		unit->buffoff = 0;
-		return true;
-	} else {
-		log_write(LEVEL_ERROR, "Error while retrieving input from running unit: %s", unit->name);
-		unit->buffer[0] = '\0';
-		longjmp(jmpBuf, errCode);
 	}
 }

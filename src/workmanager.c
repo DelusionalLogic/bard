@@ -54,8 +54,6 @@ static bool vecAddUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 			sl_insert(addEx, data->list, &container);
 		}else if(unit->type == UNIT_RUNNING) {
 			vector_putBack(addEx, data->pipeList, &elem);
-			if(unit->pipe != -1)
-				FD_SET(unit->pipe, data->fdset);
 		}
 	} else if (errCode == MYERR_ALLOCFAIL) {
 		log_write(LEVEL_ERROR, "Allocation error while adding unit %s to work queue", unit->name);
@@ -65,8 +63,9 @@ static bool vecAddUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 	return true;
 }
 
-void workmanager_init(jmp_buf jmpBuf, struct WorkManager* manager) {
-	FD_ZERO(&manager->fdset);
+void workmanager_init(jmp_buf jmpBuf, struct WorkManager* manager, struct RunnerBuffer* buffers) {
+	manager->fdset = runner_getfds(jmpBuf, buffers);
+	manager->buffer = buffers;
 	sl_init(jmpBuf, &manager->list, sizeof(struct UnitContainer), unitPlaceComp);
 	vector_init(jmpBuf, &manager->pipeList, sizeof(struct Unit*), 8);
 }
@@ -80,7 +79,6 @@ void workmanager_addUnits(jmp_buf jmpBuf, struct WorkManager* manager, struct Un
 	struct AddUnitData data = { 
 		.list = &manager->list,
 		.pipeList = &manager->pipeList,
-		.fdset = &manager->fdset,
 	};
 	vector_foreach(jmpBuf, &units->left, vecAddUnit, &data);
 	vector_foreach(jmpBuf, &units->center, vecAddUnit, &data);
@@ -89,6 +87,7 @@ void workmanager_addUnits(jmp_buf jmpBuf, struct WorkManager* manager, struct Un
 
 struct pipeRunData {
 	fd_set* fdset;
+	struct RunnerBuffer* buffers;
 	bool (*execute)(jmp_buf jmpBuf, struct Unit* unit);
 	bool update;
 };
@@ -96,10 +95,10 @@ bool pipeRun(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct pipeRunData* data = (struct pipeRunData*)userdata;
 	struct Unit* unit = *(struct Unit**)elem;
 	log_write(LEVEL_INFO, "A pipe got ready for unit %s", unit->name);
-	if(unit->pipe == -1)
+	if(unit->type == UNIT_RUNNING)
 		return true;
 
-	if(FD_ISSET(unit->pipe, data->fdset)) {
+	if(runner_ready(jmpBuf, data->buffers, data->fdset, unit)) {
 		if(data->execute(jmpBuf, unit))
 			data->update = true;
 	}
@@ -165,6 +164,7 @@ int workmanager_run(jmp_buf jmpBuf, struct WorkManager* manager, bool (*execute)
 			} else if(ready > 0) {
 				struct pipeRunData data = {
 					.fdset = &newSet,
+					.buffers = manager->buffer,
 					.execute = execute,
 					.update = false,
 				};
