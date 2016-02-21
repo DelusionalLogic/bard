@@ -93,26 +93,6 @@ struct PatternMatch{
 struct Output outputter;
 FILE* bar;
 
-bool executeUnit(jmp_buf jmpBuf, struct Unit* unit)
-{
-	log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
-
-	/* Format the output for the bar */
-	{
-		char* unitStr;
-
-		jmp_buf procEx;
-		int errCode = setjmp(procEx);
-		if(errCode == 0) {
-			if(!unitexec_execUnit(procEx, unit, &unitStr)) {
-				return false;
-			}
-		} else {
-			longjmp(jmpBuf, errCode);
-		}
-	}
-	return true;
-}
 
 void render(jmp_buf jmpBuf) {
 	//What to do about this? It can't be pipelined because then i might run more than once
@@ -195,28 +175,6 @@ int main(int argc, char **argv)
 	}
 
 	{
-		struct Regex regexCache;
-		regex_init(&regexCache);
-		struct FormatArray regexArr = {0};
-
-		jmp_buf regexEx;
-		int errCode = setjmp(regexEx);
-		if(errCode == 0) {
-			regex_compile(regexEx, &regexCache, &units);
-			regex_match(regexEx, &regexCache, vector_get(regexEx, &units.left, 0), NULL, &regexArr);
-			char* str;
-			formatter_format(regexEx, "$regex[a]hello $regex[a]world", &regexArr, 1, &str);
-			log_write(LEVEL_INFO, "STR STR: %s", str);
-			free(str);
-		} else {
-			log_write(LEVEL_FATAL, "Could not regex");
-			exit(errCode);
-		}
-
-		regex_kill(&regexCache);
-	}
-
-	{
 		struct XlibColor xColor;
 		struct FormatArray xcolorArr = {0};
 
@@ -235,31 +193,68 @@ int main(int argc, char **argv)
 		}
 	}
 
-	struct WorkManager wm;
-	jmp_buf manEx;
-	errCode = setjmp(manEx);
-	if(errCode == 0) {
-		struct RunnerBuffer buff;
-		runner_startPipes(manEx, &buff, &units);
-		workmanager_init(manEx, &wm, &buff);
+	{
+		struct Regex regexCache;
+		struct WorkManager wm;
+		struct RunnerBuffer buff = {0};
 
-		int errCode = setjmp(manEx);
+		jmp_buf manEx;
+		errCode = setjmp(manEx);
 		if(errCode == 0) {
+			regex_init(&regexCache);
+			regex_compile(manEx, &regexCache, &units);
+
+			runner_startPipes(manEx, &buff, &units);
+			workmanager_init(manEx, &wm, &buff);
 			workmanager_addUnits(manEx, &wm, &units);
 
-			workmanager_run(manEx, &wm, executeUnit, render); //Blocks until the program should exit
-		} else {
-			log_write(LEVEL_FATAL, "Unknown error while executing workqueue %d", errCode);
-			exit(errCode);
-		}
-	} else if(errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_FATAL, "Allocation error while making the work queue");
-		exit(errCode);
-	} else {
-		log_write(LEVEL_FATAL, "Unknown error while initializing workmanager");
-	}
 
-	workmanager_kill(&wm);
+			//Main loop
+			while(true) {
+				struct Unit* unit = workmanager_next(manEx, &wm);
+				log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+
+				/* Format the output for the bar */
+				{
+					char* unitStr;
+					struct FormatArray regexArr = {0};
+
+					jmp_buf procEx;
+					int errCode = setjmp(procEx);
+					if(errCode == 0) {
+						if(unit->type == UNIT_RUNNING) {
+							runner_read(procEx, &buff, unit, &unitStr);
+						} else if (unit->type == UNIT_POLL) {
+							unitexec_execUnit(procEx, unit, &unitStr);
+						}
+						if(unitStr != NULL) {
+							char* str;
+							regex_match(manEx, &regexCache, unit, unitStr, &regexArr);
+							formatter_format(manEx, "$regex[1]hello $regex[2]world", &regexArr, 1, &str);
+							log_write(LEVEL_INFO, "Unit -> %s :: str -> %s", unit->name, str);
+							free(str);
+
+							if(!workmanger_waiting(manEx, &wm)) {
+								render(manEx);
+							}
+						}
+						free(unitStr);
+					} else {
+						longjmp(manEx, errCode);
+					}
+					formatarray_kill(manEx, &regexArr);
+				}
+			}
+		} else if(errCode == MYERR_ALLOCFAIL) {
+			log_write(LEVEL_FATAL, "Allocation error while making the work queue");
+			exit(errCode);
+		} else {
+			log_write(LEVEL_FATAL, "Unknown error while initializing workmanager");
+		}
+
+		workmanager_kill(&wm);
+		regex_kill(&regexCache);
+	}
 
 	out_kill(&outputter);
 

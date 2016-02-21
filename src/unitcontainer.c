@@ -100,7 +100,7 @@ static void loadSide(jmp_buf jmpBuf, Vector* units, struct ConfigParser* parser,
 	}
 	for(int i = 0; i < vector_size(&files); i++)
 	{
-		log_write(LEVEL_INFO, "Reading config from %s\n", *(char**)vector_get(jmpBuf, &files, i));
+		log_write(LEVEL_INFO, "Reading config from %s", *(char**)vector_get(jmpBuf, &files, i));
 		char* file = *(char**)vector_get(jmpBuf, &files, i);
 		struct Unit unit;
 		unit_init(jmpBuf, &unit);

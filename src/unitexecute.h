@@ -20,5 +20,5 @@
 #include <stdbool.h>
 #include "unit.h"
 
-bool unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out);
+void unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out);
 #endif

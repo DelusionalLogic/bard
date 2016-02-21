@@ -89,9 +89,9 @@ bool formatter_format(jmp_buf jmpBuf, char* input, struct FormatArray arrays[], 
 				JSLG(pval, formatArr->array, key.data);
 
 				if(pval == NULL) {
-					log_write(LEVEL_ERROR, "No key named %s", key.data);
-					return false;
+					log_write(LEVEL_ERROR, "No key named \"%s\" in \"%s\"", key.data, formatArr->name);
 					vector_kill(&key);
+					continue;
 				}
 
 				value = *pval;

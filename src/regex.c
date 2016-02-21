@@ -74,16 +74,65 @@ bool regex_compile(jmp_buf jmpBuf, struct Regex* regex, struct Units* units) {
 }
 
 bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* string, struct FormatArray* array) {
-	PWord_t val;
+	pcre2_code** val;
 	JSLG(val,  regex->regexCache, unit->name);
 	if(val == NULL)
 		longjmp(jmpBuf, MYERR_UNITWRONGTYPE);
 
 	strcpy(array->name, "regex");
 
-	//TODO: INSERT A BUNCH OF MATCHING
-	JSLI(val, array->array, "a");
-	*val = (unsigned long)"TEST";
+	//Unit has no regex
+	{
+		char** val;
+		JSLI(val, array->array, "1");
+		*val = malloc(strlen(string));
+		strcpy(*val, string);
+	}
+
+	if(*val == NULL)
+		return true;
+
+
+	pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(*val, NULL);
+	int rc = pcre2_match(*val,
+			string,
+			strlen(string),
+			0,
+			0,
+			match_data,
+			NULL);
+
+	if (rc < 0)
+	{
+		switch(rc)
+		{
+			case PCRE2_ERROR_NOMATCH: printf("No match\n"); break;
+									  /*
+										 Handle other special cases if you like
+										 */
+			default: printf("PCRE2 matching error %d\n", rc); break;
+		}
+		pcre2_match_data_free(match_data);   /* Release memory used for the match */
+		return 1;
+	}
+	PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(match_data);
+
+
+	char num[5]; //I don't think anyone will ever match more than 9999 things in bard
+	for (int i = 0; i < rc; i++)
+	{
+		PCRE2_SPTR substring_start = string + ovector[2*i];
+		size_t substring_length = ovector[2*i+1] - ovector[2*i];
+		snprintf(num, sizeof(num), "%d", i+2);
+		char** val;
+		JSLI(val, array->array, num);
+		*val = malloc(substring_length+1);
+		strncpy(*val, substring_start, substring_length);
+		(*val)[substring_length] = '\0';
+	}
+	array->longestKey = 5;
+
+	//TODO: NAMED REGEX MATCHING
 
 	return true;
 }

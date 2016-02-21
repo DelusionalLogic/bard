@@ -20,12 +20,14 @@
 #include "map.h"
 
 enum UnitType{
+	UNIT_STATIC,
 	UNIT_POLL,
 	UNIT_RUNNING,
 };
 #define UNITTYPE_LENGTH ((int)UNIT_RUNNING+1)
 
 static const char* const TypeStr[] = {
+	"static",
 	"poll",
 	"running",
 };

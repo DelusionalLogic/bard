@@ -42,7 +42,7 @@ static void monitors(jmp_buf jmpBuf, struct Output* output, int monitors) {
 	output->maxMon = monitors;
 }
 
-void out_init(jmp_buf jmpBuf, struct Output* output, char* configDir) {
+void out_readConf(jmp_buf jmpBuf,  struct Output* output, char* configDir) {
 	struct ConfigParser parser;
 	struct ConfigParserEntry entry[] = {
 		StringConfigEntry("display:separator", separator, NULL),
@@ -54,7 +54,9 @@ void out_init(jmp_buf jmpBuf, struct Output* output, char* configDir) {
 	cp_load(jmpBuf, &parser, path, output);
 	free(path);
 	cp_kill(&parser);
-	
+}
+
+void out_init(jmp_buf jmpBuf, struct Output* output, char* configDir) {
 	for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
 		vector_init(jmpBuf, &output->out[i], sizeof(struct Unit*), 10);
 	}

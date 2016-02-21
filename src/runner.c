@@ -96,7 +96,7 @@ bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
 		newBuf->fd = fd[0];
 		newBuf->writefd = fd[1];
 
-		run(jmpBuf, unit->command, fd[1]);
+		run(jmpBuf, unit->command, newBuf->writefd);
 
 		size_t commandLen = strlen(unit->command);
 		if(commandLen > data->buffers->longestKey)
@@ -130,10 +130,12 @@ fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers) {
 	fd_set set;
 	FD_ZERO(&set);
 	char* index = malloc(buffers->longestKey * sizeof(char));
+	strcpy(index, "");
 	struct Buffer** val;
 	JSLF(val, buffers->buffers, index);
 	while(val != NULL) {
 		FD_SET((*val)->fd, &set);
+		log_write(LEVEL_INFO, "fdset %s", index);
 		JSLN(val, buffers->buffers, index);
 	}
 	free(index);
@@ -143,10 +145,11 @@ fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers) {
 bool runner_ready(jmp_buf jmpBuf, struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit) {
 	struct Buffer** val;
 	JSLG(val, buffers->buffers, unit->command);
-	return FD_ISSET((*val)->fd, fdset);
+	bool isset = FD_ISSET((*val)->fd, fdset);
+	return isset;
 }
 
-bool runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit, char** const out) {
+void runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit, char** const out) {
 	assert(unit->type == UNIT_RUNNING);
 
 	struct Buffer* buffer;
@@ -164,8 +167,6 @@ bool runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit
 	J1T(rc, buffers->owners, unit);
 	if(rc == 1) {
 		//We own this buffer, so update it
-		if(buffer->complete)
-			vector_clear(&buffer->buffer);
 		jmp_buf procEx;
 		int errCode = setjmp(procEx);
 		if(errCode == 0) {
@@ -174,9 +175,10 @@ bool runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit
 			char* window = malloc((delimiterLen+1) * sizeof(char));
 			window[delimiterLen] = '\0';
 			int n = read(buffer->fd, window, delimiterLen);
+			buffer->complete = true;
 			while(strstr(window, unit->delimiter) == NULL) {
 				if(n == 0) {
-					buffer->complete = true;
+					buffer->complete = false;
 					break;
 				}else if(n == -1) {
 					log_write(LEVEL_ERROR, "Could not read from pipe: %s", strerror(errno));
@@ -191,11 +193,12 @@ bool runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit
 
 			if(buffer->complete) {
 				vector_putListBack(jmpBuf, &buffer->buffer, "\0", 1);
-				*out = buffer->buffer.data;
-				return true;
+				*out = vector_detach(&buffer->buffer);
+				vector_init(jmpBuf, &buffer->buffer, sizeof(char), 512);
+				return;
 			}
 
-			return false;
+			*out = NULL;
 		} else {
 			log_write(LEVEL_ERROR, "Error while retrieving input from running unit: %s", unit->name);
 			longjmp(jmpBuf, errCode);
@@ -204,9 +207,8 @@ bool runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit
 		//We don't own this buffer, so just read if complete
 		if(buffer->complete) {
 			*out = buffer->buffer.data;
-			return true;
 		}else{
-			return false;
+			*out = NULL;
 		}
 	}
 }

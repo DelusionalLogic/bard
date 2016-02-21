@@ -88,19 +88,18 @@ void workmanager_addUnits(jmp_buf jmpBuf, struct WorkManager* manager, struct Un
 struct pipeRunData {
 	fd_set* fdset;
 	struct RunnerBuffer* buffers;
-	bool (*execute)(jmp_buf jmpBuf, struct Unit* unit);
-	bool update;
+	struct Unit* unitReady;
 };
 bool pipeRun(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct pipeRunData* data = (struct pipeRunData*)userdata;
 	struct Unit* unit = *(struct Unit**)elem;
-	log_write(LEVEL_INFO, "A pipe got ready for unit %s", unit->name);
-	if(unit->type == UNIT_RUNNING)
+	if(unit->type != UNIT_RUNNING)
 		return true;
 
 	if(runner_ready(jmpBuf, data->buffers, data->fdset, unit)) {
-		if(data->execute(jmpBuf, unit))
-			data->update = true;
+		log_write(LEVEL_INFO, "A pipe got ready for unit %s", unit->name);
+		data->unitReady = unit;
+		return false;
 	}
 	return true;
 }
@@ -135,57 +134,46 @@ static bool isDone(jmp_buf jmpBuf, struct WorkManager* manager) {
 	return true;
 }	
 
-int workmanager_run(jmp_buf jmpBuf, struct WorkManager* manager, bool (*execute)(jmp_buf jmpBuf, struct Unit* unit), void (*render)(jmp_buf jmpBuf)) {
+bool workmanger_waiting(jmp_buf jmpBuf, struct WorkManager* manager) {
+	return !isDone(jmpBuf, manager);
+}
+
+struct Unit* workmanager_next(jmp_buf jmpBuf, struct WorkManager* manager) {
 	struct UnitContainer* container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
-	bool doRender = false;
-	while(true)
-	{
-		time_t curTime = time(NULL);
+	time_t curTime = time(NULL);
 
-		//Wait for the next unit or a pipe is ready
-		if(container->nextRun > curTime) {
-			struct timeval tval = {
-				.tv_sec = container->nextRun - curTime,
-				.tv_usec = 0,
-			};
-			fd_set newSet;
-			memcpy(&newSet, &manager->fdset, sizeof(fd_set));
-			int ready = select(FD_SETSIZE, &newSet, NULL, NULL, &tval);
-			if(ready == -1) {
-				switch(errno) {
-					case EBADF:
-						log_write(LEVEL_INFO, "One of \"running\" unit commands exited");
-						longjmp(jmpBuf, MYERR_BADFD);
-						break;
-					case EINTR:
-						log_write(LEVEL_INFO, "The select was interrupted");
-						break;
-				}
-			} else if(ready > 0) {
-				struct pipeRunData data = {
-					.fdset = &newSet,
-					.buffers = manager->buffer,
-					.execute = execute,
-					.update = false,
-				};
-				vector_foreach(jmpBuf, &manager->pipeList, pipeRun, &data);
-
-				doRender = data.update;
-				goto render;
+	//Wait for the next unit or a pipe is ready
+	if(container->nextRun > curTime) {
+		struct timeval tval = {
+			.tv_sec = container->nextRun - curTime,
+			.tv_usec = 0,
+		};
+		fd_set newSet;
+		memcpy(&newSet, &manager->fdset, sizeof(fd_set));
+		int ready = select(FD_SETSIZE, &newSet, NULL, NULL, &tval);
+		if(ready == -1) {
+			switch(errno) {
+				case EBADF:
+					log_write(LEVEL_INFO, "One of \"running\" unit commands exited");
+					longjmp(jmpBuf, MYERR_BADFD);
+					break;
+				case EINTR:
+					log_write(LEVEL_INFO, "The select was interrupted");
+					break;
 			}
-		}
-
-		if(execute(jmpBuf, container->unit))
-			doRender = true;
-		
-		curTime = time(NULL);
-		container->nextRun = curTime + container->unit->interval;
-		sl_reorder(jmpBuf, &manager->list, 0);
-		container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
-render:
-		if(isDone(jmpBuf, manager) && doRender){
-			doRender = false;
-			render(jmpBuf);
+		} else if(ready > 0) {
+			struct pipeRunData data = {
+				.fdset = &newSet,
+				.buffers = manager->buffer,
+			};
+			if(!vector_foreach(jmpBuf, &manager->pipeList, pipeRun, &data))
+				return data.unitReady;
 		}
 	}
+	struct Unit* nextUnit = container->unit;
+	curTime = time(NULL);
+	container->nextRun = curTime + nextUnit->interval;
+	sl_reorder(jmpBuf, &manager->list, 0);
+	container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
+	return nextUnit;
 }

@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <strings.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "logger.h"
 #include "myerror.h"
 
@@ -36,22 +37,21 @@ static unsigned long hashString(char *str)
 	return hash;
 }
 
-bool unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out) {
-	if(unit->type != UNIT_POLL)
-		return true;
-	if(unit->command == NULL)
-		return true;
+void unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out) {
+	assert(unit->type == UNIT_POLL);
+	assert(unit->command != NULL);
+
 	/* Execute process */
 	FILE* f = (FILE*)popen(unit->command, "r");
 	Vector buff;
-	vector_init(jmpBuf, &buff, sizeof(char), 32);
+	vector_init(jmpBuf, &buff, sizeof(char), 512);
 	size_t readLen;
 	char null = '\0';
 
 
 	/* Read output */
-	char chunk[32];
-	while((readLen = fread(chunk, 1, 32, f))>0)
+	char chunk[1024];
+	while((readLen = fread(chunk, 1, 1024, f)) > 0)
 		vector_putListBack(jmpBuf, &buff, chunk, readLen);
 
 	if(buff.data[buff.size-1] == '\n')
@@ -66,9 +66,9 @@ bool unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out) {
 	unsigned long newHash = hashString(buff.data);
 	if(unit->hash == newHash) {
 		vector_kill(&buff);
-		return false;
+		*out = NULL;
+		return;
 	}
 	unit->hash = newHash;
 	*out = vector_detach(&buff);
-	return true;
 }
