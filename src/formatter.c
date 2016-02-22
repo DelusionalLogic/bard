@@ -67,7 +67,7 @@ bool formatter_format(jmp_buf jmpBuf, char* input, struct FormatArray arrays[], 
 				if(formatArr == NULL) {
 					log_write(LEVEL_ERROR, "No array named %s", ident.data);
 					vector_kill(&ident);
-					return false;
+					longjmp(jmpBuf, MYERR_USERINPUTERR);
 				}
 
 				vector_kill(&ident);
@@ -91,7 +91,7 @@ bool formatter_format(jmp_buf jmpBuf, char* input, struct FormatArray arrays[], 
 				if(pval == NULL) {
 					log_write(LEVEL_ERROR, "No key named \"%s\" in \"%s\"", key.data, formatArr->name);
 					vector_kill(&key);
-					continue;
+					longjmp(jmpBuf, MYERR_USERINPUTERR);
 				}
 
 				value = *pval;

@@ -25,7 +25,7 @@ bool defaultCompar(jmp_buf jmpBuf, const void* e1, const void* e2, size_t eSize)
 void map_init(jmp_buf jmpBuf, struct Map* map, size_t keySize, size_t valueSize, bool (*compar)(jmp_buf, const void* e1, const void* e2, size_t eSize)) {
 	vector_init(jmpBuf, &map->keys, keySize, 10);
 	vector_init(jmpBuf, &map->values, valueSize, 10);
-	map->compar = compar != NULL ? compar : defaultCompar;
+	map->compar = compar ? compar : defaultCompar;
 }
 
 void map_kill(struct Map* map) {

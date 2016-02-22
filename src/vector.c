@@ -138,11 +138,15 @@ bool vector_foreach(jmp_buf jmpBuf, Vector* vector, bool (*callback)(jmp_buf jmp
 
 void* vector_getFirst(jmp_buf jmpBuf, Vector* vector, int* index) {
 	*index = 0;
+	if(*index >= vector_size(vector))
+		return NULL;
 	return vector_get(jmpBuf, vector, *index);
 }
 
 void* vector_getNext(jmp_buf jmpBuf, Vector* vector, int* index) {
 	++(*index);
+	if(*index >= vector_size(vector))
+		return NULL;
 	return vector_get(jmpBuf, vector, *index);
 }
 

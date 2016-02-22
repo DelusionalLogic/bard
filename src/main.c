@@ -90,14 +90,15 @@ struct PatternMatch{
 	size_t endPos;
 };
 
-struct Output outputter;
+struct Units units;
+struct Outputs outputs;
 FILE* bar;
 
 
 void render(jmp_buf jmpBuf) {
 	//What to do about this? It can't be pipelined because then i might run more than once
 	//per sleep
-	char* out = out_format(jmpBuf, &outputter, NULL);
+	char* out = out_format(jmpBuf, &outputs, &units, 1, " | ");
 	fprintf(bar, "%s\n", out);
 	fprintf(stdout, "%s\n", out);
 	free(out);
@@ -115,8 +116,6 @@ int main(int argc, char **argv)
 		log_write(LEVEL_ERROR, "Config directory required");
 		exit(0);
 	}
-
-	struct Units units;
 
 	jmp_buf loadEx;
 	int errCode = setjmp(loadEx);
@@ -162,16 +161,6 @@ int main(int argc, char **argv)
 			log_write(LEVEL_FATAL, "Couldn't allocate space for launch string");
 			exit(errCode);
 		}
-	}
-
-	jmp_buf outEx;
-	errCode = setjmp(outEx);
-	if(errCode == 0) {
-		out_init(outEx, &outputter, arguments.configDir); // Out is called from workmanager_run. It has to be ready before that is called
-		out_addUnits(outEx, &outputter, &units);
-	} else {
-		log_write(LEVEL_FATAL, "Could not init outputter");
-		exit(errCode);
 	}
 
 	{
@@ -230,9 +219,16 @@ int main(int argc, char **argv)
 						if(unitStr != NULL) {
 							char* str;
 							regex_match(manEx, &regexCache, unit, unitStr, &regexArr);
-							formatter_format(manEx, "$regex[1]hello $regex[2]world", &regexArr, 1, &str);
+							if(unit->advancedFormat) {
+								advformat_execute(manEx, unit->format, &regexArr, 1, &str);
+								char* str2;
+								formatter_format(manEx, str, &regexArr, 1, &str2);
+								free(str);
+								str = str2;
+							} else
+								formatter_format(manEx, unit->format, &regexArr, 1, &str);
 							log_write(LEVEL_INFO, "Unit -> %s :: str -> %s", unit->name, str);
-							free(str);
+							out_set(manEx, &outputs, unit, str);
 
 							if(!workmanger_waiting(manEx, &wm)) {
 								render(manEx);
@@ -249,14 +245,15 @@ int main(int argc, char **argv)
 			log_write(LEVEL_FATAL, "Allocation error while making the work queue");
 			exit(errCode);
 		} else {
-			log_write(LEVEL_FATAL, "Unknown error while initializing workmanager");
+			log_write(LEVEL_FATAL, "Error in main loop: %s", strerror(errCode));
+			exit(errCode);
 		}
 
 		workmanager_kill(&wm);
 		regex_kill(&regexCache);
 	}
 
-	out_kill(&outputter);
+	out_kill(&outputs);
 
 	pclose(bar);
 

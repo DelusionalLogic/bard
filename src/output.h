@@ -18,21 +18,19 @@
 
 #include "unitcontainer.h"
 #include <setjmp.h>
+#include <Judy.h>
+#include "unitcontainer.h"
 #include "vector.h"
 #include "align.h"
 #include "unit.h"
 
-struct Output {
-	char* separator;
-	Vector out[ALIGN_NUM];
-	int maxMon;
+struct Outputs{
+	Pvoid_t outputs;
 };
 
-void out_init(jmp_buf jmpBuf, struct Output* output, char* configDir);
-void out_kill(struct Output* output);
+void out_kill(struct Outputs* outs);
 
-void out_addUnits(jmp_buf jmpBuf, struct Output* output, struct Units* units);
-
-char* out_format(jmp_buf jmpBuf, struct Output* output, struct Unit* unit);
+void out_set(jmp_buf jmpBuf, struct Outputs* outs, struct Unit* unit, char* in);
+char* out_format(jmp_buf jmpBuf, struct Outputs* outs, struct Units* container, int monitors, char* separator);
 
 #endif

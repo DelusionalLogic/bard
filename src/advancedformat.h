@@ -16,7 +16,10 @@
 #ifndef ADVANCEDFORMAT_H
 #define ADVANCEDFORMAT_H
 
+#include "formatarray.h"
 #include "unit.h"
 #include "linkedlist.h"
+
+int advformat_execute(jmp_buf jmpBuf, char* format, struct FormatArray* fmtArrays, size_t fmtLen, char** out);
 
 #endif
