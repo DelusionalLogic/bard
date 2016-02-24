@@ -38,7 +38,7 @@ void unit_init(jmp_buf jmpBuf, struct Unit* unit) {
 
 	unit->interval = 0;
 
-	map_init(jmpBuf, &unit->fontMap, sizeof(char*), sizeof(struct FontContainer), fontCmp);
+	unit->fontMap = NULL;
 	
 	unit->delimiter = NULL;
 
@@ -53,7 +53,7 @@ void unit_kill(struct Unit* unit) {
 	free(unit->regex);
 	free(unit->format);
 
-	map_kill(&unit->fontMap);
+	//TODO: KILL FONT MAP
 
 	free(unit->delimiter);
 }
@@ -154,33 +154,26 @@ void unit_kill(struct Unit* unit) {
 	//Add font to fontmap is called once per font
 	void unit_setFonts(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value) {
 		if(key == NULL || value == NULL)
-			return;
+			longjmp(jmpBuf, MYERR_USERINPUTERR);
 
-		size_t keyLen = strlen(key) + 1;
 		size_t valueLen = strlen(value) + 1;
 
-		char* newKey = malloc(sizeof(char) * keyLen);
-		if(newKey == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
-
 		struct FontContainer* container = malloc(sizeof(struct FontContainer));
-		if(container == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+		if(container == NULL) {
+			longjmp(jmpBuf, MYERR_ALLOCFAIL);
+		}
 
 		container->font = malloc(sizeof(char) * valueLen);
-		if(container->font == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+		if(container->font == NULL) {
+			free(container);
+			longjmp(jmpBuf, MYERR_ALLOCFAIL);
+		}
 
-		strcpy(newKey, key);
 		strcpy(container->font, value);
 
-		jmp_buf setEx;
-		int errCode = setjmp(setEx);
-		if(errCode == 0) {
-			map_put(setEx, &unit->fontMap, &newKey, &container);
-		} else {
-			log_write(LEVEL_WARNING, "Failed inserting font into map in unit %s", unit->name);
-			free(newKey);
-			free(container->font);
-			free(container);
-		}
+		struct FontContainer** val;
+		JSLI(val, unit->fontMap, key);
+		*val = container;
 	}
 
 	void unit_setDelimiter(jmp_buf jmpBuf, struct Unit* unit, const char* delimiter) {

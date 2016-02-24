@@ -117,6 +117,8 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
+	struct FontList flist = {0};
+
 	jmp_buf loadEx;
 	int errCode = setjmp(loadEx);
 	if(errCode == 0) {
@@ -136,6 +138,9 @@ int main(int argc, char **argv)
 
 			//Make the lemonbar launch string
 			char* confPath = pathAppend(arguments.configDir, "bard.conf");
+
+			font_createFontList(launchEx, &flist, &units, confPath);
+
 			dictionary* dict = iniparser_load(confPath);
 			const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
 			vector_putListBack(launchEx, &launch, executable, strlen(executable));
@@ -145,6 +150,7 @@ int main(int argc, char **argv)
 			int errCode = setjmp(stageEx);
 			if(errCode == 0) {
 				barconfig_getArgs(stageEx, &launch, confPath);
+				font_getArg(stageEx, &flist, &launch);
 			} else {
 				log_write(LEVEL_ERROR, "Unknown error when constructing bar arg string, error: %d", errCode);
 			}
@@ -164,28 +170,13 @@ int main(int argc, char **argv)
 	}
 
 	{
-		struct XlibColor xColor;
-		struct FormatArray xcolorArr = {0};
-
-		jmp_buf regexEx;
-		int errCode = setjmp(regexEx);
-		if(errCode == 0) {
-			xcolor_loadColors(regexEx, &xColor);
-			xcolor_formatArray(regexEx, &xColor, vector_get(regexEx, &units.left, 0), &xcolorArr);
-			char* str;
-			formatter_format(regexEx, "$xcolor[black]hello $xcolor[white]world", &xcolorArr, 1, &str);
-			log_write(LEVEL_INFO, "STR STR: %s", str);
-			free(str);
-		} else {
-			log_write(LEVEL_FATAL, "Could not color");
-			exit(errCode);
-		}
-	}
-
-	{
 		struct Regex regexCache;
 		struct WorkManager wm;
 		struct RunnerBuffer buff = {0};
+
+		struct XlibColor xColor;
+		struct FormatArray xcolorArr = {0};
+
 
 		jmp_buf manEx;
 		errCode = setjmp(manEx);
@@ -197,6 +188,10 @@ int main(int argc, char **argv)
 			workmanager_init(manEx, &wm, &buff);
 			workmanager_addUnits(manEx, &wm, &units);
 
+			xcolor_loadColors(manEx, &xColor);
+			xcolor_formatArray(manEx, &xColor, vector_get(manEx, &units.left, 0), &xcolorArr);
+
+
 
 			//Main loop
 			while(true) {
@@ -207,6 +202,13 @@ int main(int argc, char **argv)
 				{
 					char* unitStr;
 					struct FormatArray regexArr = {0};
+					struct FormatArray fontArr = {0};
+
+					struct FormatArray *formatArr[] = {
+						&regexArr,
+						&xcolorArr,
+						&fontArr,
+					};
 
 					jmp_buf procEx;
 					int errCode = setjmp(procEx);
@@ -218,15 +220,16 @@ int main(int argc, char **argv)
 						}
 						if(unitStr != NULL) {
 							char* str;
+							font_getArray(manEx, unit, &fontArr);
 							regex_match(manEx, &regexCache, unit, unitStr, &regexArr);
 							if(unit->advancedFormat) {
-								advformat_execute(manEx, unit->format, &regexArr, 1, &str);
+								advformat_execute(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
 								char* str2;
-								formatter_format(manEx, str, &regexArr, 1, &str2);
+								formatter_format(manEx, str, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str2);
 								free(str);
 								str = str2;
 							} else
-								formatter_format(manEx, unit->format, &regexArr, 1, &str);
+								formatter_format(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
 							log_write(LEVEL_INFO, "Unit -> %s :: str -> %s", unit->name, str);
 							out_set(manEx, &outputs, unit, str);
 

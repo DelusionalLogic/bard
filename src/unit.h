@@ -17,7 +17,9 @@
 #define UNIT_H
 
 #include <stdbool.h>
-#include "map.h"
+#include <Judy.h>
+#include <setjmp.h>
+#include "vector.h"
 
 enum UnitType{
 	UNIT_STATIC,
@@ -52,7 +54,7 @@ struct Unit {
 
 	int interval;
 
-	struct Map fontMap;
+	Pvoid_t fontMap;
 
 	char* delimiter;
 

@@ -17,156 +17,85 @@
 #include "errno.h"
 #include <string.h>
 #include <stdio.h>
+#include <Judy.h>
 #include "myerror.h"
+#include "formatarray.h"
 #include "fs.h"
 #include "logger.h"
 #include "configparser.h"
 
-#define MAXFONTS 10
-
-struct FontCont{
-	char* font;
-	unsigned long hash;
-};
-
-struct addFontsData {
-	Vector* fonts;
-};
-static bool addFonts(jmp_buf jmpBuf, void* key, void* value, void* userdata);
-int defFont(jmp_buf jmpBuf, struct Font* font, const char* defFont) {
-	if(defFont == NULL)
-		return true;
-
-	log_write(LEVEL_INFO, "Font: %s", defFont);
-	struct FontContainer* contPtr = malloc(sizeof(struct FontContainer));
-	contPtr->fontID = 0;
-	contPtr->font = malloc(strlen(defFont) * sizeof(char));
-	strcpy(contPtr->font, defFont);
-	struct addFontsData data = {
-		.fonts = &font->fonts,
-	};
-	addFonts(jmpBuf, /*UNUSED*/ NULL, &contPtr, &data);
-	return true;
-}
-
-void font_init(jmp_buf jmpBuf, struct Font* font, char* configDir) {
-	vector_init(jmpBuf, &font->fonts, sizeof(struct FontCont), 8);
-
-	struct ConfigParser parser;
-	struct ConfigParserEntry entry[] = {
-		StringConfigEntry("display:font", defFont, NULL),
-	};
-	cp_init(jmpBuf, &parser, entry);
-	char* path = pathAppend(configDir, "bard.conf");
-	cp_load(jmpBuf, &parser, path, font);
-	free(path);
-	cp_kill(&parser);
-}
-
-void font_kill(struct Font* font) {
-	vector_kill(&font->fonts);
-}
-
-static unsigned long hashString(const char *str)
-{
-	unsigned long hash = 5381;
-	int c;
-
-	while ((c = *str++))
-		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
-	return hash;
-}
-
-struct findFontData {
-	unsigned long needle;
-	int index;
-};
-static bool findFont(jmp_buf jmpBuf, void* elem, void* userdata) {
-	struct FontCont *cont = (struct FontCont*)elem;
-	struct findFontData *data = (struct findFontData*)userdata;
-
-	if(cont->hash == data->needle)
-		return false;
-	data->index++;
-	return true;
-}
-
-static bool addFonts(jmp_buf jmpBuf, void* key, void* value, void* userdata) {
-	struct FontContainer* v = *(struct FontContainer**)value;
-	struct addFontsData* data = (struct addFontsData*)userdata;
-
-	struct findFontData findData = {
-		.needle = hashString(v->font),
-		.index = 0,
-	};
-	if(!vector_foreach(jmpBuf, data->fonts, findFont, &findData)) {
-		v->fontID = findData.index+1; //technically we should look it up and use the fontID, this is a quick hack
-		return true;
-	}
-
-	int nextIndex = vector_size(data->fonts);
-	v->fontID = nextIndex+1;
-
-	log_write(LEVEL_INFO, "Font %d with selector: %s\n", v->fontID, v->font);
-	struct FontCont cont = {
-		.font = v->font,
-		.hash = hashString(v->font),
-	};
-	vector_putBack(jmpBuf, data->fonts, &cont);
-	return true;
+void font_kill(struct FontList* font) {
 }
 
 struct addUnitFontsData{
-	Vector* fonts;
+	Pvoid_t* fonts;
+	int fontIndex;
 };
 static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	struct addUnitFontsData* data = (struct addUnitFontsData*)userdata;
-	struct addFontsData newData = {
-		.fonts = data->fonts,
-	};
-	return map_foreach(jmpBuf, &unit->fontMap, addFonts, &newData);
+
+	char key[12] = {0};
+	struct FontContainer** val;
+	JSLF(val, unit->fontMap, key);
+	while(val != NULL) {
+		char* key2 = (*val)->font;
+		int* val2;
+		JSLG(val2, *data->fonts, key2);
+		if(val2 == NULL) {
+			JSLI(val2, *data->fonts, key2);
+			*val2 = data->fontIndex++;
+		}
+		(*val)->fontID = *val2;
+		log_write(LEVEL_ERROR, "Font %s id %d", key, (*val)->fontID);
+		JSLN(val, unit->fontMap, key);
+	}
+	return true;
 }
 
-void font_addUnits(jmp_buf jmpBuf, struct Font* font, struct Units* units){
+void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* units, char* confPath) {
+	dictionary* dict = iniparser_load(confPath);
+	const char* defString = iniparser_getstring(dict, "display:font", NULL);
+	if(defString != NULL) {
+		int* val;
+		JSLI(val, font->fonts, defString);
+		*val = 0;
+	}
+
 	struct addUnitFontsData fontData = {
 		.fonts = &font->fonts,
+		.fontIndex = 1, //TODO: NOT HARDCODE
 	};
 	vector_foreach(jmpBuf, &units->left, addUnitFonts, &fontData);
 	vector_foreach(jmpBuf, &units->center, addUnitFonts, &fontData);
 	vector_foreach(jmpBuf, &units->right, addUnitFonts, &fontData);
 }
 
-struct fontSelectorData{
-	Vector* fontSelector;
-};
-static bool fontSelector(jmp_buf jmpBuf, void* elem, void* userdata) {	
-	char* font = *(char**)elem;
-	struct fontSelectorData* data = (struct fontSelectorData*)userdata;
+void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArray) {
+	strcpy(fmtArray->name, "font");
 
-	int fontLen = strlen(font);
-	vector_putListBack(jmpBuf, data->fontSelector, " -f \"", 5);
-	vector_putListBack(jmpBuf, data->fontSelector, font, fontLen); 
-	vector_putListBack(jmpBuf, data->fontSelector, "\"", 1);
-	return true;
+	char key[12] = "\0"; //TODO: HARDCODED MAX LENGTH
+	struct FontContainer** val;
+	JSLF(val, unit->fontMap, key);
+	while(val != NULL) {
+		char** val2;
+		char* key2 = key;
+		JSLI(val2, fmtArray->array, key2);
+		*val2 = malloc(12 * sizeof(char));
+		log_write(LEVEL_INFO, "Font %s id %d", key, (*val)->fontID);
+		sprintf(*val2, "%d", (*val)->fontID);
+		JSLN(val, unit->fontMap, key);
+	}
 }
 
-void font_getArgs(jmp_buf jmpBuf, struct Font* font, char* argString, size_t maxLen) {
-	Vector fontSel;
-	vector_init(jmpBuf, &fontSel, sizeof(char), 256);
-	struct fontSelectorData data = {
-		.fontSelector = &fontSel,
-	};
-	vector_foreach(jmpBuf, &font->fonts, fontSelector, &data);
-	vector_putListBack(jmpBuf, &fontSel, "\0", 1);
-	size_t argLen = strlen(argString);
-	if(argLen + vector_size(&fontSel) >= maxLen)
-		longjmp(jmpBuf, MYERR_NOSPACE);
-	strcpy(argString + argLen, fontSel.data);
-	vector_kill(&fontSel);
-}
-
-bool font_format(jmp_buf jmpBuf, struct Font* font, struct Unit* unit) {
-	return true;
+void font_getArg(jmp_buf jmpBuf, struct FontList* font, Vector* args) {
+	int** val = 0;
+	char key[128] = {0}; //TODO: HARDCODED MAX FONT SELECTOR LENGTH
+	JSLF(val, font->fonts, key);
+	while(val != NULL){
+		vector_putListBack(jmpBuf, args, " -f \"", 5);
+		vector_putListBack(jmpBuf, args, &key, strlen(key));
+		vector_putListBack(jmpBuf, args, "\"", 1);
+		JSLN(val, font->fonts, key);
+	}
 }

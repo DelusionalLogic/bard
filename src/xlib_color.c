@@ -102,8 +102,6 @@ bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct Unit* u
 		JSLI(val, array->array, colorName[i]);
 		*val = xcolor->color[i];
 	}
-	JSLI(val, array->array, "a");
-	*val = (unsigned long)"TEST";
 
 	return true;
 }

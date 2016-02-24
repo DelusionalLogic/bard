@@ -16,21 +16,19 @@
 #ifndef FONT_H
 #define FONT_H
 
+#include <Judy.h>
 #include "unitcontainer.h"
 #include "vector.h"
 #include "unit.h"
+#include "formatarray.h"
 
-struct Font {
-	Vector fonts;
+struct FontList {
+	Pvoid_t fonts;
 };
 
-void font_init(jmp_buf jmpBuf, struct Font* font, char* configDir);
-void font_kill(struct Font* font);
+void font_kill(struct FontList* font);
 
-void font_addUnits(jmp_buf jmpBuf, struct Font* font, struct Units* units);
-
-void font_getArgs(jmp_buf jmpBuf, struct Font* font, char* argString, size_t maxLen);
-
-bool font_format(jmp_buf jmpBuf, struct Font* font, struct Unit* unit);
-
+void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArray);
+void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* units, char* confPath);
+void font_getArg(jmp_buf jmpBuf, struct FontList* font, Vector* args);
 #endif

@@ -49,7 +49,7 @@ static void background(jmp_buf jmpBuf, Vector* arg, const char* option) {
 		char* out;
 		if(errCode2 == 0) {
 			//colorize(colorEx, option, &out);
-			vector_putListBack(vecEx, arg, out, strlen(out));
+			vector_putListBack(vecEx, arg, "HELO", strlen("HELO"));
 			//free(out);
 			vector_putListBack(vecEx, arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
@@ -75,7 +75,7 @@ static void foreground(jmp_buf jmpBuf, Vector* arg, const char* option) {
 		char* out;
 		if(errCode2 == 0) {
 			//colorize(colorEx, option, &out);
-			vector_putListBack(vecEx, arg, out, strlen(out));
+			vector_putListBack(vecEx, arg, "HELO", strlen("HELO"));
 			//free(out);
 			vector_putListBack(vecEx, arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
