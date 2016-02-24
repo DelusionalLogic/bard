@@ -21,7 +21,7 @@
 #include "myerror.h"
 #include "logger.h"
 
-bool formatter_format(jmp_buf jmpBuf, char* input, struct FormatArray *arrays[], size_t arraysCnt, char** Poutput) {
+bool formatter_format(jmp_buf jmpBuf, char* input, const struct FormatArray *arrays[], size_t arraysCnt, char** Poutput) {
 	Vector output;
 	vector_init(jmpBuf, &output, sizeof(char), 512);
 	size_t inLen = strlen(input);
@@ -45,7 +45,7 @@ bool formatter_format(jmp_buf jmpBuf, char* input, struct FormatArray *arrays[],
 		}else if(input[i] == '$') {
 			vector_putListBack(jmpBuf, &output, input + start, i-start);
 
-			struct FormatArray* formatArr = NULL;
+			const struct FormatArray* formatArr = NULL;
 			{
 				Vector ident;
 				vector_init(jmpBuf, &ident, sizeof(char), 12);

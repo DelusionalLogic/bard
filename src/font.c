@@ -78,8 +78,14 @@ void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArr
 	struct FontContainer** val;
 	JSLF(val, unit->fontMap, key);
 	while(val != NULL) {
+
 		char** val2;
 		char* key2 = key;
+
+		size_t numlen = strlen(key2);
+		if(numlen > fmtArray->longestKey)
+			fmtArray->longestKey = numlen;
+
 		JSLI(val2, fmtArray->array, key2);
 		*val2 = malloc(12 * sizeof(char));
 		log_write(LEVEL_INFO, "Font %s id %d", key, (*val)->fontID);

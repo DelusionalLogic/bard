@@ -99,6 +99,9 @@ bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct Unit* u
 	strcpy(array->name, "xcolor");
 
 	for(int i = 0; i < MAXCOLOR; i++) {
+		size_t numLen = strlen(colorName[i]);
+		if(numLen > array->longestKey)
+			array->longestKey = numLen;
 		JSLI(val, array->array, colorName[i]);
 		*val = xcolor->color[i];
 	}

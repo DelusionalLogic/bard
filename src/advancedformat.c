@@ -27,7 +27,7 @@
 #include "myerror.h"
 #include "logger.h"
 
-int advformat_execute(jmp_buf jmpBuf, char* format, struct FormatArray* fmtArrays[], size_t fmtLen, char** out) {
+int advformat_execute(jmp_buf jmpBuf, char* format, const struct FormatArray* fmtArrays[], size_t fmtLen, char** out) {
 	Vector args;
 	vector_init(jmpBuf, &args, sizeof(char*), 4);
 	char* null = NULL;

@@ -204,7 +204,7 @@ int main(int argc, char **argv)
 					struct FormatArray regexArr = {0};
 					struct FormatArray fontArr = {0};
 
-					struct FormatArray *formatArr[] = {
+					const struct FormatArray *formatArr[] = {
 						&regexArr,
 						&xcolorArr,
 						&fontArr,
@@ -242,6 +242,7 @@ int main(int argc, char **argv)
 						longjmp(manEx, errCode);
 					}
 					formatarray_kill(manEx, &regexArr);
+					formatarray_kill(manEx, &fontArr);
 				}
 			}
 		} else if(errCode == MYERR_ALLOCFAIL) {

@@ -20,6 +20,6 @@
 #include "unit.h"
 #include "linkedlist.h"
 
-int advformat_execute(jmp_buf jmpBuf, char* format, struct FormatArray* fmtArrays[], size_t fmtLen, char** out);
+int advformat_execute(jmp_buf jmpBuf, char* format, const struct FormatArray* fmtArrays[], size_t fmtLen, char** out);
 
 #endif

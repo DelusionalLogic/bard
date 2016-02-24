@@ -121,9 +121,14 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 	char num[5]; //I don't think anyone will ever match more than 9999 things in bard
 	for (int i = 0; i < rc; i++)
 	{
-		PCRE2_SPTR substring_start = string + ovector[2*i];
+		char* substring_start = string + ovector[2*i];
 		size_t substring_length = ovector[2*i+1] - ovector[2*i];
 		snprintf(num, sizeof(num), "%d", i+2);
+
+		size_t numLen = strlen(num);
+		if(numLen > array->longestKey)
+			array->longestKey = numLen;
+
 		char** val;
 		JSLI(val, array->array, num);
 		*val = malloc(substring_length+1);
