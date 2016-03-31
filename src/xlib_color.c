@@ -24,13 +24,13 @@
 
 static const char* colorCode[MAXCOLOR] = {
 	"color0",
-   	"color1",
+	"color1",
 	"color2",
 	"color3",
 	"color4",
 	"color5",
 	"color6",
-   	"color7",
+	"color7",
 	"color8",
 	"color9",
 	"color10",
@@ -59,7 +59,7 @@ static const char* colorName[MAXCOLOR] = {
 	"brightwhite",
 };
 
-void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj) {	
+void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj) {
 	obj->color = (char (*)[COLORLEN])obj->colormem;
 
 	log_write(LEVEL_INFO, "Getting config for display");
