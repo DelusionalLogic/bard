@@ -98,7 +98,7 @@ bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
 
 		run(jmpBuf, unit->command, newBuf->writefd);
 
-		size_t commandLen = strlen(unit->command);
+		size_t commandLen = strlen(unit->command) + 1;
 		if(commandLen > data->buffers->longestKey)
 			data->buffers->longestKey = commandLen;
 
@@ -130,7 +130,7 @@ fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers) {
 	fd_set set;
 	FD_ZERO(&set);
 	char* index = malloc(buffers->longestKey * sizeof(char));
-	strcpy(index, "");
+	index[0] = '\0';
 	struct Buffer** val;
 	JSLF(val, buffers->buffers, index);
 	while(val != NULL) {
