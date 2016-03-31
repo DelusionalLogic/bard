@@ -45,6 +45,7 @@ bool formatter_format(jmp_buf jmpBuf, char* input, const struct FormatArray *arr
 		}else if(input[i] == '$') {
 			vector_putListBack(jmpBuf, &output, input + start, i-start);
 
+			//Find the array
 			const struct FormatArray* formatArr = NULL;
 			{
 				Vector ident;
@@ -73,6 +74,7 @@ bool formatter_format(jmp_buf jmpBuf, char* input, const struct FormatArray *arr
 				vector_kill(&ident);
 			}
 
+			//Find the value
 			char* value;
 			{
 				Vector key;
