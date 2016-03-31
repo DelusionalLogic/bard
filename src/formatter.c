@@ -22,13 +22,13 @@
 #include "logger.h"
 
 struct Parser {
-	char* str;
+	const char* str;
 	char cur;
 	size_t index;
 	size_t len;
 };
 
-void parser_start(struct Parser* parser, char* str) {
+void parser_start(struct Parser* parser, const char* str) {
 	parser->str = str;
 	parser->index = 0;
 	parser->len = strlen(str);
@@ -49,7 +49,7 @@ void parser_eat(struct Parser* parser) {
 
 char* parseArrayData(jmp_buf jmpBuf, struct Parser* parser, const struct FormatArray *arrays[], const size_t arraysCnt);
 
-bool formatter_format(jmp_buf jmpBuf, char* input, const struct FormatArray *arrays[], size_t arraysCnt, char** Poutput) {
+bool formatter_format(jmp_buf jmpBuf, const char* input, const struct FormatArray *arrays[], size_t arraysCnt, char** Poutput) {
 	Vector output;
 	vector_init(jmpBuf, &output, sizeof(char), 512);
 

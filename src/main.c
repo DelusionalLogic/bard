@@ -129,6 +129,39 @@ int main(int argc, char **argv)
 		exit(errCode);
 	}
 
+	struct Regex regexCache;
+	struct WorkManager wm;
+	struct RunnerBuffer buff = {0};
+
+	struct XlibColor xColor;
+
+	struct FormatArray xcolorArr = {0};
+	struct FormatArray regexArr = {0};
+	struct FormatArray fontArr = {0};
+
+	const struct FormatArray *formatArr[] = {
+		&regexArr,
+		&xcolorArr,
+		&fontArr,
+	};
+	{
+
+		jmp_buf initEx;
+		int errCode = setjmp(initEx);
+		if(errCode == 0) {
+			regex_init(&regexCache);
+			regex_compile(initEx, &regexCache, &units);
+
+			runner_startPipes(initEx, &buff, &units);
+			workmanager_init(initEx, &wm, &buff);
+			workmanager_addUnits(initEx, &wm, &units);
+
+			xcolor_loadColors(initEx, &xColor);
+			xcolor_formatArray(initEx, &xColor, vector_get(initEx, &units.left, 0), &xcolorArr);
+		}
+	}
+
+
 	{
 		Vector launch;
 		jmp_buf launchEx;
@@ -149,7 +182,7 @@ int main(int argc, char **argv)
 			jmp_buf stageEx;
 			int errCode = setjmp(stageEx);
 			if(errCode == 0) {
-				barconfig_getArgs(stageEx, &launch, confPath);
+				barconfig_getArgs(stageEx, &launch, confPath, formatArr, 3);
 				font_getArg(stageEx, &flist, &launch);
 			} else {
 				log_write(LEVEL_ERROR, "Unknown error when constructing bar arg string, error: %d", errCode);
@@ -170,29 +203,11 @@ int main(int argc, char **argv)
 	}
 
 	{
-		struct Regex regexCache;
-		struct WorkManager wm;
-		struct RunnerBuffer buff = {0};
-
-		struct XlibColor xColor;
-		struct FormatArray xcolorArr = {0};
 
 
 		jmp_buf manEx;
 		errCode = setjmp(manEx);
 		if(errCode == 0) {
-			regex_init(&regexCache);
-			regex_compile(manEx, &regexCache, &units);
-
-			runner_startPipes(manEx, &buff, &units);
-			workmanager_init(manEx, &wm, &buff);
-			workmanager_addUnits(manEx, &wm, &units);
-
-			xcolor_loadColors(manEx, &xColor);
-			xcolor_formatArray(manEx, &xColor, vector_get(manEx, &units.left, 0), &xcolorArr);
-
-
-
 			//Main loop
 			while(true) {
 				struct Unit* unit = workmanager_next(manEx, &wm);
@@ -201,14 +216,6 @@ int main(int argc, char **argv)
 				/* Format the output for the bar */
 				{
 					char* unitStr;
-					struct FormatArray regexArr = {0};
-					struct FormatArray fontArr = {0};
-
-					const struct FormatArray *formatArr[] = {
-						&regexArr,
-						&xcolorArr,
-						&fontArr,
-					};
 
 					jmp_buf procEx;
 					int errCode = setjmp(procEx);

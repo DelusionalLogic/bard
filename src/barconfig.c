@@ -17,44 +17,50 @@
 #include <stdbool.h>
 #include <errno.h>
 #include "myerror.h"
+#include "formatter.h"
 #include "fs.h"
 #include "vector.h"
 #include "configparser.h"
 
-static void geometry(jmp_buf jmpBuf, Vector* arg, const char* option) {
+struct cnfData{
+	Vector* arg;
+	struct FormatArray **arrays;
+	size_t arraysCnt;
+};
+
+static void geometry(jmp_buf jmpBuf, struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
 	jmp_buf vecEx;
 	int errCode = setjmp(vecEx);
 	if(errCode == 0) {
-		vector_putListBack(vecEx, arg, " -g \"", 5);
-		vector_putListBack(vecEx, arg, option, strlen(option));
-		vector_putListBack(vecEx, arg, "\"", 1);
+		vector_putListBack(vecEx, data->arg, " -g \"", 5);
+		vector_putListBack(vecEx, data->arg, option, strlen(option));
+		vector_putListBack(vecEx, data->arg, "\"", 1);
 	} else if(errCode == MYERR_ALLOCFAIL) {
 		log_write(LEVEL_ERROR, "Failed to allocate more space for geometry string");
 		longjmp(jmpBuf, errCode);
 	}
 }
 
-static void background(jmp_buf jmpBuf, Vector* arg, const char* option) {
+static void background(jmp_buf jmpBuf, struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
 	jmp_buf vecEx;
 	int errCode = setjmp(vecEx);
 	if(errCode == 0) {
-		vector_putListBack(vecEx, arg, " -B \"", 5);
+		vector_putListBack(vecEx, data->arg, " -B \"", 5);
 
 		jmp_buf colorEx;
 		int errCode2 = setjmp(colorEx);
 		char* out;
 		if(errCode2 == 0) {
-			//colorize(colorEx, option, &out);
-			vector_putListBack(vecEx, arg, "HELO", strlen("HELO"));
-			//free(out);
-			vector_putListBack(vecEx, arg, "\"", 1);
+			formatter_format(colorEx, option, data->arrays, data->arraysCnt, &out);
+			vector_putListBack(vecEx, data->arg, out, strlen(out));
+			vector_putListBack(vecEx, data->arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
-			vector_putListBack(vecEx, arg, option, strlen(option));
-			vector_putListBack(vecEx, arg, "\"", 1);
+			vector_putListBack(vecEx, data->arg, option, strlen(option));
+			vector_putListBack(vecEx, data->arg, "\"", 1);
 		}
 
 	} else if(errCode == MYERR_ALLOCFAIL) {
@@ -63,24 +69,23 @@ static void background(jmp_buf jmpBuf, Vector* arg, const char* option) {
 	}
 }
 
-static void foreground(jmp_buf jmpBuf, Vector* arg, const char* option) {
+static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
 	jmp_buf vecEx;
 	int errCode = setjmp(vecEx);
 	if(errCode == 0) {
-		vector_putListBack(vecEx, arg, " -F \"", 5);
+		vector_putListBack(vecEx, data->arg, " -F \"", 5);
 		jmp_buf colorEx;
 		int errCode2 = setjmp(colorEx);
 		char* out;
 		if(errCode2 == 0) {
-			//colorize(colorEx, option, &out);
-			vector_putListBack(vecEx, arg, "HELO", strlen("HELO"));
-			//free(out);
-			vector_putListBack(vecEx, arg, "\"", 1);
+			formatter_format(colorEx, option, data->arrays, data->arraysCnt, &out);
+			vector_putListBack(vecEx, data->arg, out, strlen(out));
+			vector_putListBack(vecEx, data->arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
-			vector_putListBack(vecEx, arg, option, strlen(option));
-			vector_putListBack(vecEx, arg, "\"", 1);
+			vector_putListBack(vecEx, data->arg, option, strlen(option));
+			vector_putListBack(vecEx, data->arg, "\"", 1);
 		}
 	} else if(errCode == MYERR_ALLOCFAIL) {
 		log_write(LEVEL_ERROR, "Failed to allocate more space for fg string");
@@ -88,7 +93,12 @@ static void foreground(jmp_buf jmpBuf, Vector* arg, const char* option) {
 	}
 }
 
-void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile) {
+void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, struct FormatArray* arrays[], size_t arraysCnt) {
+	struct cnfData data = {
+		.arg = arg,
+		.arrays = arrays,
+		.arraysCnt = arraysCnt,
+	};
 	struct ConfigParser parser;
 	struct ConfigParserEntry entry[] = {
 		StringConfigEntry("bar:geometry", geometry, NULL),
@@ -96,6 +106,6 @@ void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile) {
 		StringConfigEntry("bar:foreground", foreground, NULL),
 	};
 	cp_init(jmpBuf, &parser, entry);
-	cp_load(jmpBuf, &parser, configFile, arg);
+	cp_load(jmpBuf, &parser, configFile, &data);
 	cp_kill(&parser);
 }
