@@ -164,9 +164,9 @@ bool advFormatter_format(jmp_buf jmpBuf, struct AdvFormatter* formatter, struct 
 	for(int i = 0; i < MAX_MATCH; i++) {
 		if(matches[i].rm_so == -1)
 			break;
-		vector_putListBack(jmpBuf, &rline, " \"", 2);
+		vector_putListBack(jmpBuf, &rline, " \'", 2);
 		vector_putListBack(jmpBuf, &rline, buffer + matches[i].rm_so, matches[i].rm_eo - matches[i].rm_so);
-		vector_putListBack(jmpBuf, &rline, "\"", 1);
+		vector_putListBack(jmpBuf, &rline, "\'", 1);
 	}
 	vector_putListBack(jmpBuf, &rline, "\0", 1);
 
