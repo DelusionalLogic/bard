@@ -59,6 +59,7 @@ char* out_format(jmp_buf jmpBuf, struct Outputs* outs, struct Units* container, 
 	Vector* aligns[] = {&container->left, &container->center, &container->right};
 	Vector vec;
 	vector_init(jmpBuf, &vec, sizeof(char), 128);
+	size_t sepLen = strlen(separator);
 	for(int mon = 0; mon < monitors; mon++) {
 		char monStr[33];
 		int monStrLen = snprintf(monStr, 33, "%d", mon);
@@ -69,11 +70,19 @@ char* out_format(jmp_buf jmpBuf, struct Outputs* outs, struct Units* container, 
 			vector_putListBack(jmpBuf, &vec, AlignStr[i], strlen(AlignStr[i]));
 			int index;
 			struct Unit* unit = vector_getFirst(jmpBuf, aligns[i], &index);
+			bool first = true;
 			while(unit != NULL) {
 				char** str;
 				JLG(str, outs->outputs, unit);
-				if(str != NULL &&str != NULL &&  *str != NULL)
+				if(str != NULL && str != NULL &&  *str != NULL) {
+					vector_putListBack(jmpBuf, &vec, "%{F-}%{B-}%{T-}", 15);
+					if(!first)
+						vector_putListBack(jmpBuf, &vec, separator, sepLen);
+					first = false;
+					vector_putListBack(jmpBuf, &vec, "%{F-}%{B-}%{T-}", 15);
+
 					vector_putListBack(jmpBuf, &vec, *str, strlen(*str));
+				}
 				unit = vector_getNext(jmpBuf, aligns[i], &index);
 			}
 		}

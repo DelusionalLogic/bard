@@ -6,7 +6,6 @@ void formatarray_kill(jmp_buf jmpBuf, struct FormatArray* fmtArray) {
 	char* index = malloc(fmtArray->longestKey * sizeof(char)); //TODO: WHAT THE HELL C?
 	index[0] = '\0';
 	char** val;
-	log_write(LEVEL_INFO, "Freeing formatarray %s", fmtArray->name);
 	JSLF(val, fmtArray->array, index);
 	while(val != NULL) {
 		if(*val != NULL)

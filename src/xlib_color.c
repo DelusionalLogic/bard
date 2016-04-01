@@ -93,7 +93,7 @@ void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj) {
 	XCloseDisplay(display); //This also destroys the database object (rdb)
 }
 
-bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct Unit* unit, struct FormatArray* array) {
+bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct FormatArray* array) {
 	PWord_t val;
 
 	strcpy(array->name, "xcolor");

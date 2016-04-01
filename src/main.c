@@ -157,7 +157,10 @@ int main(int argc, char **argv)
 			workmanager_addUnits(initEx, &wm, &units);
 
 			xcolor_loadColors(initEx, &xColor);
-			xcolor_formatArray(initEx, &xColor, vector_get(initEx, &units.left, 0), &xcolorArr);
+			xcolor_formatArray(initEx, &xColor, &xcolorArr);
+		} else {
+			log_write(LEVEL_FATAL, "Failed initializing arrays %d", errCode);
+			exit(errCode);
 		}
 	}
 
@@ -182,7 +185,8 @@ int main(int argc, char **argv)
 			jmp_buf stageEx;
 			int errCode = setjmp(stageEx);
 			if(errCode == 0) {
-				barconfig_getArgs(stageEx, &launch, confPath, formatArr, 3);
+				struct FormatArray* xcolorPtr = &xcolorArr;
+				barconfig_getArgs(stageEx, &launch, confPath, &xcolorPtr, 1);
 				font_getArg(stageEx, &flist, &launch);
 			} else {
 				log_write(LEVEL_ERROR, "Unknown error when constructing bar arg string, error: %d", errCode);
@@ -203,8 +207,6 @@ int main(int argc, char **argv)
 	}
 
 	{
-
-
 		jmp_buf manEx;
 		errCode = setjmp(manEx);
 		if(errCode == 0) {
@@ -237,7 +239,7 @@ int main(int argc, char **argv)
 								str = str2;
 							} else
 								formatter_format(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
-							log_write(LEVEL_INFO, "Unit -> %s :: str -> %s", unit->name, str);
+							log_write(LEVEL_INFO, "Unit -> %s, str -> %s", unit->name, str);
 							out_set(manEx, &outputs, unit, str);
 
 							if(!workmanger_waiting(manEx, &wm)) {

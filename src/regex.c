@@ -123,7 +123,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 	{
 		char* substring_start = string + ovector[2*i];
 		size_t substring_length = ovector[2*i+1] - ovector[2*i];
-		snprintf(num, sizeof(num), "%d", i+2);
+		snprintf(num, sizeof(num), "%d", i+1);
 
 		size_t numLen = strlen(num);
 		if(numLen > array->longestKey)
@@ -134,6 +134,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 		*val = malloc(substring_length+1);
 		strncpy(*val, substring_start, substring_length);
 		(*val)[substring_length] = '\0';
+		log_write(LEVEL_INFO, "regex group %s is %s", num, *val);
 	}
 	array->longestKey = 5;
 

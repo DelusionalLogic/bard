@@ -55,7 +55,7 @@ int advformat_execute(jmp_buf jmpBuf, char* format, const struct FormatArray* fm
 		cmd = vector_detach(&newCmd);
 		vector_putBack(jmpBuf, &args, &cmd);
 	}
-	//Read all the following parameters and extrcat file formatting
+	//Read all the following parameters and extract file formatting
 	while(true) {
 		while(*ch == ' ' && *ch != '\0') {
 			ch++;
