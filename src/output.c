@@ -35,27 +35,7 @@ void out_set(jmp_buf jmpBuf, struct Outputs* outs, struct Unit* unit, char* in) 
 	*str = in;
 }
 
-struct PrintUnitData {
-	bool first;
-	char* sep;
-	size_t sepLen;
-	Vector* vec;
-};
-static bool vecPrintUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
-	struct PrintUnitData* data = (struct PrintUnitData*)userdata;
-	struct Unit* unit = *(struct Unit**)elem;
-	if(!unit->render)
-		return true;
-	vector_putListBack(jmpBuf, data->vec, "%{F-}%{B-}%{T-}", 15);
-	if(!data->first)
-		vector_putListBack(jmpBuf, data->vec, data->sep, data->sepLen);
-	vector_putListBack(jmpBuf, data->vec, "%{F-}%{B-}%{T-}", 15);
-	//vector_putListBack(jmpBuf, data->vec, unit->buffer, strlen(unit->buffer));
-	data->first = false;
-	return true;
-}
-
-char* out_format(jmp_buf jmpBuf, struct Outputs* outs, struct Units* container, int monitors, char* separator) {
+char* out_format(jmp_buf jmpBuf, struct Outputs* outs, struct Units* container, int monitors, const char* separator) {
 	Vector* aligns[] = {&container->left, &container->center, &container->right};
 	Vector vec;
 	vector_init(jmpBuf, &vec, sizeof(char), 128);

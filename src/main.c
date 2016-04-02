@@ -95,10 +95,10 @@ struct Outputs outputs;
 FILE* bar;
 
 
-void render(jmp_buf jmpBuf) {
+void render(jmp_buf jmpBuf, const char* separator) {
 	//What to do about this? It can't be pipelined because then i might run more than once
 	//per sleep
-	char* out = out_format(jmpBuf, &outputs, &units, 1, " | ");
+	char* out = out_format(jmpBuf, &outputs, &units, 1, separator);
 	fprintf(bar, "%s\n", out);
 	fprintf(stdout, "%s\n", out);
 	free(out);
@@ -165,6 +165,7 @@ int main(int argc, char **argv)
 	}
 
 
+	char* separator;
 	{
 		Vector launch;
 		jmp_buf launchEx;
@@ -179,6 +180,10 @@ int main(int argc, char **argv)
 
 			dictionary* dict = iniparser_load(confPath);
 			const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
+			const char* psep = iniparser_getstring(dict, "display:separator", " | ");
+
+			formatter_format(launchEx, psep, &formatArr[1], 1, &separator);
+
 			vector_putListBack(launchEx, &launch, executable, strlen(executable));
 
 			iniparser_freedict(dict);
@@ -226,7 +231,10 @@ int main(int argc, char **argv)
 							runner_read(procEx, &buff, unit, &unitStr);
 						} else if (unit->type == UNIT_POLL) {
 							unitexec_execUnit(procEx, unit, &unitStr);
+						} else if (unit->type == UNIT_STATIC) {
+							unitStr = "";
 						}
+						log_write(LEVEL_INFO, "Unit: %s had command output: %s", unit->name, unitStr);
 						if(unitStr != NULL) {
 							char* str;
 							font_getArray(manEx, unit, &fontArr);
@@ -237,21 +245,21 @@ int main(int argc, char **argv)
 								formatter_format(manEx, str, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str2);
 								free(str);
 								str = str2;
-							} else
+							} else {
 								formatter_format(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
+							}
+							formatarray_kill(manEx, &regexArr);
+							formatarray_kill(manEx, &fontArr);
 							log_write(LEVEL_INFO, "Unit -> %s, str -> %s", unit->name, str);
 							out_set(manEx, &outputs, unit, str);
-
-							if(!workmanger_waiting(manEx, &wm)) {
-								render(manEx);
-							}
+						}
+						if(!workmanger_waiting(manEx, &wm)) {
+							render(manEx, separator);
 						}
 						free(unitStr);
 					} else {
 						longjmp(manEx, errCode);
 					}
-					formatarray_kill(manEx, &regexArr);
-					formatarray_kill(manEx, &fontArr);
 				}
 			}
 		} else if(errCode == MYERR_ALLOCFAIL) {
