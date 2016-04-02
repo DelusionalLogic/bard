@@ -32,6 +32,8 @@ void out_set(jmp_buf jmpBuf, struct Outputs* outs, struct Unit* unit, char* in) 
 	char** str;
 
 	JLI(str, outs->outputs, unit);
+	if(*str != NULL)
+		free(*str);
 	*str = in;
 }
 

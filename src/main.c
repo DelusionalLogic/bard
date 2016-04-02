@@ -232,7 +232,7 @@ int main(int argc, char **argv)
 						} else if (unit->type == UNIT_POLL) {
 							unitexec_execUnit(procEx, unit, &unitStr);
 						} else if (unit->type == UNIT_STATIC) {
-							unitStr = "";
+							unitStr = calloc(1, 1);
 						}
 						log_write(LEVEL_INFO, "Unit: %s had command output: %s", unit->name, unitStr);
 						if(unitStr != NULL) {

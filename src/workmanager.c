@@ -49,7 +49,8 @@ static bool vecAddUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
 	jmp_buf addEx;
 	int errCode = setjmp(addEx);
 	if(errCode == 0) {
-		if(unit->type == UNIT_POLL) {
+		//TODO: remove the static here and do that somewhere else
+		if(unit->type == UNIT_POLL || unit->type == UNIT_STATIC) {
 			struct UnitContainer container = { .nextRun = curTime, .unit = elem };
 			sl_insert(addEx, data->list, &container);
 		}else if(unit->type == UNIT_RUNNING) {
