@@ -57,6 +57,7 @@ static void background(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 		if(errCode2 == 0) {
 			formatter_format(colorEx, option, data->arrays, data->arraysCnt, &out);
 			vector_putListBack(vecEx, data->arg, out, strlen(out));
+			free(out);
 			vector_putListBack(vecEx, data->arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
 			vector_putListBack(vecEx, data->arg, option, strlen(option));
@@ -82,6 +83,7 @@ static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 		if(errCode2 == 0) {
 			formatter_format(colorEx, option, data->arrays, data->arraysCnt, &out);
 			vector_putListBack(vecEx, data->arg, out, strlen(out));
+			free(out);
 			vector_putListBack(vecEx, data->arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
 			vector_putListBack(vecEx, data->arg, option, strlen(option));
@@ -104,6 +106,7 @@ void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, struct For
 		StringConfigEntry("bar:geometry", geometry, NULL),
 		StringConfigEntry("bar:background", background, NULL),
 		StringConfigEntry("bar:foreground", foreground, NULL),
+		{.name = NULL},
 	};
 	cp_init(jmpBuf, &parser, entry);
 	cp_load(jmpBuf, &parser, configFile, &data);

@@ -14,7 +14,8 @@
 //    You should have received a copy of the GNU General Public License
 //    along with bard.  If not, see <http://www.gnu.org/licenses/>.
 #include "configparser.h"
-#include "myerror.h";
+#include "myerror.h"
+#include "logger.h"
 //TODO: Rewrite to use integer error codes
 
 void cp_init(jmp_buf jmpBuf, struct ConfigParser* parser, struct ConfigParserEntry entry[]) {
@@ -79,7 +80,8 @@ void cp_load(jmp_buf jmpBuf, struct ConfigParser* parser, const char* file, void
 				break;
 			default:
 				//Should never happen
-				return;
+				log_write(LEVEL_FATAL, "THIS SHOULD NEVER HAPPEN (%d)", entry.type);
+				break;
 		}
 		i++;
 	}

@@ -61,6 +61,7 @@ void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* un
 		JSLI(val, font->fonts, defString);
 		*val = 0;
 	}
+	iniparser_freedict(dict);
 
 	struct addUnitFontsData fontData = {
 		.fonts = &font->fonts,

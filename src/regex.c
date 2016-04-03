@@ -81,7 +81,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 
 	strcpy(array->name, "regex");
 
-	//Unit has no regex
+	//The first index is always the complete output
 	{
 		char** val;
 		JSLI(val, array->array, "1");
@@ -106,11 +106,13 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 	{
 		switch(rc)
 		{
-			case PCRE2_ERROR_NOMATCH: printf("No match\n"); break;
-									  /*
-										 Handle other special cases if you like
-										 */
-			default: printf("PCRE2 matching error %d\n", rc); break;
+			case PCRE2_ERROR_NOMATCH:
+				log_write(LEVEL_ERROR, "No match in %s", unit->name);
+				break;
+			default:
+				log_write(LEVEL_ERROR, "PCRE2 matching error (%d)", rc);
+				longjmp(jmpBuf, rc);
+				break;
 		}
 		pcre2_match_data_free(match_data);   /* Release memory used for the match */
 		return 1;
@@ -123,7 +125,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 	{
 		char* substring_start = string + ovector[2*i];
 		size_t substring_length = ovector[2*i+1] - ovector[2*i];
-		snprintf(num, sizeof(num), "%d", i+1);
+		snprintf(num, sizeof(num), "%d", i+2);
 
 		size_t numLen = strlen(num);
 		if(numLen > array->longestKey)
@@ -140,5 +142,6 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 
 	//TODO: NAMED REGEX MATCHING
 
+	pcre2_match_data_free(match_data);   /* Release memory used for the match */
 	return true;
 }

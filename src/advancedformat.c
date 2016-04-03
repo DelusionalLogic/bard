@@ -101,7 +101,7 @@ int advformat_execute(jmp_buf jmpBuf, char* format, const struct FormatArray* fm
 		int index;
 		char** arg = vector_getFirst(jmpBuf, &args, &index);
 		while(arg != NULL) {
-			if(*arg == NULL)
+			if(*arg != NULL)
 				free(*arg);
 			arg = vector_getNext(jmpBuf, &args, &index);
 		}
