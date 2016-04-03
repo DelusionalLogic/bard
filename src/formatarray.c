@@ -2,7 +2,6 @@
 #include "logger.h"
 
 void formatarray_kill(jmp_buf jmpBuf, struct FormatArray* fmtArray) {
-	log_write(LEVEL_INFO, "Freeing formatarray %s", fmtArray->name);
 	char* index = malloc(fmtArray->longestKey * sizeof(char)); //TODO: WHAT THE HELL C?
 	index[0] = '\0';
 	char** val;
@@ -14,6 +13,5 @@ void formatarray_kill(jmp_buf jmpBuf, struct FormatArray* fmtArray) {
 	}
 	int bytes;
 	JSLFA(bytes, fmtArray->array);
-	log_write(LEVEL_INFO, "Format array was %d bytes long", bytes);
 	free(index);
 }

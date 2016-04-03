@@ -88,11 +88,11 @@ bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
 	if(val == NULL) {
 		struct Buffer* newBuf = calloc(sizeof(struct Buffer), 1);
 		vector_init(jmpBuf, &newBuf->buffer, sizeof(char), 128);
-		log_write(LEVEL_INFO, "Creating pipe for %s\n", unit->name);
+		log_write(LEVEL_INFO, "Creating pipe for %s", unit->name);
 
 		int fd[2];
 		pipe(fd);
-		log_write(LEVEL_INFO, "The new fd's are %d and %d\n", fd[0], fd[1]);
+		log_write(LEVEL_INFO, "The new fd's are %d and %d", fd[0], fd[1]);
 		newBuf->fd = fd[0];
 		newBuf->writefd = fd[1];
 

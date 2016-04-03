@@ -145,21 +145,13 @@ int main(int argc, char **argv)
 		&fontArr,
 	};
 	{
-
-		jmp_buf initEx;
-		int errCode = setjmp(initEx);
+		jmp_buf excep;
+		int errCode = setjmp(excep);
 		if(errCode == 0) {
-			regex_init(&regexCache);
-			regex_compile(initEx, &regexCache, &units);
-
-			runner_startPipes(initEx, &buff, &units);
-			workmanager_init(initEx, &wm, &buff);
-			workmanager_addUnits(initEx, &wm, &units);
-
-			xcolor_loadColors(initEx, &xColor);
-			xcolor_formatArray(initEx, &xColor, &xcolorArr);
+			xcolor_loadColors(excep, &xColor);
+			xcolor_formatArray(excep, &xColor, &xcolorArr);
 		} else {
-			log_write(LEVEL_FATAL, "Failed initializing arrays %d", errCode);
+			log_write(LEVEL_FATAL, "While initializing xcolor array (%d)", errCode);
 			exit(errCode);
 		}
 	}
@@ -167,46 +159,101 @@ int main(int argc, char **argv)
 
 	char* separator;
 	{
-		Vector launch;
-		jmp_buf launchEx;
-		int errCode = setjmp(launchEx);
-		if(errCode == 0) {
-			vector_init(launchEx, &launch, sizeof(char), 1024);
 
-			//Make the lemonbar launch string
-			char* confPath = pathAppend(arguments.configDir, "bard.conf");
-
-			font_createFontList(launchEx, &flist, &units, confPath);
-
-			dictionary* dict = iniparser_load(confPath);
-			const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
-			const char* psep = iniparser_getstring(dict, "display:separator", " | ");
-
-			formatter_format(launchEx, psep, &formatArr[1], 1, &separator);
-
-			vector_putListBack(launchEx, &launch, executable, strlen(executable));
-
-			iniparser_freedict(dict);
-			jmp_buf stageEx;
-			int errCode = setjmp(stageEx);
+		char* confPath = pathAppend(arguments.configDir, "bard.conf");
+		dictionary* dict = iniparser_load(confPath);
+		{
+			jmp_buf excep;
+			int errCode = setjmp(excep);
 			if(errCode == 0) {
-				struct FormatArray* xcolorPtr = &xcolorArr;
-				barconfig_getArgs(stageEx, &launch, confPath, &xcolorPtr, 1);
-				font_getArg(stageEx, &flist, &launch);
+				const char* psep = iniparser_getstring(dict, "display:separator", " | ");
+				formatter_format(excep, psep, &formatArr[1], 1, &separator);
 			} else {
-				log_write(LEVEL_ERROR, "Unknown error when constructing bar arg string, error: %d", errCode);
+				log_write(LEVEL_FATAL, "While reading/formatting seperator (%d)", errCode);
+				exit(errCode);
 			}
+		}
+		{
+			jmp_buf excep;
+			int errCode = setjmp(excep);
+			if(errCode == 0) {
+				font_createFontList(excep, &flist, &units, confPath);
+			} else {
+				log_write(LEVEL_FATAL, "While creating the fonst list (%d)", errCode);
+				exit(errCode);
+			}
+		}
+		{
+			Vector launch;
+			jmp_buf launchEx;
+			int errCode = setjmp(launchEx);
+			if(errCode == 0) {
+				//Make the lemonbar launch string
+				vector_init(launchEx, &launch, sizeof(char), 1024);
 
-			free(confPath);
+				const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
 
-			//TODO: Where the hell does this belong?
-			//Lets load that bar!
-			log_write(LEVEL_INFO, "Starting %s", launch.data);
-			bar = popen(launch.data, "w");
-			vector_kill(&launch);
+				vector_putListBack(launchEx, &launch, executable, strlen(executable));
 
+				iniparser_freedict(dict);
+				jmp_buf stageEx;
+				int errCode = setjmp(stageEx);
+				if(errCode == 0) {
+					struct FormatArray* xcolorPtr = &xcolorArr;
+					barconfig_getArgs(stageEx, &launch, confPath, &xcolorPtr, 1);
+					font_getArg(stageEx, &flist, &launch);
+					vector_putListBack(stageEx, &launch, "\0", 1);
+				} else {
+					log_write(LEVEL_ERROR, "While constructing launch string (%d)", errCode);
+				}
+
+				free(confPath);
+
+				//TODO: Where the hell does this belong?
+				//Lets load that bar!
+				log_write(LEVEL_INFO, "lemonbar launch string: %s", launch.data);
+				bar = popen(launch.data, "w");
+				vector_kill(&launch);
+
+			} else {
+				log_write(LEVEL_FATAL, "Couldn't allocate space for launch string");
+				exit(errCode);
+			}
+		}
+	}
+
+	{
+		jmp_buf excep;
+		int errCode = setjmp(excep);
+		if(errCode == 0) {
+			runner_startPipes(excep, &buff, &units);
+			workmanager_init(excep, &wm, &buff);
+			workmanager_addUnits(excep, &wm, &units);
 		} else {
-			log_write(LEVEL_FATAL, "Couldn't allocate space for launch string");
+			log_write(LEVEL_FATAL, "While initializing workmanager (%d)", errCode);
+			exit(errCode);
+		}
+	}
+
+	{
+		jmp_buf excep;
+		int errCode = setjmp(excep);
+		if(errCode == 0) {
+			runner_startPipes(excep, &buff, &units);
+		} else {
+			log_write(LEVEL_FATAL, "While starting running units (%d)", errCode);
+			exit(errCode);
+		}
+	}
+
+	{
+		jmp_buf excep;
+		int errCode = setjmp(excep);
+		if(errCode == 0) {
+			regex_init(&regexCache);
+			regex_compile(excep, &regexCache, &units);
+		} else {
+			log_write(LEVEL_FATAL, "While initializing/compiling regex (%d)", errCode);
 			exit(errCode);
 		}
 	}
@@ -218,7 +265,7 @@ int main(int argc, char **argv)
 			//Main loop
 			while(true) {
 				struct Unit* unit = workmanager_next(manEx, &wm);
-				log_write(LEVEL_INFO, "[%ld] Executing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+				log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
 				/* Format the output for the bar */
 				{
@@ -262,11 +309,8 @@ int main(int argc, char **argv)
 					}
 				}
 			}
-		} else if(errCode == MYERR_ALLOCFAIL) {
-			log_write(LEVEL_FATAL, "Allocation error while making the work queue");
-			exit(errCode);
 		} else {
-			log_write(LEVEL_FATAL, "Error in main loop: %s", strerror(errCode));
+			log_write(LEVEL_FATAL, "While in main loop (%s, %d)", strerror(errCode), errCode);
 			exit(errCode);
 		}
 

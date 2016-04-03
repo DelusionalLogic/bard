@@ -101,7 +101,6 @@ char* parseArrayData(jmp_buf jmpBuf, struct Parser * p, const struct FormatArray
 		vector_putListBack(jmpBuf, &ident, "\0", 1);
 
 		for(size_t i = 0; i < arraysCnt; i++) {
-			log_write(LEVEL_INFO, "Array name %s -> %s", arrays[i]->name, ident.data);
 			if(strcmp(arrays[i]->name, ident.data) == 0) {
 				formatArr = arrays[i];
 				break;

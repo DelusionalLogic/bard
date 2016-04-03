@@ -24,12 +24,12 @@ static const char *const LevelNames[] = {
 	"FATAL",
 };
 
-static const char* LevelStr(const LOG_Level level)
+static const char* LevelStr(const Log_Level level)
 {
 	return LevelNames[level];
 }
 
-void log_write(LOG_Level level, const char* format, ...)
+void log_write(Log_Level level, const char* format, ...)
 {
 	va_list args;
 	fprintf(stderr, "[%s]", LevelStr(level));

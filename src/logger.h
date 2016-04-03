@@ -21,8 +21,8 @@ typedef enum {
 	LEVEL_WARNING,
 	LEVEL_ERROR,
 	LEVEL_FATAL,
-} LOG_Level;
+} Log_Level;
 
-void log_write(LOG_Level level, const char* format, ...);
+void log_write(Log_Level level, const char* format, ...);
 
 #endif

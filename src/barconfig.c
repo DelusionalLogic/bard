@@ -64,7 +64,7 @@ static void background(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 		}
 
 	} else if(errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_ERROR, "Failed to allocate more space for bg string");
+		log_write(LEVEL_ERROR, "Failed to allocate more space for background string");
 		longjmp(jmpBuf, errCode);
 	}
 }
@@ -88,7 +88,7 @@ static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 			vector_putListBack(vecEx, data->arg, "\"", 1);
 		}
 	} else if(errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_ERROR, "Failed to allocate more space for fg string");
+		log_write(LEVEL_ERROR, "Failed to allocate more space for foreground string");
 		longjmp(jmpBuf, errCode);
 	}
 }
