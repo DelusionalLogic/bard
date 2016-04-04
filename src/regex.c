@@ -85,7 +85,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 	{
 		char** val;
 		JSLI(val, array->array, "1");
-		*val = malloc(strlen(string));
+		*val = malloc((strlen(string) + 1) * sizeof(char));
 		strcpy(*val, string);
 	}
 
