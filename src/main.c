@@ -95,10 +95,10 @@ struct Outputs outputs;
 FILE* bar;
 
 
-void render(jmp_buf jmpBuf, const char* separator) {
+void render(jmp_buf jmpBuf, const char* separator, int monitors) {
 	//What to do about this? It can't be pipelined because then i might run more than once
 	//per sleep
-	char* out = out_format(jmpBuf, &outputs, &units, 1, separator);
+	char* out = out_format(jmpBuf, &outputs, &units, monitors, separator);
 	fprintf(bar, "%s\n", out);
 	fprintf(stdout, "%s\n", out);
 	free(out);
@@ -158,6 +158,7 @@ int main(int argc, char **argv)
 
 
 	char* separator;
+	int monitors;
 	{
 
 		char* confPath = pathAppend(arguments.configDir, "bard.conf");
@@ -168,6 +169,7 @@ int main(int argc, char **argv)
 			if(errCode == 0) {
 				const char* psep = iniparser_getstring(dict, "display:separator", " | ");
 				formatter_format(excep, psep, &formatArr[1], 1, &separator);
+				monitors = iniparser_getint(dict, "display:monitors", 1);
 			} else {
 				log_write(LEVEL_FATAL, "While reading/formatting seperator (%d)", errCode);
 				exit(errCode);
@@ -301,7 +303,7 @@ int main(int argc, char **argv)
 							out_set(manEx, &outputs, unit, str);
 						}
 						if(!workmanger_waiting(manEx, &wm)) {
-							render(manEx, separator);
+							render(manEx, separator, monitors);
 						}
 						free(unitStr);
 					} else {
