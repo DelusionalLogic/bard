@@ -265,6 +265,7 @@ int main(int argc, char **argv)
 		errCode = setjmp(manEx);
 		if(errCode == 0) {
 			//Main loop
+			bool oneUpdate = false;
 			while(true) {
 				struct Unit* unit = workmanager_next(manEx, &wm);
 				log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
@@ -285,6 +286,7 @@ int main(int argc, char **argv)
 						}
 						log_write(LEVEL_INFO, "Unit: %s had command output: %s", unit->name, unitStr);
 						if(unitStr != NULL) {
+							oneUpdate = true;
 							char* str;
 							font_getArray(manEx, unit, &fontArr);
 							regex_match(manEx, &regexCache, unit, unitStr, &regexArr);
@@ -302,8 +304,9 @@ int main(int argc, char **argv)
 							log_write(LEVEL_INFO, "Unit -> %s, str -> %s", unit->name, str);
 							out_set(manEx, &outputs, unit, str);
 						}
-						if(!workmanger_waiting(manEx, &wm)) {
+						if(oneUpdate && !workmanger_waiting(manEx, &wm)) {
 							render(manEx, separator, monitors);
+							oneUpdate = false;
 						}
 						free(unitStr);
 					} else {
