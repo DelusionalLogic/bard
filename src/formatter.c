@@ -133,12 +133,12 @@ char* parseArrayData(jmp_buf jmpBuf, struct Parser * p, const struct FormatArray
 		JSLG(pval, formatArr->array, key.data);
 
 		if(pval == NULL) {
-			log_write(LEVEL_ERROR, "No key named \"%s\" in \"%s\"", key.data, formatArr->name);
-			vector_kill(&key);
-			longjmp(jmpBuf, MYERR_USERINPUTERR);
+			log_write(LEVEL_INFO, "No key named \"%s\" in \"%s\"", key.data, formatArr->name);
+			value = ""; //Set that to empty since theres no value
+		} else {
+			value = *pval;
 		}
 
-		value = *pval;
 
 		vector_kill(&key);
 	}
