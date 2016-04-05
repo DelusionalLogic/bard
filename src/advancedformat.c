@@ -131,6 +131,7 @@ int advformat_execute(jmp_buf jmpBuf, char* format, const struct FormatArray* fm
 	int status;
 	waitpid(pid, &status, 0);
 	int exitCode = WEXITSTATUS(status);
+	close(pipefd[0]);
 	log_write(LEVEL_INFO, "Done: %d -> %s", exitCode, buff.data);
 	*out = vector_detach(&buff);
 	return exitCode;

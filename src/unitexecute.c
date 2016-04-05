@@ -43,6 +43,11 @@ void unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out) {
 
 	/* Execute process */
 	FILE* f = (FILE*)popen(unit->command, "r");
+	if(f == NULL) {
+		log_write(LEVEL_ERROR, "Failed running command for unit %s", unit->name);
+		longjmp(jmpBuf, MYERR_BADFD);
+	}
+
 	Vector buff;
 	vector_init(jmpBuf, &buff, sizeof(char), 512);
 	size_t readLen;
