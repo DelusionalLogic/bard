@@ -40,6 +40,8 @@ static void geometry(jmp_buf jmpBuf, struct cnfData* data, const char* option) {
 	} else if(errCode == MYERR_ALLOCFAIL) {
 		log_write(LEVEL_ERROR, "Failed to allocate more space for geometry string");
 		longjmp(jmpBuf, errCode);
+	} else {
+		log_write(LEVEL_ERROR, "Failed something something geometry string");
 	}
 }
 
@@ -67,7 +69,10 @@ static void background(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 	} else if(errCode == MYERR_ALLOCFAIL) {
 		log_write(LEVEL_ERROR, "Failed to allocate more space for background string");
 		longjmp(jmpBuf, errCode);
+	} else {
+		log_write(LEVEL_ERROR, "Failed something something background string");
 	}
+
 }
 
 static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option) {
@@ -92,7 +97,10 @@ static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 	} else if(errCode == MYERR_ALLOCFAIL) {
 		log_write(LEVEL_ERROR, "Failed to allocate more space for foreground string");
 		longjmp(jmpBuf, errCode);
+	} else {
+		log_write(LEVEL_ERROR, "Failed something something foreground string");
 	}
+
 }
 
 void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, struct FormatArray* arrays[], size_t arraysCnt) {

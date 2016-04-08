@@ -15,6 +15,7 @@
 //    along with bard.  If not, see <http://www.gnu.org/licenses/>.
 #include "linkedlist.h"
 #include <string.h>
+#include "logger.h"
 #include "myerror.h"
 
 void ll_init(jmp_buf jmpBuf, LinkedList* list, size_t elementSize)
@@ -32,7 +33,9 @@ void ll_kill(LinkedList* list)
 	if(errCode == 0) {
 		while(list->length > 0)
 			ll_remove(jmpBuf, list, 0);
-	} //Discard errors. That's too bad
+	} else {
+		log_write(LEVEL_INFO, "err in ll_kill");
+	}//Discard errors. That's too bad
 }
 
 static struct llElement* construct(jmp_buf jmpBuf, size_t elementSize, void* data)

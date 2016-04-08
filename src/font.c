@@ -29,6 +29,7 @@ void font_kill(struct FontList* font) {
 
 struct addUnitFontsData{
 	Pvoid_t* fonts;
+	Pvoid_t* revFonts;
 	int fontIndex;
 };
 static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
@@ -40,14 +41,18 @@ static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
 	JSLF(val, unit->fontMap, key);
 	while(val != NULL) {
 		char* key2 = (*val)->font;
-		int* val2;
+		int* val2 = NULL;
 		JSLG(val2, *data->fonts, key2);
 		if(val2 == NULL) {
 			JSLI(val2, *data->fonts, key2);
 			*val2 = data->fontIndex++;
+			char** val3;
+			JLI(val3, *data->revFonts, *val2);
+			*val3 = (*val)->font;
+			log_write(LEVEL_INFO, "Font array key: %d, value: %s", *val2, *val3);
 		}
 		(*val)->fontID = *val2;
-		log_write(LEVEL_ERROR, "Font %s id %d", key, (*val)->fontID);
+		log_write(LEVEL_INFO, "Font %s (%s) id %d", key, (*val)->font, (*val)->fontID);
 		JSLN(val, unit->fontMap, key);
 	}
 	return true;
@@ -57,15 +62,21 @@ void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* un
 	dictionary* dict = iniparser_load(confPath);
 	const char* defString = iniparser_getstring(dict, "display:font", NULL);
 	if(defString != NULL) {
-		int* val;
-		JSLI(val, font->fonts, defString);
-		*val = 0;
+		char* confStr = malloc((strlen(defString) + 1) * sizeof(char));
+		strcpy(confStr, defString);
+		int* val; 
+		JSLI(val, font->fonts, confStr);
+		*val = 1;
+		char** val2;
+		JLI(val2, font->revFonts, *val);
+		*val2 = confStr;
 	}
 	iniparser_freedict(dict);
 
 	struct addUnitFontsData fontData = {
 		.fonts = &font->fonts,
-		.fontIndex = 1, //TODO: NOT HARDCODE
+		.revFonts = &font->revFonts,
+		.fontIndex = 2, //TODO: NOT HARDCODE
 	};
 	vector_foreach(jmpBuf, &units->left, addUnitFonts, &fontData);
 	vector_foreach(jmpBuf, &units->center, addUnitFonts, &fontData);
@@ -90,19 +101,22 @@ void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArr
 		JSLI(val2, fmtArray->array, key2);
 		*val2 = malloc(12 * sizeof(char));
 		log_write(LEVEL_INFO, "Font %s id %d", key, (*val)->fontID);
-		sprintf(*val2, "%d", (*val)->fontID);
+		snprintf(*val2, 12, "%d", (*val)->fontID);
 		JSLN(val, unit->fontMap, key);
 	}
 }
 
 void font_getArg(jmp_buf jmpBuf, struct FontList* font, Vector* args) {
-	int** val = 0;
-	char key[128] = {0}; //TODO: HARDCODED MAX FONT SELECTOR LENGTH
-	JSLF(val, font->fonts, key);
+	char** val = NULL;
+	int key = 0;
+	int cnt = 0; //TODO: I dont get it
+	JLF(val, font->revFonts, key);
 	while(val != NULL){
+		log_write(LEVEL_INFO, "font arg: %d, %s", key, *val);
 		vector_putListBack(jmpBuf, args, " -f \"", 5);
-		vector_putListBack(jmpBuf, args, &key, strlen(key));
+		vector_putListBack(jmpBuf, args, *val, strlen(*val));
 		vector_putListBack(jmpBuf, args, "\"", 1);
-		JSLN(val, font->fonts, key);
+		JLN(val, font->revFonts, key);
 	}
+	log_write(LEVEL_INFO, "font arg end: %d", key);
 }

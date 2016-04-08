@@ -131,6 +131,8 @@ void unit_kill(struct Unit* unit) {
 			unit->regex = NULL;
 			unit->hasRegex = false;
 			longjmp(jmpBuf, MYERR_ALLOCFAIL);
+		} else {
+			log_write(LEVEL_ERROR, "Memory allocation error reading regex for unit %s", unit->name);
 		}
 	}
 	void unit_setAdvFormat(jmp_buf jmpBuf, struct Unit* unit, const bool advFormat) {

@@ -59,7 +59,7 @@ void unitexec_execUnit(jmp_buf jmpBuf, struct Unit* unit, char** out) {
 	while((readLen = fread(chunk, 1, 1024, f)) > 0)
 		vector_putListBack(jmpBuf, &buff, chunk, readLen);
 
-	if(buff.data[buff.size-1] == '\n')
+	if(buff.size > 0 && buff.data[buff.size-1] == '\n')
 		buff.data[buff.size-1] = '\0';
 	else
 		vector_putBack(jmpBuf, &buff, &null);

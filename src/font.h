@@ -23,7 +23,8 @@
 #include "formatarray.h"
 
 struct FontList {
-	Pvoid_t fonts;
+	Pvoid_t fonts; //Font string to index
+	Pvoid_t revFonts; //Index to font string
 };
 
 void font_kill(struct FontList* font);

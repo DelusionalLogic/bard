@@ -123,7 +123,7 @@ int advformat_execute(jmp_buf jmpBuf, char* format, const struct FormatArray* fm
 	}
 
 	//Remove trailing newline
-	if(buff.data[buff.size-1] == '\n')
+	if(buff.size > 0 && buff.data[buff.size-1] == '\n')
 		buff.data[buff.size-1] = '\0';
 	else
 		vector_putListBack(jmpBuf, &buff, "\0", 1);

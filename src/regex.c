@@ -88,6 +88,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 		*val = malloc((strlen(string) + 1) * sizeof(char));
 		strcpy(*val, string);
 	}
+	array->longestKey = 5; //TODO: DONT
 
 	if(*val == NULL)
 		return true;
