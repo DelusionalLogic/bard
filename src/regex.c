@@ -13,11 +13,11 @@ void regex_init(struct Regex* regex) {
 
 void regex_kill(struct Regex* regex) {
 	PWord_t val;
-	char index[regex->maxLen];
+	uint8_t index[regex->maxLen];
 	index[0] = '\0';
 	JSLF(val, regex->regexCache, index);
 	while(val != NULL) {
-		pcre2_code_free(*val);
+		pcre2_code_free((pcre2_code*)*val);
 		JSLN(val, regex->regexCache, index);
 	}
 	int bytes;
@@ -43,7 +43,7 @@ bool compileRegex(jmp_buf jmpBuf, void* elem, void* userdata) {
 			&erroroffset,
 			NULL);
 	PWord_t val;
-	JSLI(val, *data->arr, unit->name);
+	JSLI(val, *data->arr, (uint8_t*)unit->name);
 	size_t unitNameLen = strlen(unit->name) + 1;
 	if(unitNameLen > *(data->maxLen))
 		*(data->maxLen) = unitNameLen;
@@ -75,7 +75,7 @@ bool regex_compile(jmp_buf jmpBuf, struct Regex* regex, struct Units* units) {
 
 bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* string, struct FormatArray* array) {
 	pcre2_code** val;
-	JSLG(val,  regex->regexCache, unit->name);
+	JSLG(val,  regex->regexCache, (uint8_t*)unit->name);
 	if(val == NULL)
 		longjmp(jmpBuf, MYERR_UNITWRONGTYPE);
 
@@ -84,7 +84,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 	//The first index is always the complete output
 	{
 		char** val;
-		JSLI(val, array->array, "1");
+		JSLI(val, array->array, (uint8_t*)"1");
 		*val = malloc((strlen(string) + 1) * sizeof(char));
 		strcpy(*val, string);
 	}
@@ -96,7 +96,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 
 	pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(*val, NULL);
 	int rc = pcre2_match(*val,
-			string,
+			(PCRE2_SPTR)string,
 			strlen(string),
 			0,
 			0,
@@ -132,10 +132,10 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 		if(numLen > array->longestKey)
 			array->longestKey = numLen;
 
-		char** val;
-		JSLI(val, array->array, num);
+		uint8_t** val;
+		JSLI(val, array->array, (uint8_t*)num);
 		*val = malloc(substring_length+1);
-		strncpy(*val, substring_start, substring_length);
+		strncpy((char*)*val, substring_start, substring_length);
 		(*val)[substring_length] = '\0';
 		log_write(LEVEL_INFO, "regex group %s is %s", num, *val);
 	}

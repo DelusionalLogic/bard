@@ -174,7 +174,7 @@ void unit_kill(struct Unit* unit) {
 		strcpy(container->font, value);
 
 		struct FontContainer** val;
-		JSLI(val, unit->fontMap, key);
+		JSLI(val, unit->fontMap, (uint8_t*)key);
 		*val = container;
 	}
 

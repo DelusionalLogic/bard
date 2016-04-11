@@ -130,13 +130,13 @@ char* parseArrayData(jmp_buf jmpBuf, struct Parser * p, const struct FormatArray
 		vector_putListBack(jmpBuf, &key, "\0", 1);
 
 		PWord_t pval;
-		JSLG(pval, formatArr->array, key.data);
+		JSLG(pval, formatArr->array, (uint8_t*)key.data);
 
 		if(pval == NULL) {
 			log_write(LEVEL_INFO, "No key named \"%s\" in \"%s\"", key.data, formatArr->name);
 			value = ""; //Set that to empty since theres no value
 		} else {
-			value = *pval;
+			value = (char*)*pval;
 		}
 
 

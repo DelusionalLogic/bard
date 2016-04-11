@@ -129,7 +129,7 @@ void runner_startPipes(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit
 fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers) {
 	fd_set set;
 	FD_ZERO(&set);
-	char* index = malloc(buffers->longestKey * sizeof(char));
+	uint8_t* index = malloc(buffers->longestKey * sizeof(char));
 	index[0] = '\0';
 	struct Buffer** val;
 	JSLF(val, buffers->buffers, index);
@@ -144,7 +144,7 @@ fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers) {
 
 bool runner_ready(jmp_buf jmpBuf, struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit) {
 	struct Buffer** val;
-	JSLG(val, buffers->buffers, unit->command);
+	JSLG(val, buffers->buffers, (uint8_t*)unit->command);
 	bool isset = FD_ISSET((*val)->fd, fdset);
 	return isset;
 }
@@ -155,7 +155,7 @@ void runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit
 	struct Buffer* buffer;
 	{
 		struct Buffer** val;
-		JSLG(val, buffers->buffers, unit->command);
+		JSLG(val, buffers->buffers, (uint8_t*)unit->command);
 		if(val == NULL) {
 			log_write(LEVEL_ERROR, "No command started for %s", unit->name);
 			longjmp(jmpBuf, MYERR_BADFD);
@@ -164,7 +164,7 @@ void runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit
 	}
 
 	int rc;
-	J1T(rc, buffers->owners, unit);
+	J1T(rc, buffers->owners, (Word_t)unit);
 	if(rc == 1) {
 		//We own this buffer, so update it
 		jmp_buf procEx;

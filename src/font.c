@@ -36,11 +36,11 @@ static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	struct addUnitFontsData* data = (struct addUnitFontsData*)userdata;
 
-	char key[12] = {0};
+	uint8_t key[12] = {0};
 	struct FontContainer** val;
 	JSLF(val, unit->fontMap, key);
 	while(val != NULL) {
-		char* key2 = (*val)->font;
+		uint8_t* key2 = (uint8_t*)(*val)->font;
 		int* val2 = NULL;
 		JSLG(val2, *data->fonts, key2);
 		if(val2 == NULL) {
@@ -65,7 +65,7 @@ void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* un
 		char* confStr = malloc((strlen(defString) + 1) * sizeof(char));
 		strcpy(confStr, defString);
 		int* val; 
-		JSLI(val, font->fonts, confStr);
+		JSLI(val, font->fonts, (uint8_t*)confStr);
 		*val = 1;
 		char** val2;
 		JLI(val2, font->revFonts, *val);
@@ -86,15 +86,15 @@ void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* un
 void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArray) {
 	strcpy(fmtArray->name, "font");
 
-	char key[12] = "\0"; //TODO: HARDCODED MAX LENGTH
+	uint8_t key[12] = "\0"; //TODO: HARDCODED MAX LENGTH
 	struct FontContainer** val;
 	JSLF(val, unit->fontMap, key);
 	while(val != NULL) {
 
 		char** val2;
-		char* key2 = key;
+		uint8_t* key2 = key;
 
-		size_t numlen = strlen(key2);
+		size_t numlen = strlen((char*)key2);
 		if(numlen > fmtArray->longestKey)
 			fmtArray->longestKey = numlen;
 
@@ -108,8 +108,7 @@ void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArr
 
 void font_getArg(jmp_buf jmpBuf, struct FontList* font, Vector* args) {
 	char** val = NULL;
-	int key = 0;
-	int cnt = 0; //TODO: I dont get it
+	Word_t key = 0;
 	JLF(val, font->revFonts, key);
 	while(val != NULL){
 		log_write(LEVEL_INFO, "font arg: %d, %s", key, *val);

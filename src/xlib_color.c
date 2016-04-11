@@ -94,7 +94,7 @@ void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj) {
 }
 
 bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct FormatArray* array) {
-	PWord_t val;
+	char** val;
 
 	strcpy(array->name, "xcolor");
 
@@ -102,7 +102,7 @@ bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct FormatA
 		size_t numLen = strlen(colorName[i]);
 		if(numLen > array->longestKey)
 			array->longestKey = numLen;
-		JSLI(val, array->array, colorName[i]);
+		JSLI(val, array->array, (uint8_t*)colorName[i]);
 		*val = xcolor->color[i];
 	}
 

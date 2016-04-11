@@ -108,6 +108,7 @@ void render(jmp_buf jmpBuf, const char* separator, int monitors) {
 
 int main(int argc, char **argv)
 {
+	log_write(LEVEL_ERROR, "Int size is: %d", sizeof(int));
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
