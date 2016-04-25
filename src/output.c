@@ -56,7 +56,7 @@ char* out_format(jmp_buf jmpBuf, struct Outputs* outs, struct Units* container, 
 			while(unit != NULL) {
 				char** str;
 				JLG(str, outs->outputs, unit);
-				if(str != NULL && str != NULL &&  *str != NULL) {
+				if(str != NULL && str != NULL && *str != NULL && unit->render) {
 					vector_putListBack(jmpBuf, &vec, "%{F-}%{B-}%{T-}", 15);
 					if(!first)
 						vector_putListBack(jmpBuf, &vec, separator, sepLen);

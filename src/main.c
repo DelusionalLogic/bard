@@ -292,11 +292,17 @@ int main(int argc, char **argv)
 							font_getArray(manEx, unit, &fontArr);
 							regex_match(manEx, &regexCache, unit, unitStr, &regexArr);
 							if(unit->advancedFormat) {
-								advformat_execute(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
-								char* str2;
-								formatter_format(manEx, str, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str2);
-								free(str);
-								str = str2;
+								int exitCode = advformat_execute(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
+								if(exitCode != 0) {
+									unit->render = false;
+								} else {
+									/* Don't format whatever we got, since we aren't going to render it anyway */
+									char* str2;
+									formatter_format(manEx, str, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str2);
+									free(str);
+									str = str2;
+									unit->render = true;
+								}
 							} else {
 								formatter_format(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
 							}
