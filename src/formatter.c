@@ -70,8 +70,8 @@ bool formatter_format(jmp_buf jmpBuf, const char* input, const struct FormatArra
 				parser_eat(p);
 				start = p->index+1;
 			}else{
-				log_write(LEVEL_ERROR, "No escape code \\%c", p->cur);
-				return false;
+				vector_putListBack(jmpBuf, &output, "\\", 1);
+				vector_putListBack(jmpBuf, &output, &p->cur, 1);
 			}
 		}else if(p->cur == '$') {
 			parser_eat(p);

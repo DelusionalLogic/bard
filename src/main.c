@@ -309,7 +309,8 @@ int main(int argc, char **argv)
 							render(manEx, separator, monitors);
 							oneUpdate = false;
 						}
-						free(unitStr);
+						if(unitStr != NULL)
+							free(unitStr);
 					} else {
 						longjmp(manEx, errCode);
 					}
