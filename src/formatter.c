@@ -20,127 +20,36 @@
 #include <errno.h>
 #include "myerror.h"
 #include "logger.h"
+#include "parser.h"
 
-struct Parser {
-	const char* str;
-	char cur;
-	size_t index;
-	size_t len;
-};
-
-void parser_start(struct Parser* parser, const char* str) {
-	parser->str = str;
-	parser->index = 0;
-	parser->len = strlen(str);
-	parser->cur = parser->len == 0 ? '\0' : parser->str[parser->index];
-}
-
-bool parser_isDone(struct Parser* parser) {
-	return parser->index > parser->len;
-}
-
-void parser_eat(struct Parser* parser) {
-	if(parser_isDone(parser))
-		return;
-	parser->index++;
-
-	parser->cur = parser_isDone(parser) ? '\0' : parser->str[parser->index];
-}
-
-char* parseArrayData(jmp_buf jmpBuf, struct Parser* parser, const struct FormatArray *arrays[], const size_t arraysCnt);
-
-bool formatter_format(jmp_buf jmpBuf, const char* input, const struct FormatArray *arrays[], size_t arraysCnt, char** Poutput) {
+bool formatter_format(jmp_buf jmpBuf, Vector* compiledStr, const struct FormatArray *arrays[], size_t arraysCnt, char** Poutput) {
 	Vector output;
 	vector_init(jmpBuf, &output, sizeof(char), 512);
 
-	struct Parser parser;
-	struct Parser* p = &parser;
-	parser_start(p, input);
+	int index = 0;
+	struct Node* node = vector_getFirst_new(compiledStr, &index);
+	while(node != NULL) {
+		if(node->type == NT_STRING) {
+			vector_putListBack(jmpBuf, &output, node->str.lit, strlen(node->str.lit));
+		} else if(node->type == NT_ARRAY) {
+			for(size_t i = 0; i < arraysCnt; i++) {
+				if(strcmp(arrays[i]->name, node->arr.arr) == 0) {
 
-	size_t start = 0;
-	while(!parser_isDone(p)) {
-		if(p->cur == '\\') {
-			parser_eat(p);
-			if(p->cur == '\\') {
-				vector_putListBack(jmpBuf, &output, "\\", 1);
-				parser_eat(p);
-				start = p->index+1;
-			}else if(p->cur == '$') {
-				vector_putListBack(jmpBuf, &output, "$", 1);
-				parser_eat(p);
-				start = p->index+1;
-			}else{
-				vector_putListBack(jmpBuf, &output, "\\", 1);
-				vector_putListBack(jmpBuf, &output, &p->cur, 1);
+					PWord_t pval;
+					JSLG(pval, arrays[i]->array, node->arr.key);
+					if(pval == NULL) {
+						log_write(LEVEL_INFO, "No key named \"%s\" in \"%s\"", node->arr.key, arrays[i]->name);
+					} else {
+						vector_putListBack(jmpBuf, &output, (char*)*pval, strlen((char*)*pval));
+					}
+					break;
+				}
 			}
-		}else if(p->cur == '$') {
-			parser_eat(p);
-			char* value = parseArrayData(jmpBuf, p, arrays, arraysCnt);
-			vector_putListBack(jmpBuf, &output, value, strlen(value));
-		}else {
-			vector_putBack(jmpBuf, &output, &p->cur);
 		}
-		parser_eat(p);
+		node = vector_getNext_new(compiledStr, &index);
 	}
-	vector_putListBack(jmpBuf, &output, input + start, (p->len - start)+1);
+	vector_putListBack(jmpBuf, &output, "\0", 1);
+
 	*Poutput = vector_detach(&output);
 	return true;
-}
-
-char* parseArrayData(jmp_buf jmpBuf, struct Parser * p, const struct FormatArray *arrays[], const size_t arraysCnt) {
-	//Find the array
-	const struct FormatArray* formatArr = NULL;
-	{
-		Vector ident;
-		vector_init(jmpBuf, &ident, sizeof(char), 12);
-
-		while(p->cur != '[' && !parser_isDone(p)) {
-			vector_putBack(jmpBuf, &ident, &p->cur);
-			parser_eat(p);
-		}
-		vector_putListBack(jmpBuf, &ident, "\0", 1);
-
-		for(size_t i = 0; i < arraysCnt; i++) {
-			if(strcmp(arrays[i]->name, ident.data) == 0) {
-				formatArr = arrays[i];
-				break;
-			}
-		}
-
-		if(formatArr == NULL) {
-			log_write(LEVEL_ERROR, "No array named %s", ident.data);
-			vector_kill(&ident);
-			longjmp(jmpBuf, MYERR_USERINPUTERR);
-		}
-
-		vector_kill(&ident);
-	}
-
-	//Find the value
-	char* value;
-	{
-		Vector key;
-		vector_init(jmpBuf, &key, sizeof(char), 12);
-
-		parser_eat(p);
-		while(p->cur != ']' && !parser_isDone(p)) {
-			vector_putBack(jmpBuf, &key, &p->cur);
-			parser_eat(p);
-		}
-		vector_putListBack(jmpBuf, &key, "\0", 1);
-
-		PWord_t pval;
-		JSLG(pval, formatArr->array, (uint8_t*)key.data);
-
-		if(pval == NULL) {
-			log_write(LEVEL_INFO, "No key named \"%s\" in \"%s\"", key.data, formatArr->name);
-			value = ""; //Set that to empty since theres no value
-		} else {
-			value = (char*)*pval;
-		}
-
-
-		vector_kill(&key);
-	}
-	return value;
 }

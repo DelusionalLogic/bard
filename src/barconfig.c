@@ -21,6 +21,7 @@
 #include "fs.h"
 #include "vector.h"
 #include "configparser.h"
+#include "parser.h"
 
 struct cnfData{
 	Vector* arg;
@@ -57,8 +58,11 @@ static void background(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 		int errCode2 = setjmp(colorEx);
 		char* out;
 		if(errCode2 == 0) {
-			formatter_format(colorEx, option, data->arrays, data->arraysCnt, &out);
+			Vector compiled;
+			parser_compileStr(option, &compiled);
+			formatter_format(colorEx, &compiled, data->arrays, data->arraysCnt, &out);
 			vector_putListBack(vecEx, data->arg, out, strlen(out));
+			vector_kill(&compiled);
 			free(out);
 			vector_putListBack(vecEx, data->arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
@@ -86,8 +90,11 @@ static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 		int errCode2 = setjmp(colorEx);
 		char* out;
 		if(errCode2 == 0) {
-			formatter_format(colorEx, option, data->arrays, data->arraysCnt, &out);
+			Vector compiled;
+			parser_compileStr(option, &compiled);
+			formatter_format(colorEx, &compiled, data->arrays, data->arraysCnt, &out);
 			vector_putListBack(vecEx, data->arg, out, strlen(out));
+			vector_kill(&compiled);
 			free(out);
 			vector_putListBack(vecEx, data->arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there

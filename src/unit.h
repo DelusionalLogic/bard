@@ -54,7 +54,8 @@ struct Unit {
 
 	int interval;
 
-	Pvoid_t fontMap;
+	Pvoid_t fontMap; // str -> FontContainer
+	Pvoid_t envMap; // str -> str
 
 	char* delimiter;
 
@@ -64,6 +65,11 @@ struct Unit {
 
 	/* True if we should be rendered */
 	bool render;
+
+	bool isPreProcessed;
+	/* Only available after preprocess */
+	Vector compiledFormat; //Vector of Node
+	Pvoid_t compiledEnv; //str -> Vector of Node
 };
 
 void unit_init(jmp_buf jmpBuf, struct Unit* unit);
@@ -77,6 +83,7 @@ void unit_setAdvFormat(jmp_buf jmpBuf, struct Unit* unit, bool advFormat);
 void unit_setFormat(jmp_buf jmpBuf, struct Unit* unit, const char* format);
 void unit_setInterval(jmp_buf jmpBuf, struct Unit* unit, const int interval);
 void unit_setFonts(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value);
+void unit_setEnvironment(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value);
 void unit_setDelimiter(jmp_buf jmpBuf, struct Unit* unit, const char* delimiter);
 
 #endif

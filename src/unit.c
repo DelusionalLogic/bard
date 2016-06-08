@@ -19,6 +19,7 @@
 #include <setjmp.h>
 #include "myerror.h"
 #include "logger.h"
+#include "parser.h"
 
 bool fontCmp(jmp_buf jmpBuf, const void* straw, const void* needle, size_t eSize) {
 	char* e1 = *(char**)straw;
@@ -39,12 +40,17 @@ void unit_init(jmp_buf jmpBuf, struct Unit* unit) {
 	unit->interval = 0;
 
 	unit->fontMap = NULL;
+	unit->envMap = NULL;
 	
 	unit->delimiter = NULL;
 
 	unit->hash = 0;
 
 	unit->render = true;
+
+	unit->isPreProcessed = false;
+
+	unit->compiledEnv = NULL;
 }
 
 void unit_kill(struct Unit* unit) {
@@ -58,135 +64,151 @@ void unit_kill(struct Unit* unit) {
 	free(unit->delimiter);
 }
 
-	//Setters
-	void unit_setName(jmp_buf jmpBuf, struct Unit* unit, const char* name) {
-		free(unit->name);
-		if(name == NULL) {
-			unit->name = NULL;
-			return;
-		}
-
-		size_t nameLen = strlen(name) + 1;
-		unit->name = malloc(sizeof(char) * nameLen);
-		if(unit->name == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
-		strcpy(unit->name, name);
+//Setters {{{
+void unit_setName(jmp_buf jmpBuf, struct Unit* unit, const char* name) {
+	free(unit->name);
+	if(name == NULL) {
+		unit->name = NULL;
+		return;
 	}
-	void unit_setType(jmp_buf jmpBuf, struct Unit* unit, const enum UnitType type) {
-		unit->type = type;
-	}
-	void unit_setCommand(jmp_buf jmpBuf, struct Unit* unit, const char* command) {
-		free(unit->command);
-		if(command == NULL) {
-			unit->command = NULL;
-			return;
-		}
 
-		size_t commandLen = strlen(command) + 1;
-		unit->command = malloc(sizeof(char) * commandLen);
-		if(unit->command == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
-		strcpy(unit->command, command);
+	size_t nameLen = strlen(name) + 1;
+	unit->name = malloc(sizeof(char) * nameLen);
+	if(unit->name == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	strcpy(unit->name, name);
+}
+void unit_setType(jmp_buf jmpBuf, struct Unit* unit, const enum UnitType type) {
+	unit->type = type;
+}
+void unit_setCommand(jmp_buf jmpBuf, struct Unit* unit, const char* command) {
+	free(unit->command);
+	if(command == NULL) {
+		unit->command = NULL;
+		return;
 	}
-	void unit_setRegex(jmp_buf jmpBuf, struct Unit* unit, const char* regex) {
-		free(unit->regex);
-		if(regex == NULL) {
-			unit->regex = NULL;
-			return;
-		}
 
-		Vector str;
-		jmp_buf setEx;
-		int errCode = setjmp(setEx);
-		if(errCode == 0) {
-			vector_init(setEx, &str, sizeof(char), 512);
-			//For some insane reason regex depends on all escape chars to already be unescaped before being passsed to it. So here it goes i guess...
-			for(int i = 0; regex[i] != '\0'; i++) {
-				if(regex[i] == '\\'){
-					switch(regex[i+1]) {
-						case 'n':
-							vector_putBack(setEx, &str, "\n");
-							i++;
-							break;
-						case 't':
-							vector_putBack(setEx, &str, "\t");
-							i++;
-							break;
-						case '\\':
-							vector_putBack(setEx, &str, "\\");
-							i++;
-							break;
-						default:
-							vector_putBack(setEx, &str, "\\");
-					}
-				} else {
-					vector_putBack(setEx, &str, &regex[i]);
+	size_t commandLen = strlen(command) + 1;
+	unit->command = malloc(sizeof(char) * commandLen);
+	if(unit->command == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	strcpy(unit->command, command);
+}
+void unit_setRegex(jmp_buf jmpBuf, struct Unit* unit, const char* regex) {
+	free(unit->regex);
+	if(regex == NULL) {
+		unit->regex = NULL;
+		return;
+	}
+
+	Vector str;
+	jmp_buf setEx;
+	int errCode = setjmp(setEx);
+	if(errCode == 0) {
+		vector_init(setEx, &str, sizeof(char), 512);
+		//For some insane reason regex depends on all escape chars to already be unescaped before being passsed to it. So here it goes i guess...
+		for(int i = 0; regex[i] != '\0'; i++) {
+			if(regex[i] == '\\'){
+				switch(regex[i+1]) {
+					case 'n':
+						vector_putBack(setEx, &str, "\n");
+						i++;
+						break;
+					case 't':
+						vector_putBack(setEx, &str, "\t");
+						i++;
+						break;
+					case '\\':
+						vector_putBack(setEx, &str, "\\");
+						i++;
+						break;
+					default:
+						vector_putBack(setEx, &str, "\\");
 				}
+			} else {
+				vector_putBack(setEx, &str, &regex[i]);
 			}
-			vector_putBack(setEx, &str, "\0"); //Using a string lets get a char* from a literal
-
-			unit->hasRegex = true;
-			unit->regex = vector_detach(&str);
-		} else if (errCode == MYERR_ALLOCFAIL) {
-			log_write(LEVEL_ERROR, "Memory allocation error reading regex for unit %s", unit->name);
-			vector_kill(&str);
-			unit->regex = NULL;
-			unit->hasRegex = false;
-			longjmp(jmpBuf, MYERR_ALLOCFAIL);
-		} else {
-			log_write(LEVEL_ERROR, "Memory allocation error reading regex for unit %s", unit->name);
 		}
+		vector_putBack(setEx, &str, "\0"); //Using a string lets get a char* from a literal
+
+		unit->hasRegex = true;
+		unit->regex = vector_detach(&str);
+	} else if (errCode == MYERR_ALLOCFAIL) {
+		log_write(LEVEL_ERROR, "Memory allocation error reading regex for unit %s", unit->name);
+		vector_kill(&str);
+		unit->regex = NULL;
+		unit->hasRegex = false;
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	} else {
+		log_write(LEVEL_ERROR, "Memory allocation error reading regex for unit %s", unit->name);
 	}
-	void unit_setAdvFormat(jmp_buf jmpBuf, struct Unit* unit, const bool advFormat) {
-		unit->advancedFormat = advFormat;
-	}
-	void unit_setFormat(jmp_buf jmpBuf, struct Unit* unit, const char* format){
-		free(unit->format);
-		if(format == NULL) {
-			unit->format = NULL;
-			return;
-		}
-
-		size_t formatLen = strlen(format) + 1;
-		unit->format = malloc(sizeof(char) * formatLen);
-		if(unit->format == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
-		strcpy(unit->format, format);
-	}
-	void unit_setInterval(jmp_buf jmpBuf, struct Unit* unit, const int interval) {
-		unit->interval = interval;
-	}
-	//Add font to fontmap is called once per font
-	void unit_setFonts(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value) {
-		if(key == NULL || value == NULL)
-			longjmp(jmpBuf, MYERR_USERINPUTERR);
-
-		size_t valueLen = strlen(value) + 1;
-
-		struct FontContainer* container = malloc(sizeof(struct FontContainer));
-		if(container == NULL) {
-			longjmp(jmpBuf, MYERR_ALLOCFAIL);
-		}
-
-		container->font = malloc(sizeof(char) * valueLen);
-		if(container->font == NULL) {
-			free(container);
-			longjmp(jmpBuf, MYERR_ALLOCFAIL);
-		}
-
-		strcpy(container->font, value);
-
-		struct FontContainer** val;
-		JSLI(val, unit->fontMap, (uint8_t*)key);
-		*val = container;
+}
+void unit_setAdvFormat(jmp_buf jmpBuf, struct Unit* unit, const bool advFormat) {
+	unit->advancedFormat = advFormat;
+}
+void unit_setFormat(jmp_buf jmpBuf, struct Unit* unit, const char* format){
+	free(unit->format);
+	if(format == NULL) {
+		unit->format = NULL;
+		return;
 	}
 
-	void unit_setDelimiter(jmp_buf jmpBuf, struct Unit* unit, const char* delimiter) {
-		free(unit->delimiter);
-		if(delimiter == NULL) {
-			unit->delimiter = NULL;
-			return;
-		}
+	size_t formatLen = strlen(format) + 1;
+	unit->format = malloc(sizeof(char) * formatLen);
+	if(unit->format == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	strcpy(unit->format, format);
+}
+void unit_setInterval(jmp_buf jmpBuf, struct Unit* unit, const int interval) {
+	unit->interval = interval;
+}
+//Add font to fontmap is called once per font
+void unit_setFonts(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value) {
+	if(key == NULL || value == NULL)
+		longjmp(jmpBuf, MYERR_USERINPUTERR);
 
-		size_t delimiterLen = strlen(delimiter) + 1;
-		unit->delimiter = malloc(sizeof(char) * delimiterLen);
-		if(unit->delimiter == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
-		strcpy(unit->delimiter, delimiter);
+	size_t valueLen = strlen(value) + 1;
+
+	struct FontContainer* container = malloc(sizeof(struct FontContainer));
+	if(container == NULL) {
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
 	}
+
+	container->font = malloc(sizeof(char) * valueLen);
+	if(container->font == NULL) {
+		free(container);
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	}
+
+	strcpy(container->font, value);
+
+	struct FontContainer** val;
+	JSLI(val, unit->fontMap, (uint8_t*)key);
+	*val = container;
+}
+void unit_setEnvironment(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value) {
+	if(key == NULL || value == NULL)
+		longjmp(jmpBuf, MYERR_USERINPUTERR);
+
+	size_t valueLen = strlen(value) + 1;
+
+	char** newVal;
+	JSLI(newVal, unit->envMap, (uint8_t*)key);
+	*newVal = malloc(valueLen * sizeof(char));
+	if(*newVal == NULL) {
+		longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	}
+
+	strcpy(*newVal, value);
+}
+
+void unit_setDelimiter(jmp_buf jmpBuf, struct Unit* unit, const char* delimiter) {
+	free(unit->delimiter);
+	if(delimiter == NULL) {
+		unit->delimiter = NULL;
+		return;
+	}
+
+	size_t delimiterLen = strlen(delimiter) + 1;
+	unit->delimiter = malloc(sizeof(char) * delimiterLen);
+	if(unit->delimiter == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	strcpy(unit->delimiter, delimiter);
+}
+// }}}

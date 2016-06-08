@@ -27,86 +27,47 @@
 #include "myerror.h"
 #include "logger.h"
 
-int advformat_execute(jmp_buf jmpBuf, char* format, const struct FormatArray* fmtArrays[], size_t fmtLen, char** out) {
-	Vector args;
-	vector_init(jmpBuf, &args, sizeof(char*), 4);
+int advformat_execute(jmp_buf jmpBuf, char* format, Pvoid_t compiledEnv, const struct FormatArray* fmtArrays[], size_t fmtLen, char** out) {
 	char* null = NULL;
 	size_t cmdlen = 0;
 	char* ch = format;
+	char** w;
 	//Get length of initial command
-	while(*ch != ' ' && *ch != '\0') {
-		cmdlen++;
-		ch++;
-	}
-	{
-		//Extract initial command and do shell expansion
-		char* cmd = malloc(cmdlen + 1);
-		memcpy(cmd, format, cmdlen);
-		cmd[cmdlen] = '\0';
-		wordexp_t p;
-		wordexp(cmd, &p, 0);
-		Vector newCmd;
-		vector_init(jmpBuf, &newCmd, sizeof(char), 64);
-		for(size_t i = 0; i < p.we_wordc; i++) {
-			vector_putListBack(jmpBuf, &newCmd, p.we_wordv[i], strlen(p.we_wordv[i])+1);
-		}
-		wordfree(&p);
-		free(cmd);
-		cmd = vector_detach(&newCmd);
-		vector_putBack(jmpBuf, &args, &cmd);
-	}
-	//Read all the following parameters and extract file formatting
-	while(true) {
-		while(*ch == ' ' && *ch != '\0') {
-			ch++;
-		}
-		if(*ch == '\0')
-			break;
-		char* start = ch;
-		while(*ch != ' ' && *ch != '\0') {
-			ch++;
-		}
-		char* arg = malloc((ch-start) + 1);
-		memcpy(arg, start, ch-start);
-		arg[ch-start] = '\0';
-		char* str;
-		//Expand bard variables
-		formatter_format(jmpBuf, arg, fmtArrays, fmtLen, &str);
-		free(arg);
-		vector_putBack(jmpBuf, &args, &str);
 
-		if(*ch == '\0')
-			break;
-	}
-	//Add null ptr to satisfy execv
-	vector_putBack(jmpBuf, &args, &null);
+	wordexp_t p;
+	wordexp(format, &p, 0);
+	w = p.we_wordv;
 
 	int pipefd[2];
 	pipe(pipefd);
+
+	log_write(LEVEL_INFO, "Executing: %s", w[0]);
 
 	//Start the child
 	int pid = fork();
 	if(pid == 0) {
 		close(pipefd[0]);
 		dup2(pipefd[1], STDOUT_FILENO);
-		execvp(*(char**)vector_get(jmpBuf, &args, 0), (char**)args.data);
+
+		char index[12] = "\0"; //Max ENV len
+		Vector** vec;
+		JSLF(vec, compiledEnv, index);
+		while(vec != NULL) {
+			char* str;
+			formatter_format(jmpBuf, *vec, fmtArrays, fmtLen, &str);
+			log_write(LEVEL_INFO, "Env %s -> %s", index, str);
+			setenv(index, str, true);
+			JSLN(vec, compiledEnv, index);
+		}
+
+		execvp(w[0], w);
 		exit(0);
 	}
 
 	close(pipefd[1]);
 	FILE* output = fdopen(pipefd[0], "r");
 
-	//Free the arguments
-	{
-		int index;
-		char** arg = vector_getFirst(jmpBuf, &args, &index);
-		while(arg != NULL) {
-			if(*arg != NULL)
-				free(*arg);
-			arg = vector_getNext(jmpBuf, &args, &index);
-		}
-	}
-	vector_kill(&args);
+	wordfree(&p);
 
 	Vector buff;
 	vector_init(jmpBuf, &buff, sizeof(char), 1024);

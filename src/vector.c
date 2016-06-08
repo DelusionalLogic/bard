@@ -20,6 +20,22 @@
 #include <string.h>
 #include "myerror.h"
 
+static int resize_new(Vector* vector, size_t newElem)
+{
+	if(newElem + vector->size > vector->maxSize)
+	{
+		size_t newSize = newElem + vector->size;
+		while(vector->maxSize < newSize)
+			vector->maxSize *= 2;
+		void* newMem = realloc(vector->data, vector->maxSize * vector->elementSize);
+		if(newMem == NULL)
+			return MYERR_ALLOCFAIL;
+		vector->data = newMem;
+	}
+	return 0;
+}
+
+//DEPRECATED
 static void resize(jmp_buf jmpBuf, Vector* vector, size_t newElem)
 {
 	if(newElem + vector->size > vector->maxSize)
@@ -34,6 +50,18 @@ static void resize(jmp_buf jmpBuf, Vector* vector, size_t newElem)
 	}
 }
 
+int vector_init_new(Vector* vector, size_t elementsize, size_t initialsize)
+{
+	vector->maxSize = initialsize;
+	vector->elementSize = elementsize;
+	vector->size = 0;
+	vector->data = malloc(initialsize * elementsize); //This should really not be done here
+	if(vector->data == NULL)
+		return MYERR_ALLOCFAIL;
+	return 0;
+}
+
+//DEPRECATED
 void vector_init(jmp_buf jmpBuf, Vector* vector, size_t elementsize, size_t initialsize)
 {
 	vector->maxSize = initialsize;
@@ -60,6 +88,20 @@ char* vector_detach(Vector* vector)
 	return oldDat;
 }
 
+int vector_putBack_new(Vector* vector, const void* element)
+{
+	assert(vector->elementSize != 0);
+
+	int errCode = resize_new(vector, 1);
+	if(errCode != 0)
+		return errCode;
+
+	memcpy(vector->data + vector->size * vector->elementSize, element, vector->elementSize);
+	vector->size += 1;
+	return 0;
+}
+
+//DEPRECATED
 void vector_putBack(jmp_buf jmpBuf, Vector* vector, const void* element)
 {
 	assert(vector->elementSize != 0);
@@ -75,6 +117,18 @@ void vector_putBack(jmp_buf jmpBuf, Vector* vector, const void* element)
 	vector->size += 1;
 }
 
+int vector_putListBack_new(Vector* vector, const void* list, const size_t count)
+{
+	assert(vector->elementSize != 0);
+
+	int errCode = resize_new(vector, count);
+	if(errCode != 0)
+		return errCode;
+
+	memcpy(vector->data + vector->size * vector->elementSize, list, count * vector->elementSize);
+	vector->size += count;
+	return 0;
+}
 int vector_putListBack(jmp_buf jmpBuf, Vector* vector, const void* list, const size_t count)
 {
 	assert(vector->elementSize != 0);
@@ -91,6 +145,13 @@ int vector_putListBack(jmp_buf jmpBuf, Vector* vector, const void* list, const s
 	return 0;
 }
 
+void* vector_get_new(Vector* vector, const size_t count)
+{
+	assert(vector->elementSize != 0);
+	if(count >= vector->size)
+		return NULL;
+	return vector->data + vector->elementSize * count;
+}
 void* vector_get(jmp_buf jmpBuf, Vector* vector, const size_t count)
 {
 	assert(vector->elementSize != 0);
@@ -118,6 +179,19 @@ void vector_qsort(Vector* vector, int (*compar)(const void *, const void*))
 	qsort(vector->data, vector->size, vector->elementSize, compar);
 }
 
+int vector_foreach_new(Vector* vector, int (*callback)(void* elem, void* userdata), void* userdata)
+{
+	assert(vector->elementSize != 0);
+	int index = 0;
+	void* elem  = vector_getFirst_new(vector, &index);
+	while(elem != NULL) {
+		int errCode = callback(elem, userdata);
+		if(errCode > 0)
+			return errCode;
+		elem = vector_getNext_new(vector, &index);
+	}
+	return 0;
+}
 bool vector_foreach(jmp_buf jmpBuf, Vector* vector, bool (*callback)(jmp_buf jmpBuf, void* elem, void* userdata), void* userdata)
 {
 	assert(vector->elementSize != 0);
@@ -136,6 +210,12 @@ bool vector_foreach(jmp_buf jmpBuf, Vector* vector, bool (*callback)(jmp_buf jmp
 	return true;
 }
 
+void* vector_getFirst_new(Vector* vector, int* index) {
+	*index = 0;
+	if(*index >= vector_size(vector))
+		return NULL;
+	return vector_get_new(vector, *index);
+}
 void* vector_getFirst(jmp_buf jmpBuf, Vector* vector, int* index) {
 	*index = 0;
 	if(*index >= vector_size(vector))
@@ -143,6 +223,12 @@ void* vector_getFirst(jmp_buf jmpBuf, Vector* vector, int* index) {
 	return vector_get(jmpBuf, vector, *index);
 }
 
+void* vector_getNext_new(Vector* vector, int* index) {
+	++(*index);
+	if(*index >= vector_size(vector))
+		return NULL;
+	return vector_get_new(vector, *index);
+}
 void* vector_getNext(jmp_buf jmpBuf, Vector* vector, int* index) {
 	++(*index);
 	if(*index >= vector_size(vector))

@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "myerror.h"
+#include "parser.h"
 #include "fs.h"
 #include "unit.h"
 #include "configparser.h"
@@ -127,6 +128,7 @@ void units_load(jmp_buf jmpBuf, struct Units* units, char* configDir) {
 		StringConfigEntry("display:format", unit_setFormat, NULL),
 		IntConfigEntry("display:interval", unit_setInterval, 10),
 		MapConfigEntry("font", unit_setFonts),
+		MapConfigEntry("env", unit_setEnvironment),
 		{.name = NULL},
 	};
 
@@ -145,4 +147,44 @@ void units_load(jmp_buf jmpBuf, struct Units* units, char* configDir) {
 	free(unitPath);
 
 	cp_kill(&unitParser);
+}
+
+int unit_preprocess(void* elem, void* metadata) {
+	struct Unit* unit = (struct Unit*)elem;
+	log_write(LEVEL_INFO, "Preprocessing unit: %s", unit->name);
+	if(!unit->advancedFormat) {
+		int errCode = parser_compileStr(unit->format, &unit->compiledFormat);
+		if(errCode != 0) {
+			log_write(LEVEL_ERROR, "Error compiling string for unit: %s", unit->name);
+			return errCode;
+		}
+	} else {
+		char key[12] = "\0"; //Max key length
+		char **val;
+		JSLF(val, unit->envMap, key);
+		while(val != NULL) {
+			Vector* vec = malloc(sizeof(Vector));
+			parser_compileStr(*val, vec);
+			Vector** nval;
+			JSLI(nval, unit->compiledEnv, key);
+			*nval = vec;
+			JSLN(val, unit->envMap, key);
+		}
+	}
+	//TODO: Compile the env
+	unit->isPreProcessed = true;
+	return 0;
+}
+
+int units_preprocess(struct Units* units) {
+	int errCode = vector_foreach_new(&units->left, unit_preprocess, NULL);
+	if(errCode != 0)
+		return errCode;
+	errCode = vector_foreach_new(&units->center, unit_preprocess, NULL);
+	if(errCode != 0)
+		return errCode;
+	errCode = vector_foreach_new(&units->right, unit_preprocess, NULL);
+	if(errCode != 0)
+		return errCode;
+	return 0;
 }

@@ -45,6 +45,7 @@
 #include "logger.h"
 #include "vector.h"
 #include "linkedlist.h"
+#include "parser.h"
 #include "fs.h"
 
 const char* argp_program_version = PACKAGE_STRING;
@@ -108,7 +109,6 @@ void render(jmp_buf jmpBuf, const char* separator, int monitors) {
 
 int main(int argc, char **argv)
 {
-	log_write(LEVEL_ERROR, "Int size is: %d", sizeof(int));
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
@@ -127,6 +127,12 @@ int main(int argc, char **argv)
 		units_load(loadEx, &units, arguments.configDir);
 	} else {
 		log_write(LEVEL_ERROR, "Failed to load units: %d", errCode);
+		exit(errCode);
+	}
+
+	errCode = units_preprocess(&units);
+	if(errCode != 0) {
+		log_write(LEVEL_ERROR, "Failed preprocessing units: %d", errCode);
 		exit(errCode);
 	}
 
@@ -161,7 +167,6 @@ int main(int argc, char **argv)
 	char* separator;
 	int monitors;
 	{
-
 		char* confPath = pathAppend(arguments.configDir, "bard.conf");
 		dictionary* dict = iniparser_load(confPath);
 		{
@@ -169,7 +174,10 @@ int main(int argc, char **argv)
 			int errCode = setjmp(excep);
 			if(errCode == 0) {
 				const char* psep = iniparser_getstring(dict, "display:separator", " | ");
-				formatter_format(excep, psep, &formatArr[1], 1, &separator);
+				Vector compiled;
+				parser_compileStr(psep, &compiled);
+				formatter_format(excep, &compiled, &formatArr[1], 1, &separator);
+				vector_kill(&compiled);
 				monitors = iniparser_getint(dict, "display:monitors", 1);
 			} else {
 				log_write(LEVEL_FATAL, "While reading/formatting seperator (%d)", errCode);
@@ -273,7 +281,7 @@ int main(int argc, char **argv)
 
 				/* Format the output for the bar */
 				{
-					char* unitStr;
+					char* unitStr = NULL;
 
 					jmp_buf procEx;
 					int errCode = setjmp(procEx);
@@ -292,19 +300,16 @@ int main(int argc, char **argv)
 							font_getArray(manEx, unit, &fontArr);
 							regex_match(manEx, &regexCache, unit, unitStr, &regexArr);
 							if(unit->advancedFormat) {
-								int exitCode = advformat_execute(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
+								int exitCode = advformat_execute(manEx, unit->format, unit->compiledEnv, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
 								if(exitCode != 0) {
 									unit->render = false;
 								} else {
 									/* Don't format whatever we got, since we aren't going to render it anyway */
-									char* str2;
-									formatter_format(manEx, str, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str2);
-									free(str);
-									str = str2;
 									unit->render = true;
 								}
 							} else {
-								formatter_format(manEx, unit->format, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
+								log_write(LEVEL_INFO, "Preprocessed: %d, Name: %s", unit->isPreProcessed, unit->name);
+								formatter_format(manEx, &unit->compiledFormat, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
 							}
 							formatarray_kill(manEx, &regexArr);
 							formatarray_kill(manEx, &fontArr);
