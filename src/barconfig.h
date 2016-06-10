@@ -20,6 +20,6 @@
 #include "unit.h"
 #include "formatarray.h"
 
-void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, struct FormatArray* arrays[], size_t arraysCnt);
+void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, const struct FormatArray* arrays[], size_t arraysCnt);
 
 #endif

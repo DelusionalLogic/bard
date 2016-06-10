@@ -31,6 +31,24 @@ void parser_eat(struct Parser* parser) {
 	parser->cur = parser_isDone(parser) ? '\0' : parser->str[parser->index];
 }
 
+int parser_freeCompiled(Vector* compiled) {
+	int index = 0;
+	struct Node* node = vector_getFirst_new(compiled, &index);
+	while(node != NULL) {
+		if(node->type == NT_STRING) {
+			free(node->str.lit);
+		} else if(node->type == NT_ARRAY) {
+			free(node->arr.arr);
+			free(node->arr.key);
+		} else {
+			return MYERR_OUTOFRANGE;
+		}
+		node = vector_getNext_new(compiled, &index);
+	}
+	vector_kill(compiled);
+	return 0;
+}
+
 int parseArrayData(struct Parser * p, struct Node* node);
 
 //TODO: Handle Errors

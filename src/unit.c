@@ -39,7 +39,9 @@ void unit_init(jmp_buf jmpBuf, struct Unit* unit) {
 
 	unit->interval = 0;
 
+	unit->lFontKey = 0;
 	unit->fontMap = NULL;
+	unit->lEnvKey = 0;
 	unit->envMap = NULL;
 	
 	unit->delimiter = NULL;
@@ -59,7 +61,32 @@ void unit_kill(struct Unit* unit) {
 	free(unit->regex);
 	free(unit->format);
 
-	//TODO: KILL FONT MAP
+	// Free fonts
+	{
+		char key[unit->lFontKey];
+		struct FontContainer** val;
+		JSLF(val, unit->fontMap, key);
+		while(val != NULL) {
+			free((*val)->font);
+			free(*val);
+			JSLN(val, unit->fontMap, key);
+		}
+		Word_t bytes;
+		JSLFA(bytes, unit->fontMap);
+	}
+
+	// Free env
+	{
+		char key[unit->lEnvKey];
+		char** val;
+		JSLF(val, unit->envMap, key);
+		while(val != NULL) {
+			free(*val);
+			JSLN(val, unit->envMap, key);
+		}
+		Word_t bytes;
+		JSLFA(bytes, unit->envMap);
+	}
 
 	free(unit->delimiter);
 }
@@ -179,6 +206,9 @@ void unit_setFonts(jmp_buf jmpBuf, struct Unit* unit, const char* key, const cha
 
 	strcpy(container->font, value);
 
+	size_t keylen = strlen(key);
+	unit->lFontKey = keylen > unit->lFontKey ? keylen : unit->lFontKey;
+
 	struct FontContainer** val;
 	JSLI(val, unit->fontMap, (uint8_t*)key);
 	*val = container;
@@ -187,16 +217,19 @@ void unit_setEnvironment(jmp_buf jmpBuf, struct Unit* unit, const char* key, con
 	if(key == NULL || value == NULL)
 		longjmp(jmpBuf, MYERR_USERINPUTERR);
 
-	size_t valueLen = strlen(value) + 1;
+	size_t valueLen = strlen(value);
+
+	size_t keylen = strlen(key);
+	unit->lEnvKey = keylen > unit->lEnvKey ? keylen : unit->lEnvKey;
 
 	char** newVal;
 	JSLI(newVal, unit->envMap, (uint8_t*)key);
-	*newVal = malloc(valueLen * sizeof(char));
+	*newVal = malloc(valueLen * sizeof(char) + 1);
 	if(*newVal == NULL) {
 		longjmp(jmpBuf, MYERR_ALLOCFAIL);
 	}
 
-	strcpy(*newVal, value);
+	strncpy(*newVal, value, valueLen+1);
 }
 
 void unit_setDelimiter(jmp_buf jmpBuf, struct Unit* unit, const char* delimiter) {

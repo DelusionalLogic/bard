@@ -177,7 +177,7 @@ int main(int argc, char **argv)
 				Vector compiled;
 				parser_compileStr(psep, &compiled);
 				formatter_format(excep, &compiled, &formatArr[1], 1, &separator);
-				vector_kill(&compiled);
+				parser_freeCompiled(&compiled);
 				monitors = iniparser_getint(dict, "display:monitors", 1);
 			} else {
 				log_write(LEVEL_FATAL, "While reading/formatting seperator (%d)", errCode);
@@ -210,7 +210,7 @@ int main(int argc, char **argv)
 				jmp_buf stageEx;
 				int errCode = setjmp(stageEx);
 				if(errCode == 0) {
-					struct FormatArray* xcolorPtr = &xcolorArr;
+					const struct FormatArray* xcolorPtr = &xcolorArr;
 					barconfig_getArgs(stageEx, &launch, confPath, &xcolorPtr, 1);
 					font_getArg(stageEx, &flist, &launch);
 					vector_putListBack(stageEx, &launch, "\0", 1);
@@ -300,7 +300,7 @@ int main(int argc, char **argv)
 							font_getArray(manEx, unit, &fontArr);
 							regex_match(manEx, &regexCache, unit, unitStr, &regexArr);
 							if(unit->advancedFormat) {
-								int exitCode = advformat_execute(manEx, unit->format, unit->compiledEnv, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
+								int exitCode = advformat_execute(manEx, unit->format, unit->compiledEnv, unit->lEnvKey, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
 								if(exitCode != 0) {
 									unit->render = false;
 								} else {

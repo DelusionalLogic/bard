@@ -36,7 +36,11 @@ static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	struct addUnitFontsData* data = (struct addUnitFontsData*)userdata;
 
-	uint8_t key[12] = {0};
+	if(unit->lFontKey == 0)
+		return true;
+
+	uint8_t key[unit->lFontKey];
+	key[0] = '\0';
 	struct FontContainer** val;
 	JSLF(val, unit->fontMap, key);
 	while(val != NULL) {

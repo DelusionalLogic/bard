@@ -25,7 +25,7 @@
 
 struct cnfData{
 	Vector* arg;
-	struct FormatArray **arrays;
+	const struct FormatArray **arrays;
 	size_t arraysCnt;
 };
 
@@ -62,7 +62,7 @@ static void background(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 			parser_compileStr(option, &compiled);
 			formatter_format(colorEx, &compiled, data->arrays, data->arraysCnt, &out);
 			vector_putListBack(vecEx, data->arg, out, strlen(out));
-			vector_kill(&compiled);
+			parser_freeCompiled(&compiled);
 			free(out);
 			vector_putListBack(vecEx, data->arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
@@ -94,7 +94,7 @@ static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 			parser_compileStr(option, &compiled);
 			formatter_format(colorEx, &compiled, data->arrays, data->arraysCnt, &out);
 			vector_putListBack(vecEx, data->arg, out, strlen(out));
-			vector_kill(&compiled);
+			parser_freeCompiled(&compiled);
 			free(out);
 			vector_putListBack(vecEx, data->arg, "\"", 1);
 		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
@@ -110,7 +110,7 @@ static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option)
 
 }
 
-void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, struct FormatArray* arrays[], size_t arraysCnt) {
+void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, const struct FormatArray* arrays[], size_t arraysCnt) {
 	struct cnfData data = {
 		.arg = arg,
 		.arrays = arrays,

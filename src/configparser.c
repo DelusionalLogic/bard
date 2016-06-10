@@ -43,6 +43,8 @@ static void set_str(jmp_buf jmpBuf, struct ConfigParser* parser, struct ConfigPa
 static void set_map(jmp_buf jmpBuf, struct ConfigParser* parser, struct ConfigParserEntry* entry, void* obj) {
 	size_t nameLen = strlen(entry->name);
 	int secn = iniparser_getsecnkeys(parser->conf, entry->name);
+	if(secn == 0)
+		return;
 	const char **keys = malloc(secn * sizeof(char*));
 	if(keys == NULL)
 		longjmp(jmpBuf, MYERR_ALLOCFAIL);

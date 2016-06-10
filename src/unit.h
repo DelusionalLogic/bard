@@ -54,7 +54,9 @@ struct Unit {
 
 	int interval;
 
+	size_t lFontKey;
 	Pvoid_t fontMap; // str -> FontContainer
+	size_t lEnvKey;
 	Pvoid_t envMap; // str -> str
 
 	char* delimiter;

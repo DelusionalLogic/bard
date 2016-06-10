@@ -27,7 +27,7 @@
 #include "myerror.h"
 #include "logger.h"
 
-int advformat_execute(jmp_buf jmpBuf, char* format, Pvoid_t compiledEnv, const struct FormatArray* fmtArrays[], size_t fmtLen, char** out) {
+int advformat_execute(jmp_buf jmpBuf, char* format, Pvoid_t compiledEnv, size_t maxKeyLen, const struct FormatArray* fmtArrays[], size_t fmtLen, char** out) {
 	char* null = NULL;
 	size_t cmdlen = 0;
 	char* ch = format;
@@ -49,15 +49,18 @@ int advformat_execute(jmp_buf jmpBuf, char* format, Pvoid_t compiledEnv, const s
 		close(pipefd[0]);
 		dup2(pipefd[1], STDOUT_FILENO);
 
-		char index[12] = "\0"; //Max ENV len
-		Vector** vec;
-		JSLF(vec, compiledEnv, index);
-		while(vec != NULL) {
-			char* str;
-			formatter_format(jmpBuf, *vec, fmtArrays, fmtLen, &str);
-			log_write(LEVEL_INFO, "Env %s -> %s", index, str);
-			setenv(index, str, true);
-			JSLN(vec, compiledEnv, index);
+		if(maxKeyLen != 0) {
+			char index[maxKeyLen]; //Max ENV len
+			index[0] = '\0';
+			Vector** vec;
+			JSLF(vec, compiledEnv, index);
+			while(vec != NULL) {
+				char* str;
+				formatter_format(jmpBuf, *vec, fmtArrays, fmtLen, &str);
+				log_write(LEVEL_INFO, "Env %s -> %s", index, str);
+				setenv(index, str, true);
+				JSLN(vec, compiledEnv, index);
+			}
 		}
 
 		execvp(w[0], w);

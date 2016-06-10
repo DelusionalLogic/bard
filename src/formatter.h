@@ -20,6 +20,6 @@
 #include "linkedlist.h"
 #include "formatarray.h"
 
-bool formatter_format(jmp_buf jmpBuf, Vector* compiledStr, const struct FormatArray *arrays[], size_t arraysCnt, char** Poutput);
+bool formatter_format(jmp_buf jmpBuf, Vector* compiledStr, const struct FormatArray *const arrays[], size_t arraysCnt, char** Poutput);
 
 #endif

@@ -105,7 +105,7 @@ bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
 		JSLI(val, data->buffers->buffers, unit->command);
 		*val = newBuf;
 		int rc;
-		J1S(rc, data->buffers->owners, unit);
+		J1S(rc, data->buffers->owners, (Word_t)unit);
 	}
 
 	return true;
