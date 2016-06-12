@@ -63,7 +63,7 @@ void unit_kill(struct Unit* unit) {
 
 	// Free fonts
 	{
-		char key[unit->lFontKey];
+		char key[unit->lFontKey+1];
 		struct FontContainer** val;
 		JSLF(val, unit->fontMap, key);
 		while(val != NULL) {
@@ -77,7 +77,7 @@ void unit_kill(struct Unit* unit) {
 
 	// Free env
 	{
-		char key[unit->lEnvKey];
+		char key[unit->lEnvKey+1];
 		char** val;
 		JSLF(val, unit->envMap, key);
 		while(val != NULL) {

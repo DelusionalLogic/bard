@@ -50,7 +50,7 @@ int advformat_execute(jmp_buf jmpBuf, char* format, Pvoid_t compiledEnv, size_t 
 		dup2(pipefd[1], STDOUT_FILENO);
 
 		if(maxKeyLen != 0) {
-			char index[maxKeyLen]; //Max ENV len
+			char index[maxKeyLen+1]; //Max ENV len
 			index[0] = '\0';
 			Vector** vec;
 			JSLF(vec, compiledEnv, index);
