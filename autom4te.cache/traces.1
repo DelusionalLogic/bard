@@ -1,3 +1,17 @@
+m4trace:/usr/share/aclocal/ax_check_compile_flag.m4:60: -1- AC_DEFUN([AX_CHECK_COMPILE_FLAG], [AC_PREREQ(2.64)dnl for _AC_LANG_PREFIX and AS_VAR_IF
+AS_VAR_PUSHDEF([CACHEVAR],[ax_cv_check_[]_AC_LANG_ABBREV[]flags_$4_$1])dnl
+AC_CACHE_CHECK([whether _AC_LANG compiler accepts $1], CACHEVAR, [
+  ax_check_save_flags=$[]_AC_LANG_PREFIX[]FLAGS
+  _AC_LANG_PREFIX[]FLAGS="$[]_AC_LANG_PREFIX[]FLAGS $4 $1"
+  AC_COMPILE_IFELSE([m4_default([$5],[AC_LANG_PROGRAM()])],
+    [AS_VAR_SET(CACHEVAR,[yes])],
+    [AS_VAR_SET(CACHEVAR,[no])])
+  _AC_LANG_PREFIX[]FLAGS=$ax_check_save_flags])
+AS_VAR_IF(CACHEVAR,yes,
+  [m4_default([$2], :)],
+  [m4_default([$3], :)])
+AS_VAR_POPDEF([CACHEVAR])dnl
+])
 m4trace:/usr/share/aclocal-1.15/amversion.m4:14: -1- AC_DEFUN([AM_AUTOMAKE_VERSION], [am__api_version='1.15'
 dnl Some users find AM_AUTOMAKE_VERSION and mistake it for a way to
 dnl require some minimum version.  Point them to the right macro.
@@ -926,25 +940,26 @@ m4trace:configure.ac:5: -1- m4_pattern_allow([^am__fastdepCC_TRUE$])
 m4trace:configure.ac:5: -1- m4_pattern_allow([^am__fastdepCC_FALSE$])
 m4trace:configure.ac:5: -1- _AM_SUBST_NOTMAKE([am__fastdepCC_TRUE])
 m4trace:configure.ac:5: -1- _AM_SUBST_NOTMAKE([am__fastdepCC_FALSE])
-m4trace:configure.ac:7: -1- m4_pattern_allow([^CPP$])
-m4trace:configure.ac:7: -1- m4_pattern_allow([^CPPFLAGS$])
-m4trace:configure.ac:7: -1- m4_pattern_allow([^CPP$])
-m4trace:configure.ac:7: -1- m4_pattern_allow([^GREP$])
-m4trace:configure.ac:7: -1- m4_pattern_allow([^EGREP$])
-m4trace:configure.ac:7: -1- m4_pattern_allow([^STDC_HEADERS$])
-m4trace:configure.ac:7: -1- m4_pattern_allow([^HAVE_INIPARSER_H$])
-m4trace:configure.ac:11: -1- m4_pattern_allow([^A2X$])
-m4trace:configure.ac:12: -1- AM_CONDITIONAL([HAVE_A2X], [test "x$A2X" != "xno"])
-m4trace:configure.ac:12: -1- m4_pattern_allow([^HAVE_A2X_TRUE$])
-m4trace:configure.ac:12: -1- m4_pattern_allow([^HAVE_A2X_FALSE$])
-m4trace:configure.ac:12: -1- _AM_SUBST_NOTMAKE([HAVE_A2X_TRUE])
-m4trace:configure.ac:12: -1- _AM_SUBST_NOTMAKE([HAVE_A2X_FALSE])
-m4trace:configure.ac:23: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.ac:23: -1- m4_pattern_allow([^LTLIBOBJS$])
-m4trace:configure.ac:23: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
-m4trace:configure.ac:23: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
-m4trace:configure.ac:23: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
-m4trace:configure.ac:23: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
-m4trace:configure.ac:23: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
-m4trace:configure.ac:23: -1- _AC_AM_CONFIG_HEADER_HOOK(["$ac_file"])
-m4trace:configure.ac:23: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS
+m4trace:configure.ac:6: -1- AX_CHECK_COMPILE_FLAG([-std=gnu11], [], [AC_MSG_FAILURE([no acceptable C11 compiler found.])])
+m4trace:configure.ac:8: -1- m4_pattern_allow([^CPP$])
+m4trace:configure.ac:8: -1- m4_pattern_allow([^CPPFLAGS$])
+m4trace:configure.ac:8: -1- m4_pattern_allow([^CPP$])
+m4trace:configure.ac:8: -1- m4_pattern_allow([^GREP$])
+m4trace:configure.ac:8: -1- m4_pattern_allow([^EGREP$])
+m4trace:configure.ac:8: -1- m4_pattern_allow([^STDC_HEADERS$])
+m4trace:configure.ac:8: -1- m4_pattern_allow([^HAVE_INIPARSER_H$])
+m4trace:configure.ac:12: -1- m4_pattern_allow([^A2X$])
+m4trace:configure.ac:13: -1- AM_CONDITIONAL([HAVE_A2X], [test "x$A2X" != "xno"])
+m4trace:configure.ac:13: -1- m4_pattern_allow([^HAVE_A2X_TRUE$])
+m4trace:configure.ac:13: -1- m4_pattern_allow([^HAVE_A2X_FALSE$])
+m4trace:configure.ac:13: -1- _AM_SUBST_NOTMAKE([HAVE_A2X_TRUE])
+m4trace:configure.ac:13: -1- _AM_SUBST_NOTMAKE([HAVE_A2X_FALSE])
+m4trace:configure.ac:25: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.ac:25: -1- m4_pattern_allow([^LTLIBOBJS$])
+m4trace:configure.ac:25: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
+m4trace:configure.ac:25: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
+m4trace:configure.ac:25: -1- m4_pattern_allow([^am__EXEEXT_FALSE$])
+m4trace:configure.ac:25: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_TRUE])
+m4trace:configure.ac:25: -1- _AM_SUBST_NOTMAKE([am__EXEEXT_FALSE])
+m4trace:configure.ac:25: -1- _AC_AM_CONFIG_HEADER_HOOK(["$ac_file"])
+m4trace:configure.ac:25: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS

@@ -3679,6 +3679,45 @@ else
 fi
 
 
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -std=gnu11" >&5
+$as_echo_n "checking whether C compiler accepts -std=gnu11... " >&6; }
+if ${ax_cv_check_cflags___std_gnu11+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -std=gnu11"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___std_gnu11=yes
+else
+  ax_cv_check_cflags___std_gnu11=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___std_gnu11" >&5
+$as_echo "$ax_cv_check_cflags___std_gnu11" >&6; }
+if test "x$ax_cv_check_cflags___std_gnu11" = xyes; then :
+  :
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "no acceptable C11 compiler found.
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
    case $ac_cv_prog_cc_stdc in #(
   no) :
     ac_cv_prog_cc_c99=no; ac_cv_prog_cc_c89=no ;; #(
@@ -3970,7 +4009,6 @@ $as_echo "none needed" >&6; } ;; #(
     { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_prog_cc_stdc" >&5
 $as_echo "$ac_cv_prog_cc_stdc" >&6; } ;;
 esac
-
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -4440,6 +4478,7 @@ fi
 
 ac_config_files="$ac_config_files Makefile src/Makefile docs/Makefile docs/bard.txt"
 
+CFLAGS="$CFLAGS -std=gnu11"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure

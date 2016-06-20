@@ -27,4 +27,19 @@
 //WorkManager Errors
 #define MYERR_BADFD          (MYERR_BASE+   600)     //The filedescriptor for a unit was invalid
 
+#include <stdbool.h>
+
+void error_new(char* file, int line, char* format, ...);
+void error_append(char* file, int line, char* format, ...);
+
+bool error_waiting();
+
+void error_eat();
+void error_print();
+
+#define THROW_NEW(ret_val, format, args...) do{ error_new(__FILE__, __LINE__, format, args); return ret_val; } while(0)
+#define THROW_CONT(ret_val, format, args...) do{ error_append(__FILE__, __LINE__, format, args); return ret_val; } while(0)
+
+#define ERROR_NEW(format, args...) error_new(__FILE__, __LINE__, format, args)
+#define ERROR_CONT(format, args...) error_append(__FILE__, __LINE__, format, args)
 #endif

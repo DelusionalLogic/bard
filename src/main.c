@@ -109,6 +109,10 @@ void render(jmp_buf jmpBuf, const char* separator, int monitors) {
 
 int main(int argc, char **argv)
 {
+	ERROR_BEGIN("Hello %s", "world");
+	ERROR_CONT("Hello %s 2", "world");
+	ERROR_CONT("Hello %s 2", "world");
+	error_print();
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
