@@ -206,7 +206,11 @@ void runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit
 	}else{
 		//We don't own this buffer, so just read if complete
 		if(buffer->complete) {
-			*out = buffer->buffer.data;
+			size_t listSize = vector_size(&buffer->buffer) * sizeof(char);
+			*out = malloc(listSize);
+			if(*out == NULL)
+				longjmp(jmpBuf, MYERR_ALLOCFAIL);
+			memcpy(*out, buffer->buffer.data, listSize);
 		}else{
 			*out = NULL;
 		}

@@ -31,7 +31,7 @@ void out_kill(struct Outputs* outs) {
 void out_set(jmp_buf jmpBuf, struct Outputs* outs, struct Unit* unit, char* in) {
 	char** str;
 
-	JLI(str, outs->outputs, unit);
+	JLI(str, outs->outputs, (Word_t)unit);
 	if(*str != NULL)
 		free(*str);
 	*str = in;
@@ -55,7 +55,7 @@ char* out_format(jmp_buf jmpBuf, struct Outputs* outs, struct Units* container, 
 			bool first = true;
 			while(unit != NULL) {
 				char** str;
-				JLG(str, outs->outputs, unit);
+				JLG(str, outs->outputs, (Word_t)unit);
 				if(str != NULL && str != NULL && *str != NULL && unit->render) {
 					vector_putListBack(jmpBuf, &vec, "%{F-}%{B-}%{T-}", 15);
 					if(!first)
