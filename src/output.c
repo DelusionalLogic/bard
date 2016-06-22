@@ -40,28 +40,28 @@ void out_set(struct Outputs* outs, struct Unit* unit, char* in) {
 char* out_format(struct Outputs* outs, struct Units* container, int monitors, const char* separator) {
 	Vector* aligns[] = {&container->left, &container->center, &container->right};
 	Vector vec;
-	vector_init_new(&vec, sizeof(char), 128);
+	vector_init(&vec, sizeof(char), 128);
 	if(error_waiting())
 		THROW_CONT(NULL, "While formatting output");
 	size_t sepLen = strlen(separator);
 	for(int mon = 0; mon < monitors; mon++) {
 		char monStr[33];
 		int monStrLen = snprintf(monStr, 33, "%d", mon);
-		vector_putListBack_new(&vec, "%{S", 3);
+		vector_putListBack(&vec, "%{S", 3);
 		if(error_waiting())
 			THROW_CONT(NULL, "While adding monitor output");
-		vector_putListBack_new(&vec, monStr, monStrLen);
+		vector_putListBack(&vec, monStr, monStrLen);
 		if(error_waiting())
 			THROW_CONT(NULL, "While adding monitor output");
-		vector_putListBack_new(&vec, "}", 1);
+		vector_putListBack(&vec, "}", 1);
 		if(error_waiting())
 			THROW_CONT(NULL, "While adding monitor output");
 		for(int i = ALIGN_FIRST; i <= ALIGN_LAST; i++) {
-			vector_putListBack_new(&vec, AlignStr[i], strlen(AlignStr[i]));
+			vector_putListBack(&vec, AlignStr[i], strlen(AlignStr[i]));
 			if(error_waiting())
 				THROW_CONT(NULL, "While adding alignment output");
 			int index;
-			struct Unit* unit = vector_getFirst_new(aligns[i], &index);
+			struct Unit* unit = vector_getFirst(aligns[i], &index);
 			if(error_waiting())
 				THROW_CONT(NULL, "While iterating unit outputs");
 			bool first = true;
@@ -69,26 +69,26 @@ char* out_format(struct Outputs* outs, struct Units* container, int monitors, co
 				char** str;
 				JLG(str, outs->outputs, (Word_t)unit);
 				if(str != NULL && str != NULL && *str != NULL && unit->render) {
-					vector_putListBack_new(&vec, "%{F-}%{B-}%{T-}", 15);
+					vector_putListBack(&vec, "%{F-}%{B-}%{T-}", 15);
 					if(error_waiting())
 						THROW_CONT(NULL, "While iterating unit outputs");
 
 					if(!first) {
-						vector_putListBack_new(&vec, separator, sepLen);
+						vector_putListBack(&vec, separator, sepLen);
 						if(error_waiting())
 							THROW_CONT(NULL, "While iterating unit outputs");
 					}
 					first = false;
 
-					vector_putListBack_new(&vec, "%{F-}%{B-}%{T-}", 15);
+					vector_putListBack(&vec, "%{F-}%{B-}%{T-}", 15);
 					if(error_waiting())
 						THROW_CONT(NULL, "While iterating unit outputs");
 
-					vector_putListBack_new(&vec, *str, strlen(*str));
+					vector_putListBack(&vec, *str, strlen(*str));
 					if(error_waiting())
 						THROW_CONT(NULL, "While iterating unit outputs");
 				}
-				unit = vector_getNext_new(aligns[i], &index);
+				unit = vector_getNext(aligns[i], &index);
 				if(error_waiting())
 					THROW_CONT(NULL, "While iterating unit outputs");
 			}
@@ -96,7 +96,7 @@ char* out_format(struct Outputs* outs, struct Units* container, int monitors, co
 	}
 	//Remember to add the terminator back on
 	static char term = '\0';
-	vector_putBack_new(&vec, &term);
+	vector_putBack(&vec, &term);
 	if(error_waiting())
 		THROW_CONT(NULL, "While adding output terminator");
 	//Copy into new buffer owned by calling function

@@ -56,7 +56,7 @@ static bool vecAddUnit(void* elem, void* userdata) {
 			THROW_CONT(false, "While adding %s to the workqueue", unit->name);
 		}
 	}else if(unit->type == UNIT_RUNNING) {
-		vector_putBack_new(data->pipeList, &elem);
+		vector_putBack(data->pipeList, &elem);
 		if(error_waiting()) {
 			unit_kill(unit);
 			THROW_CONT(false, "While adding %s to the workqueue", unit->name);
@@ -69,7 +69,7 @@ void workmanager_init(struct WorkManager* manager, struct RunnerBuffer* buffers)
 	manager->fdset = runner_getfds(buffers);
 	manager->buffer = buffers;
 	sl_init(&manager->list, sizeof(struct UnitContainer), unitPlaceComp);
-	vector_init_new(&manager->pipeList, sizeof(struct Unit*), 8);
+	vector_init(&manager->pipeList, sizeof(struct Unit*), 8);
 }
 
 void workmanager_kill(struct WorkManager* manager) {
@@ -82,11 +82,11 @@ void workmanager_addUnits(struct WorkManager* manager, struct Units *units) {
 		.list = &manager->list,
 		.pipeList = &manager->pipeList,
 	};
-	vector_foreach_new(&units->left, vecAddUnit, &data);
+	vector_foreach(&units->left, vecAddUnit, &data);
 	VPROP_THROW("While adding the left side");
-	vector_foreach_new(&units->center, vecAddUnit, &data);
+	vector_foreach(&units->center, vecAddUnit, &data);
 	VPROP_THROW("While adding the cetner");
-	vector_foreach_new(&units->right, vecAddUnit, &data);
+	vector_foreach(&units->right, vecAddUnit, &data);
 	VPROP_THROW("While adding the right side");
 }
 
@@ -167,7 +167,7 @@ struct Unit* workmanager_next(struct WorkManager* manager) {
 				.fdset = &newSet,
 				.buffers = manager->buffer,
 			};
-			bool completed = vector_foreach_new(&manager->pipeList, pipeRun, &data);
+			bool completed = vector_foreach(&manager->pipeList, pipeRun, &data);
 			if(error_waiting())
 				THROW_CONT(NULL, "While searching for the waiting unit");
 			if(!completed)

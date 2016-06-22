@@ -127,35 +127,35 @@ void unit_setRegex(struct Unit* unit, const char* regex) {
 	}
 
 	Vector str;
-		vector_init_new(&str, sizeof(char), 512);
+		vector_init(&str, sizeof(char), 512);
 		//For some insane reason regex depends on all escape chars to already be unescaped before being passsed to it. So here it goes i guess...
 		for(int i = 0; regex[i] != '\0'; i++) {
 			if(regex[i] == '\\'){
 				switch(regex[i+1]) {
 					case 'n':
-						vector_putBack_new(&str, "\n");
+						vector_putBack(&str, "\n");
 						VPROP_THROW("While expanding escape characters of regex %s", regex);
 						i++;
 						break;
 					case 't':
-						vector_putBack_new(&str, "\t");
+						vector_putBack(&str, "\t");
 						VPROP_THROW("While expanding escape characters of regex %s", regex);
 						i++;
 						break;
 					case '\\':
-						vector_putBack_new(&str, "\\");
+						vector_putBack(&str, "\\");
 						VPROP_THROW("While expanding escape characters of regex %s", regex);
 						i++;
 						break;
 					default:
-						vector_putBack_new(&str, "\\");
+						vector_putBack(&str, "\\");
 						VPROP_THROW("While expanding escape characters of regex %s", regex);
 				}
 			} else {
-				vector_putBack_new(&str, &regex[i]);
+				vector_putBack(&str, &regex[i]);
 			}
 		}
-		vector_putBack_new(&str, "\0"); //Using a string lets get a char* from a literal
+		vector_putBack(&str, "\0"); //Using a string lets get a char* from a literal
 		VPROP_THROW("While adding null terminator to regex");
 
 		unit->hasRegex = true;

@@ -179,12 +179,12 @@ int main(int argc, char **argv)
 		{
 			Vector launch;
 			//Make the lemonbar launch string
-			vector_init_new(&launch, sizeof(char), 1024);
+			vector_init(&launch, sizeof(char), 1024);
 			ERROR_ABORT("While constructing lemonbar launch string");
 
 			const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
 
-			vector_putListBack_new(&launch, executable, strlen(executable));
+			vector_putListBack(&launch, executable, strlen(executable));
 			ERROR_ABORT("While constructing lemonbar launch string");
 
 			iniparser_freedict(dict);
@@ -193,7 +193,7 @@ int main(int argc, char **argv)
 			ERROR_ABORT("While constructing lemonbar launch string");
 			font_getArg(&flist, &launch);
 			ERROR_ABORT("While constructing lemonbar launch string");
-			vector_putListBack_new(&launch, "\0", 1);
+			vector_putListBack(&launch, "\0", 1);
 			ERROR_ABORT("While constructing lemonbar launch string");
 
 			free(confPath);

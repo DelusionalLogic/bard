@@ -52,12 +52,12 @@ bool getFiles(const char* path, Vector* nameList)
 		if(ent->d_type != DT_REG && ent->d_type != DT_LNK)
 			continue;
 		Vector name;
-		vector_init_new(&name, sizeof(char), 64);
-		vector_putListBack_new(&name, path, strlen(path));
-		vector_putBack_new(&name, &slash);
-		vector_putListBack_new(&name, ent->d_name, strlen(ent->d_name)+1);
+		vector_init(&name, sizeof(char), 64);
+		vector_putListBack(&name, path, strlen(path));
+		vector_putBack(&name, &slash);
+		vector_putListBack(&name, ent->d_name, strlen(ent->d_name)+1);
 
-		vector_putBack_new(nameList, &name.data);
+		vector_putBack(nameList, &name.data);
 		//Name is not destroyed because we want to keep the buffer around
 	}	
 	closedir(dir);

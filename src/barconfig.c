@@ -32,16 +32,16 @@ struct cnfData{
 static void geometry(struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
-	vector_putListBack_new(data->arg, " -g \"", 5);
-	vector_putListBack_new(data->arg, option, strlen(option));
-	vector_putListBack_new(data->arg, "\"", 1);
+	vector_putListBack(data->arg, " -g \"", 5);
+	vector_putListBack(data->arg, option, strlen(option));
+	vector_putListBack(data->arg, "\"", 1);
 }
 
 static void background(struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
 
-	vector_putListBack_new(data->arg, " -B \"", 5);
+	vector_putListBack(data->arg, " -B \"", 5);
 	char* out;
 
 	Vector compiled;
@@ -51,17 +51,17 @@ static void background(struct cnfData* data, const char* option) {
 	formatter_format(&compiled, data->arrays, data->arraysCnt, &out);
 	VPROP_THROW("While formatting background color: %s", option);
 
-	vector_putListBack_new(data->arg, out, strlen(out));
+	vector_putListBack(data->arg, out, strlen(out));
 	parser_freeCompiled(&compiled);
 	free(out);
-	vector_putListBack_new(data->arg, "\"", 1);
+	vector_putListBack(data->arg, "\"", 1);
 }
 
 static void foreground(struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
 
-	vector_putListBack_new(data->arg, " -F \"", 5);
+	vector_putListBack(data->arg, " -F \"", 5);
 	char* out;
 
 	Vector compiled;
@@ -71,10 +71,10 @@ static void foreground(struct cnfData* data, const char* option) {
 	formatter_format(&compiled, data->arrays, data->arraysCnt, &out);
 	VPROP_THROW("While formatting foreground color: %s", option);
 
-	vector_putListBack_new(data->arg, out, strlen(out));
+	vector_putListBack(data->arg, out, strlen(out));
 	parser_freeCompiled(&compiled);
 	free(out);
-	vector_putListBack_new(data->arg, "\"", 1);
+	vector_putListBack(data->arg, "\"", 1);
 
 }
 

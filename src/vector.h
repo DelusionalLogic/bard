@@ -27,31 +27,24 @@ typedef struct {
 	char* data;
 } Vector;
 
-void vector_init_new(Vector* vector, size_t elementsize, size_t initialsize);
-void vector_init(jmp_buf jmpBuf, Vector* vector, size_t elementsize, size_t initialsize);
+void vector_init(Vector* vector, size_t elementsize, size_t initialsize);
 void vector_kill(Vector* vector);
 char* vector_detach(Vector* vector);
 
-void vector_putBack_new(Vector* vector, const void* element);
+void vector_putBack(Vector* vector, const void* element);
 void vector_putBack_assert(Vector* vector, const void* element);
-void vector_putBack(jmp_buf jmpBuf, Vector* vector, const void* element);
-void vector_putListBack_new(Vector* vector, const void* list, const size_t count);
-int vector_putListBack(jmp_buf jmpBuf, Vector* vector, const void* list, const size_t count);
+void vector_putListBack(Vector* vector, const void* list, const size_t count);
 
-void* vector_get_new(Vector* vector, const size_t count);
-void* vector_get(jmp_buf jmpBuf, Vector* vector, const size_t count);
+void* vector_get(Vector* vector, const size_t count);
 
 void vector_remove(Vector* vector, size_t count);
 void vector_clear(Vector* vector);
 void vector_qsort(Vector* vector, int (*compar)(const void *, const void*));
 
-bool vector_foreach_new(Vector* vector, bool (*callback)(void* elem, void* userdata), void* userdata);
-bool vector_foreach(jmp_buf jmpBuf, Vector* vector, bool (*callback)(jmp_buf jmpBuf, void* elem, void* userdata), void* userdata);
+bool vector_foreach(Vector* vector, bool (*callback)(void* elem, void* userdata), void* userdata);
 
-void* vector_getFirst_new(Vector* vector, int* index);
-void* vector_getFirst(jmp_buf jmpBuf, Vector* vector, int* index);
-void* vector_getNext_new(Vector* vector, int* index);
-void* vector_getNext(jmp_buf jmpBuf, Vector* vector, int* index);
+void* vector_getFirst(Vector* vector, int* index);
+void* vector_getNext(Vector* vector, int* index);
 
 int vector_size(Vector* vector);
 

@@ -15,10 +15,10 @@ static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 
 static void freeElems(Vector* errList) {
 	int index;
-	struct Error* err = vector_getFirst_new(errList, &index);
+	struct Error* err = vector_getFirst(errList, &index);
 	while(err != NULL) {
 		free(err->message);
-		err = vector_getNext_new(errList, &index);
+		err = vector_getNext(errList, &index);
 	}
 }
 
@@ -69,7 +69,7 @@ void error_new(char* file, int line, char* format, ...) {
 		log_write(LEVEL_FATAL, "I couldn't allocate a vector for the error messages. That really sucks");
 		exit(1);
 	}
-	vector_init_new(ptr, sizeof(struct Error), 5);
+	vector_init(ptr, sizeof(struct Error), 5);
 	if(error_waiting()) {
 		log_write(LEVEL_FATAL, "I couldn't initialize the error vector");
 		exit(1);
@@ -121,14 +121,14 @@ void error_print() {
 		exit(1);
 	}
 	int index;
-	struct Error* err = vector_getFirst_new(ptr, &index);
+	struct Error* err = vector_getFirst(ptr, &index);
 	while(err != NULL) {
 		for(int i = 0; i < index; i++)
 			fprintf(stderr, "%s", "   ");
 		if(index >= 1)
 			fprintf(stderr, "%s", "-> ");
 		fprintf(stderr, "%s\n", err->message);
-		err = vector_getNext_new(ptr, &index);
+		err = vector_getNext(ptr, &index);
 	}
 	error_eat();
 }

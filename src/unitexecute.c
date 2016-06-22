@@ -47,7 +47,7 @@ void unitexec_execUnit(struct Unit* unit, char** out) {
 		VTHROW_NEW("Failed running command for unit %s", unit->name);
 
 	Vector buff;
-	vector_init_new(&buff, sizeof(char), 512);
+	vector_init(&buff, sizeof(char), 512);
 	VPROP_THROW("While allocating the final output buffer");
 	size_t readLen;
 	char null = '\0';
@@ -56,14 +56,14 @@ void unitexec_execUnit(struct Unit* unit, char** out) {
 	/* Read output */
 	char chunk[1024];
 	while((readLen = fread(chunk, 1, 1024, f)) > 0) {
-		vector_putListBack_new(&buff, chunk, readLen);
+		vector_putListBack(&buff, chunk, readLen);
 		VPROP_THROW("While appending to the final output buffer, length: %d", readLen);
 	}
 
 	if(buff.size > 0 && buff.data[buff.size-1] == '\n') {
 		buff.data[buff.size-1] = '\0';
 	} else {
-		vector_putBack_new(&buff, &null);
+		vector_putBack(&buff, &null);
 		VPROP_THROW("While appeding the null terminator to final output buffer");
 	}
 

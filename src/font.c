@@ -82,11 +82,11 @@ void font_createFontList(struct FontList* font, struct Units* units, char* confP
 		.revFonts = &font->revFonts,
 		.fontIndex = 2, //TODO: NOT HARDCODE
 	};
-	vector_foreach_new(&units->left, addUnitFonts, &fontData);
+	vector_foreach(&units->left, addUnitFonts, &fontData);
 		VPROP_THROW("While adding left side");
-	vector_foreach_new(&units->center, addUnitFonts, &fontData);
+	vector_foreach(&units->center, addUnitFonts, &fontData);
 		VPROP_THROW("While adding center");
-	vector_foreach_new(&units->right, addUnitFonts, &fontData);
+	vector_foreach(&units->right, addUnitFonts, &fontData);
 		VPROP_THROW("While adding right side");
 }
 
@@ -119,11 +119,11 @@ void font_getArg(struct FontList* font, Vector* args) {
 	JLF(val, font->revFonts, key);
 	while(val != NULL){
 		log_write(LEVEL_INFO, "font arg: %d, %s", key, *val);
-		vector_putListBack_new(args, " -f \"", 5);
+		vector_putListBack(args, " -f \"", 5);
 			VPROP_THROW("While adding fonts");
-		vector_putListBack_new(args, *val, strlen(*val));
+		vector_putListBack(args, *val, strlen(*val));
 			VPROP_THROW("While adding fonts");
-		vector_putListBack_new(args, "\"", 1);
+		vector_putListBack(args, "\"", 1);
 			VPROP_THROW("While adding fonts");
 		JLN(val, font->revFonts, key);
 	}

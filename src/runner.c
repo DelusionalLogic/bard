@@ -85,7 +85,7 @@ bool initPipe(void* elem, void* userdata) {
 	JSLG(val, data->buffers->buffers, unit->command);
 	if(val == NULL) {
 		struct Buffer* newBuf = calloc(sizeof(struct Buffer), 1);
-		vector_init_new(&newBuf->buffer, sizeof(char), 128);
+		vector_init(&newBuf->buffer, sizeof(char), 128);
 		PROP_THROW(false, "While starting pipe for %s", unit->name);
 		log_write(LEVEL_INFO, "Creating pipe for %s", unit->name);
 
@@ -115,11 +115,11 @@ void runner_startPipes(struct RunnerBuffer* buffers, struct Units* units) {
 	struct initPipeData data = {
 		buffers,
 	};
-	vector_foreach_new(&units->left, initPipe, &data);
+	vector_foreach(&units->left, initPipe, &data);
 	VPROP_THROW("While starting runner pipes for left side");
-	vector_foreach_new(&units->center, initPipe, &data);
+	vector_foreach(&units->center, initPipe, &data);
 	VPROP_THROW("While starting runner pipes for center");
-	vector_foreach_new(&units->right, initPipe, &data);
+	vector_foreach(&units->right, initPipe, &data);
 	VPROP_THROW("While starting runner pipes for right side");
 }
 
@@ -175,20 +175,20 @@ void runner_read(struct RunnerBuffer* buffers, struct Unit* unit, char** const o
 			}else if(n == -1) {
 				VTHROW_NEW("Could not read from pipe: %s", strerror(errno));
 			}
-			vector_putBack_new(&buffer->buffer, window + delimiterLen-1); //Put last char onto the final string
+			vector_putBack(&buffer->buffer, window + delimiterLen-1); //Put last char onto the final string
 			VPROP_THROW("While inserting the last char into the buffer %c", window + delimiterLen-1);
 			memmove(window+1, window, delimiterLen-1); //Move everything over one
 			n = read(buffer->fd, window, 1);
 		}
-		vector_putListBack_new(&buffer->buffer, window, delimiterLen); //Put the remaining window on there
+		vector_putListBack(&buffer->buffer, window, delimiterLen); //Put the remaining window on there
 		VPROP_THROW("While appending the window to the buffer %s", window);
 		free(window);
 
 		if(buffer->complete) {
-			vector_putListBack_new(&buffer->buffer, "\0", 1);
+			vector_putListBack(&buffer->buffer, "\0", 1);
 			VPROP_THROW("While adding null terminator");
 			*out = vector_detach(&buffer->buffer);
-			vector_init_new(&buffer->buffer, sizeof(char), 512);
+			vector_init(&buffer->buffer, sizeof(char), 512);
 			VPROP_THROW("While initiating the new buffer");
 			return;
 		}

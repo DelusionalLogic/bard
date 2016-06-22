@@ -60,11 +60,11 @@ bool regex_compile(struct Regex* regex, struct Units* units) {
 		&regex->regexCache,
 		&regex->maxLen,
 	};
-	vector_foreach_new(&units->left, compileRegex, &data);
+	vector_foreach(&units->left, compileRegex, &data);
 	PROP_THROW(false, "While compiling left side");
-	vector_foreach_new(&units->center, compileRegex, &data);
+	vector_foreach(&units->center, compileRegex, &data);
 	PROP_THROW(false, "While compiling center");
-	vector_foreach_new(&units->right, compileRegex, &data);
+	vector_foreach(&units->right, compileRegex, &data);
 	PROP_THROW(false, "While compiling right side");
 	return true;
 }

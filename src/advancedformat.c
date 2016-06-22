@@ -77,14 +77,14 @@ int advformat_execute(char* format, Pvoid_t compiledEnv, size_t maxKeyLen, const
 	wordfree(&p);
 
 	Vector buff;
-	vector_init_new(&buff, sizeof(char), 1024);
+	vector_init(&buff, sizeof(char), 1024);
 	PROP_THROW(1, "While initializing the output buffer");
 	ssize_t readLen;
 
 	/* Read output */
 	char chunk[1024];
 	while((readLen = fread(chunk, 1, 1024, output)) > 0){
-		vector_putListBack_new(&buff, chunk, readLen);
+		vector_putListBack(&buff, chunk, readLen);
 		PROP_THROW(1,  "Failed appending the command chunk to the buffer, length: %d", readLen);
 	}
 	if(ferror(output))
@@ -94,7 +94,7 @@ int advformat_execute(char* format, Pvoid_t compiledEnv, size_t maxKeyLen, const
 	if(buff.size > 0 && buff.data[buff.size-1] == '\n') {
 		buff.data[buff.size-1] = '\0';
 	} else {
-		vector_putListBack_new(&buff, "\0", 1);
+		vector_putListBack(&buff, "\0", 1);
 		PROP_THROW(1, "While inserting null terminator");
 	}
 

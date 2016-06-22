@@ -26,11 +26,11 @@
 #include "configparser.h"
 
 void units_init(struct Units* units) {
-	vector_init_new(&units->left, sizeof(struct Unit), 10);
+	vector_init(&units->left, sizeof(struct Unit), 10);
 	VPROP_THROW("While initializing left unitcontainer");
-	vector_init_new(&units->center, sizeof(struct Unit), 10);
+	vector_init(&units->center, sizeof(struct Unit), 10);
 	VPROP_THROW("While initializing center unitcontainer");
-	vector_init_new(&units->right, sizeof(struct Unit), 10);
+	vector_init(&units->right, sizeof(struct Unit), 10);
 	VPROP_THROW("While initializing right unitcontainer");
 }
 
@@ -41,13 +41,13 @@ static bool freeUnit(void* elem, void* userdata) {
 }
 
 void units_kill(struct Units* units) {
-	vector_foreach_new(&units->left, freeUnit, NULL);
+	vector_foreach(&units->left, freeUnit, NULL);
 	vector_kill(&units->left);
 
-	vector_foreach_new(&units->center, freeUnit, NULL);
+	vector_foreach(&units->center, freeUnit, NULL);
 	vector_kill(&units->center);
 
-	vector_foreach_new(&units->right, freeUnit, NULL);
+	vector_foreach(&units->right, freeUnit, NULL);
 	vector_kill(&units->right);
 }
 
@@ -71,7 +71,7 @@ static bool parseType(struct Unit* unit, const char* type)
 
 static void loadSide(Vector* units, struct ConfigParser* parser, const char* path) {
 	Vector files;
-	vector_init_new(&files, sizeof(char*), 5);
+	vector_init(&files, sizeof(char*), 5);
 	VPROP_THROW("While loading units from %s", path);
 	jmp_buf getEx;
 	bool dirExists = getFiles(path, &files);
@@ -98,7 +98,7 @@ static void loadSide(Vector* units, struct ConfigParser* parser, const char* pat
 	}
 	for(int i = 0; i < vector_size(&files); i++)
 	{
-		char* file = *(char**)vector_get_new(&files, i);
+		char* file = *(char**)vector_get(&files, i);
 		VPROP_THROW("While loading unit from %s", file);
 		log_write(LEVEL_INFO, "Reading config from %s", file);
 
@@ -109,9 +109,9 @@ static void loadSide(Vector* units, struct ConfigParser* parser, const char* pat
 		cp_load(parser, file, &unit);
 		VPROP_THROW("While loading unit form %s", file);
 
-		vector_putBack_new(units, &unit);
+		vector_putBack(units, &unit);
 	}
-	vector_foreach_new(&files, freePtr, NULL);
+	vector_foreach(&files, freePtr, NULL);
 	vector_kill(&files);
 }
 
@@ -178,10 +178,10 @@ bool unit_preprocess(void* elem, void* metadata) {
 }
 
 void units_preprocess(struct Units* units) {
-	vector_foreach_new(&units->left, unit_preprocess, NULL);
+	vector_foreach(&units->left, unit_preprocess, NULL);
 	VPROP_THROW("While preprocessing the left side");
-	vector_foreach_new(&units->center, unit_preprocess, NULL);
+	vector_foreach(&units->center, unit_preprocess, NULL);
 	VPROP_THROW("While preprocessing the conter");
-	vector_foreach_new(&units->right, unit_preprocess, NULL);
+	vector_foreach(&units->right, unit_preprocess, NULL);
 	VPROP_THROW("While preprocessing the right side");
 }
