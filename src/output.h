@@ -30,7 +30,7 @@ struct Outputs{
 
 void out_kill(struct Outputs* outs);
 
-void out_set(jmp_buf jmpBuf, struct Outputs* outs, struct Unit* unit, char* in);
-char* out_format(jmp_buf jmpBuf, struct Outputs* outs, struct Units* container, int monitors, const char* separator);
+void out_set(struct Outputs* outs, struct Unit* unit, char* in);
+char* out_format(struct Outputs* outs, struct Units* container, int monitors, const char* separator);
 
 #endif

@@ -30,9 +30,9 @@ struct RunnerBuffer{
 	Pvoid_t owners;
 };
 
-void runner_startPipes(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Units* units);
-fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers);
-bool runner_ready(jmp_buf jmpBuf, struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit);
-void runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit, char** const out);
+void runner_startPipes(struct RunnerBuffer* buffers, struct Units* units);
+fd_set runner_getfds(struct RunnerBuffer* buffers);
+bool runner_ready(struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit);
+void runner_read(struct RunnerBuffer* buffers, struct Unit* unit, char** const out);
 
 #endif

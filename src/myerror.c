@@ -64,18 +64,24 @@ void error_new(char* file, int line, char* format, ...) {
 		exit(1);
 	}
 	ptr = malloc(sizeof(Vector));
-	if(ptr == NULL || vector_init_new(ptr, sizeof(struct Error), 5) != 0) {
+	if(ptr == NULL) {
 		//We aren't going to free the ptr since we will exit anyway. Let the os handle it.
 		log_write(LEVEL_FATAL, "I couldn't allocate a vector for the error messages. That really sucks");
 		exit(1);
 	}
+	vector_init_new(ptr, sizeof(struct Error), 5);
+	if(error_waiting()) {
+		log_write(LEVEL_FATAL, "I couldn't initialize the error vector");
+		exit(1);
+	}
+
 	pthread_setspecific(errKey, ptr);
 
 	va_list args;
 	va_start(args, format);
 	struct Error err = makeErr(file, line, format, args);
 	va_end(args);
-	vector_putBack_new(ptr, &err);
+	vector_putBack_assert(ptr, &err);
 }
 
 void error_append(char* file, int line, char* format, ...) {
@@ -89,7 +95,7 @@ void error_append(char* file, int line, char* format, ...) {
 	va_start(args, format);
 	struct Error err = makeErr(file, line, format, args);
 	va_end(args);
-	vector_putBack_new(ptr, &err);
+	vector_putBack_assert(ptr, &err);
 }
 
 bool error_waiting() {
@@ -108,7 +114,7 @@ void error_eat() {
 	pthread_setspecific(errKey, NULL);
 }
 
-void error_print(){
+void error_print() {
 	Vector* ptr = (Vector*)pthread_getspecific(errKey);
 	if(ptr == NULL) {
 		log_write(LEVEL_FATAL, "No error to print");
@@ -125,4 +131,9 @@ void error_print(){
 		err = vector_getNext_new(ptr, &index);
 	}
 	error_eat();
+}
+
+void error_abort() {
+	error_print();
+	exit(1);
 }

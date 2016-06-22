@@ -31,7 +31,7 @@ void parser_eat(struct Parser* parser) {
 	parser->cur = parser_isDone(parser) ? '\0' : parser->str[parser->index];
 }
 
-int parser_freeCompiled(Vector* compiled) {
+void parser_freeCompiled(Vector* compiled) {
 	int index = 0;
 	struct Node* node = vector_getFirst_new(compiled, &index);
 	while(node != NULL) {
@@ -41,18 +41,17 @@ int parser_freeCompiled(Vector* compiled) {
 			free(node->arr.arr);
 			free(node->arr.key);
 		} else {
-			return MYERR_OUTOFRANGE;
+			VTHROW_NEW("Unknown compiled node type: %d", node->type);
 		}
 		node = vector_getNext_new(compiled, &index);
 	}
 	vector_kill(compiled);
-	return 0;
 }
 
 int parseArrayData(struct Parser * p, struct Node* node);
 
 //TODO: Handle Errors
-int parser_compileStr(const char* str, Vector* nodes) {
+void parser_compileStr(const char* str, Vector* nodes) {
 	vector_init_new(nodes, sizeof(struct Node), 8);
 
 	struct Parser parser;
@@ -78,8 +77,7 @@ int parser_compileStr(const char* str, Vector* nodes) {
 						vector_putListBack_new(&curLit, "$", 1);
 						parser_eat(p);
 					}else{
-						log_write(LEVEL_ERROR, "Unknown escape character %c", p->cur);
-						return MYERR_USERINPUTERR;
+						VTHROW_NEW("Unknown escape character %c", p->cur);
 					}
 				} else {
 					vector_putBack_new(&curLit, &p->cur);
@@ -92,7 +90,6 @@ int parser_compileStr(const char* str, Vector* nodes) {
 		}
 		vector_putBack_new(nodes, &n);
 	}
-	return 0;
 }
 
 int parseArrayData(struct Parser * p, struct Node* node) {

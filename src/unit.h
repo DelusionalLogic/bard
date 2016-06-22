@@ -74,18 +74,18 @@ struct Unit {
 	Pvoid_t compiledEnv; //str -> Vector of Node
 };
 
-void unit_init(jmp_buf jmpBuf, struct Unit* unit);
+void unit_init(struct Unit* unit);
 void unit_kill(struct Unit* unit);
 
-void unit_setName(jmp_buf jmpBuf, struct Unit* unit, const char* name);
-void unit_setType(jmp_buf jmpBuf, struct Unit* unit, const enum UnitType type);
-void unit_setCommand(jmp_buf jmpBuf, struct Unit* unit, const char* command);
-void unit_setRegex(jmp_buf jmpBuf, struct Unit* unit, const char* regex);
-void unit_setAdvFormat(jmp_buf jmpBuf, struct Unit* unit, bool advFormat);
-void unit_setFormat(jmp_buf jmpBuf, struct Unit* unit, const char* format);
-void unit_setInterval(jmp_buf jmpBuf, struct Unit* unit, const int interval);
-void unit_setFonts(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value);
-void unit_setEnvironment(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value);
-void unit_setDelimiter(jmp_buf jmpBuf, struct Unit* unit, const char* delimiter);
+void unit_setName(struct Unit* unit, const char* name);
+void unit_setType(struct Unit* unit, const enum UnitType type);
+void unit_setCommand(struct Unit* unit, const char* command);
+void unit_setRegex(struct Unit* unit, const char* regex);
+void unit_setAdvFormat(struct Unit* unit, bool advFormat);
+void unit_setFormat(struct Unit* unit, const char* format);
+void unit_setInterval(struct Unit* unit, const int interval);
+void unit_setFonts(struct Unit* unit, const char* key, const char* value);
+void unit_setEnvironment(struct Unit* unit, const char* key, const char* value);
+void unit_setDelimiter(struct Unit* unit, const char* delimiter);
 
 #endif

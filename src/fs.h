@@ -26,6 +26,6 @@ char* pathAppend(const char* path, const char* path2);
 int fileSort(const void* e1, const void* e2);
 
 //nameList is a vector of string (char*)
-void getFiles(jmp_buf jmpBuf, const char* path, Vector* nameList);
+bool getFiles(const char* path, Vector* nameList);
 
 #endif

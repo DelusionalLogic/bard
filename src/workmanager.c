@@ -28,7 +28,7 @@ struct UnitContainer {
 	struct Unit* unit;
 };
 
-static bool unitPlaceComp(jmp_buf jmpBuf, void* obj, void* oth) {
+static bool unitPlaceComp(void* obj, void* oth) {
 	struct UnitContainer* this = (struct UnitContainer*)obj;
 	struct UnitContainer* other = (struct UnitContainer*)oth;
 
@@ -42,33 +42,34 @@ struct AddUnitData {
 	Vector* pipeList;
 	fd_set* fdset;
 };
-static bool vecAddUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
+static bool vecAddUnit(void* elem, void* userdata) {
 	struct AddUnitData* data = (struct AddUnitData*)userdata;
 	struct Unit* unit = (struct Unit*)elem;
 	time_t curTime = time(NULL);
-	jmp_buf addEx;
-	int errCode = setjmp(addEx);
-	if(errCode == 0) {
-		//TODO: remove the static here and do that somewhere else
-		if(unit->type == UNIT_POLL || unit->type == UNIT_STATIC) {
-			struct UnitContainer container = { .nextRun = curTime, .unit = elem };
-			sl_insert(addEx, data->list, &container);
-		}else if(unit->type == UNIT_RUNNING) {
-			vector_putBack(addEx, data->pipeList, &elem);
+
+	//TODO: remove the static here and do that somewhere else
+	if(unit->type == UNIT_POLL || unit->type == UNIT_STATIC) {
+		struct UnitContainer container = { .nextRun = curTime, .unit = elem };
+		sl_insert(data->list, &container);
+		if(error_waiting()) {
+			unit_kill(unit);
+			THROW_CONT(false, "While adding %s to the workqueue", unit->name);
 		}
-	} else if (errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_ERROR, "Allocation error while adding unit %s to work queue", unit->name);
-		unit_kill(unit);
-		longjmp(jmpBuf, errCode);
-	} else longjmp(jmpBuf, errCode);
+	}else if(unit->type == UNIT_RUNNING) {
+		vector_putBack_new(data->pipeList, &elem);
+		if(error_waiting()) {
+			unit_kill(unit);
+			THROW_CONT(false, "While adding %s to the workqueue", unit->name);
+		}
+	}
 	return true;
 }
 
-void workmanager_init(jmp_buf jmpBuf, struct WorkManager* manager, struct RunnerBuffer* buffers) {
-	manager->fdset = runner_getfds(jmpBuf, buffers);
+void workmanager_init(struct WorkManager* manager, struct RunnerBuffer* buffers) {
+	manager->fdset = runner_getfds(buffers);
 	manager->buffer = buffers;
-	sl_init(jmpBuf, &manager->list, sizeof(struct UnitContainer), unitPlaceComp);
-	vector_init(jmpBuf, &manager->pipeList, sizeof(struct Unit*), 8);
+	sl_init(&manager->list, sizeof(struct UnitContainer), unitPlaceComp);
+	vector_init_new(&manager->pipeList, sizeof(struct Unit*), 8);
 }
 
 void workmanager_kill(struct WorkManager* manager) {
@@ -76,14 +77,17 @@ void workmanager_kill(struct WorkManager* manager) {
 	vector_kill(&manager->pipeList);
 }
 
-void workmanager_addUnits(jmp_buf jmpBuf, struct WorkManager* manager, struct Units *units) {
+void workmanager_addUnits(struct WorkManager* manager, struct Units *units) {
 	struct AddUnitData data = { 
 		.list = &manager->list,
 		.pipeList = &manager->pipeList,
 	};
-	vector_foreach(jmpBuf, &units->left, vecAddUnit, &data);
-	vector_foreach(jmpBuf, &units->center, vecAddUnit, &data);
-	vector_foreach(jmpBuf, &units->right, vecAddUnit, &data);
+	vector_foreach_new(&units->left, vecAddUnit, &data);
+	VPROP_THROW("While adding the left side");
+	vector_foreach_new(&units->center, vecAddUnit, &data);
+	VPROP_THROW("While adding the cetner");
+	vector_foreach_new(&units->right, vecAddUnit, &data);
+	VPROP_THROW("While adding the right side");
 }
 
 struct pipeRunData {
@@ -91,13 +95,13 @@ struct pipeRunData {
 	struct RunnerBuffer* buffers;
 	struct Unit* unitReady;
 };
-bool pipeRun(jmp_buf jmpBuf, void* elem, void* userdata) {
+bool pipeRun(void* elem, void* userdata) {
 	struct pipeRunData* data = (struct pipeRunData*)userdata;
 	struct Unit* unit = *(struct Unit**)elem;
 	if(unit->type != UNIT_RUNNING)
 		return true;
 
-	if(runner_ready(jmpBuf, data->buffers, data->fdset, unit)) {
+	if(runner_ready(data->buffers, data->fdset, unit)) {
 		log_write(LEVEL_INFO, "A pipe got ready for unit %s", unit->name);
 		data->unitReady = unit;
 		return false;
@@ -105,9 +109,9 @@ bool pipeRun(jmp_buf jmpBuf, void* elem, void* userdata) {
 	return true;
 }
 
-static bool isDone(jmp_buf jmpBuf, struct WorkManager* manager) {
+static bool isDone(struct WorkManager* manager) {
 	time_t curTime = time(NULL);
-	struct UnitContainer* container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
+	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
 	if(container->nextRun <= curTime)
 		return false; //We have a poll unit ready to run
 
@@ -121,12 +125,9 @@ static bool isDone(jmp_buf jmpBuf, struct WorkManager* manager) {
 	if(status == -1) {
 		switch(errno) {
 			case EBADF:
-				log_write(LEVEL_INFO, "One of \"running\" unit commands exited");
-				longjmp(jmpBuf, MYERR_BADFD);
-				break;
+				THROW_NEW(false, "One of \"running\" unit commands exited");
 			case EINTR:
-				log_write(LEVEL_INFO, "The select was interrupted");
-				return isDone(jmpBuf, manager); //I'll just call myself for now and hope that i won't be interrupted
+				THROW_NEW(false, "The select was interrupted");
 		}
 	} else if (status >= 1) {
 		return false; //We have a running unit ready to read from the pipe (It might finish this tick)
@@ -135,12 +136,14 @@ static bool isDone(jmp_buf jmpBuf, struct WorkManager* manager) {
 	return true;
 }	
 
-bool workmanger_waiting(jmp_buf jmpBuf, struct WorkManager* manager) {
-	return !isDone(jmpBuf, manager);
+bool workmanger_waiting(struct WorkManager* manager) {
+	return !isDone(manager);
 }
 
-struct Unit* workmanager_next(jmp_buf jmpBuf, struct WorkManager* manager) {
-	struct UnitContainer* container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
+struct Unit* workmanager_next(struct WorkManager* manager) {
+	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
+	if(error_waiting())
+		THROW_CONT(NULL, "While getting the next unit to run");
 	time_t curTime = time(NULL);
 
 	//Wait for the next unit or a pipe is ready
@@ -155,26 +158,30 @@ struct Unit* workmanager_next(jmp_buf jmpBuf, struct WorkManager* manager) {
 		if(ready == -1) {
 			switch(errno) {
 				case EBADF:
-					log_write(LEVEL_INFO, "One of \"running\" unit commands exited");
-					longjmp(jmpBuf, MYERR_BADFD);
-					break;
+					THROW_NEW(NULL, "One of the \"running\" units exited");
 				case EINTR:
-					log_write(LEVEL_INFO, "The select was interrupted");
-					break;
+					THROW_NEW(NULL, "The select was interrupted");
 			}
 		} else if(ready > 0) {
 			struct pipeRunData data = {
 				.fdset = &newSet,
 				.buffers = manager->buffer,
 			};
-			if(!vector_foreach(jmpBuf, &manager->pipeList, pipeRun, &data))
+			bool completed = vector_foreach_new(&manager->pipeList, pipeRun, &data);
+			if(error_waiting())
+				THROW_CONT(NULL, "While searching for the waiting unit");
+			if(!completed)
 				return data.unitReady;
 		}
 	}
 	struct Unit* nextUnit = container->unit;
 	curTime = time(NULL);
 	container->nextRun = curTime + nextUnit->interval;
-	sl_reorder(jmpBuf, &manager->list, 0);
-	container = (struct UnitContainer*)sl_get(jmpBuf, &manager->list, 0);
+	sl_reorder(&manager->list, 0);
+	if(error_waiting())
+		THROW_CONT(NULL, "While reordering the work queue");
+	container = (struct UnitContainer*)sl_get(&manager->list, 0);
+	if(error_waiting())
+		THROW_CONT(NULL, "While reordering the work queue");
 	return nextUnit;
 }

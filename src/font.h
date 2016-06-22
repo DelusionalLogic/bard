@@ -29,7 +29,7 @@ struct FontList {
 
 void font_kill(struct FontList* font);
 
-void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArray);
-void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* units, char* confPath);
-void font_getArg(jmp_buf jmpBuf, struct FontList* font, Vector* args);
+void font_getArray(struct Unit* unit, struct FormatArray* fmtArray);
+void font_createFontList(struct FontList* font, struct Units* units, char* confPath);
+void font_getArg(struct FontList* font, Vector* args);
 #endif

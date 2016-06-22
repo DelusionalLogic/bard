@@ -25,96 +25,97 @@
 #include "unit.h"
 #include "configparser.h"
 
-void units_init(jmp_buf jmpBuf, struct Units* units) {
-	vector_init(jmpBuf, &units->left, sizeof(struct Unit), 10);
-	vector_init(jmpBuf, &units->center, sizeof(struct Unit), 10);
-	vector_init(jmpBuf, &units->right, sizeof(struct Unit), 10);
+void units_init(struct Units* units) {
+	vector_init_new(&units->left, sizeof(struct Unit), 10);
+	VPROP_THROW("While initializing left unitcontainer");
+	vector_init_new(&units->center, sizeof(struct Unit), 10);
+	VPROP_THROW("While initializing center unitcontainer");
+	vector_init_new(&units->right, sizeof(struct Unit), 10);
+	VPROP_THROW("While initializing right unitcontainer");
 }
 
-static bool freeUnit(jmp_buf jmpBuf, void* elem, void* userdata) {
+static bool freeUnit(void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	unit_kill(unit);
 	return true;
 }
 
-void units_kill(jmp_buf jmpBuf, struct Units* units) {
-	vector_foreach(jmpBuf, &units->left, freeUnit, NULL);
+void units_kill(struct Units* units) {
+	vector_foreach_new(&units->left, freeUnit, NULL);
 	vector_kill(&units->left);
 
-	vector_foreach(jmpBuf, &units->center, freeUnit, NULL);
+	vector_foreach_new(&units->center, freeUnit, NULL);
 	vector_kill(&units->center);
 
-	vector_foreach(jmpBuf, &units->right, freeUnit, NULL);
+	vector_foreach_new(&units->right, freeUnit, NULL);
 	vector_kill(&units->right);
 }
 
-static bool freePtr(jmp_buf jmpBuf, void* elem, void* userdata) {
+static bool freePtr(void* elem, void* userdata) {
 	char** data = (char**) elem;
 	free(*data);
 	return true;
 }
 
-static bool parseType(jmp_buf jmpBuf, struct Unit* unit, const char* type)
+static bool parseType(struct Unit* unit, const char* type)
 {
 	for(int i = 0; i < UNITTYPE_LENGTH; i++)
 	{
 		if(!strcasecmp(TypeStr[i], type)) {
-			unit_setType(jmpBuf, unit, (const enum UnitType)i);
+			unit_setType(unit, (const enum UnitType)i);
 			return true;
 		}
 	}
 	return false;
 }
 
-static void loadSide(jmp_buf jmpBuf, Vector* units, struct ConfigParser* parser, const char* path) {
+static void loadSide(Vector* units, struct ConfigParser* parser, const char* path) {
 	Vector files;
-	vector_init(jmpBuf, &files, sizeof(char*), 5);
+	vector_init_new(&files, sizeof(char*), 5);
+	VPROP_THROW("While loading units from %s", path);
 	jmp_buf getEx;
-	int errCode = setjmp(getEx);
-	if(errCode == 0) {
-		getFiles(getEx, path, &files);
-	} else if(errCode == MYERR_NODIR) {
+	bool dirExists = getFiles(path, &files);
+	VPROP_THROW("While loading units from %s", path);
+	if(!dirExists) {
 		int status = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		if(status != 0) {
 			int myerrCode = 0;
 			switch(errno) {
 				case EACCES:
 				case EROFS:
-					myerrCode = MYERR_NOPERM;
-					break;
+					VTHROW_NEW("I don't have permission to created dir %s", path);
 				case ENAMETOOLONG:
-					myerrCode = MYERR_PATHLENGTH;
-					break;
+					VTHROW_NEW("path %s is too long", path);
 				case ENOENT:
 				case ENOTDIR:
-					myerrCode = MYERR_NODIR;
-					break;
+					VTHROW_NEW("%s is not a directory", path);
 				case ENOSPC:
-					myerrCode = MYERR_NOSPACE;
-					break;
+					VTHROW_NEW("Something about a lack of space? %s", path);
 			}
-			longjmp(jmpBuf, myerrCode);
 		}
-		getFiles(jmpBuf, path, &files);
-	} else {
-		longjmp(jmpBuf, errCode);
+		getFiles(path, &files);
+		VPROP_THROW("While loading units from %s", path);
 	}
 	for(int i = 0; i < vector_size(&files); i++)
 	{
-		log_write(LEVEL_INFO, "Reading config from %s", *(char**)vector_get(jmpBuf, &files, i));
-		char* file = *(char**)vector_get(jmpBuf, &files, i);
+		char* file = *(char**)vector_get_new(&files, i);
+		VPROP_THROW("While loading unit from %s", file);
+		log_write(LEVEL_INFO, "Reading config from %s", file);
+
 		struct Unit unit;
-		unit_init(jmpBuf, &unit);
+		unit_init(&unit);
+		VPROP_THROW("While loading unit from %s", file);
 
-		cp_load(jmpBuf, parser, file, &unit);
+		cp_load(parser, file, &unit);
+		VPROP_THROW("While loading unit form %s", file);
 
-		vector_putBack(jmpBuf, units, &unit);
+		vector_putBack_new(units, &unit);
 	}
-	vector_foreach(jmpBuf, &files, freePtr, NULL);
+	vector_foreach_new(&files, freePtr, NULL);
 	vector_kill(&files);
 }
 
-void units_load(jmp_buf jmpBuf, struct Units* units, char* configDir) {
+void units_load(struct Units* units, char* configDir) {
 	struct ConfigParser unitParser;
 	struct ConfigParserEntry entries[] = {
 		StringConfigEntry("unit:name", unit_setName, NULL),
@@ -132,32 +133,33 @@ void units_load(jmp_buf jmpBuf, struct Units* units, char* configDir) {
 		{.name = NULL},
 	};
 
-	cp_init(jmpBuf, &unitParser, entries);
+	cp_init(&unitParser, entries);
+	VPROP_THROW("While loading units");
 	
 	char* unitPath = pathAppend(configDir, "left");
-	loadSide(jmpBuf, &units->left, &unitParser, unitPath);
+	loadSide(&units->left, &unitParser, unitPath);
+	VPROP_THROW("While loading left units");
 	free(unitPath);
 
 	unitPath = pathAppend(configDir, "center");
-	loadSide(jmpBuf, &units->center, &unitParser, unitPath);
+	loadSide(&units->center, &unitParser, unitPath);
+	VPROP_THROW("While loading center units");
 	free(unitPath);
 
 	unitPath = pathAppend(configDir, "right");
-	loadSide(jmpBuf, &units->right, &unitParser, unitPath);
+	loadSide(&units->right, &unitParser, unitPath);
+	VPROP_THROW("While loading right units");
 	free(unitPath);
 
 	cp_kill(&unitParser);
 }
 
-int unit_preprocess(void* elem, void* metadata) {
+bool unit_preprocess(void* elem, void* metadata) {
 	struct Unit* unit = (struct Unit*)elem;
 	log_write(LEVEL_INFO, "Preprocessing unit: %s", unit->name);
 	if(!unit->advancedFormat) {
-		int errCode = parser_compileStr(unit->format, &unit->compiledFormat);
-		if(errCode != 0) {
-			log_write(LEVEL_ERROR, "Error compiling string for unit: %s", unit->name);
-			return errCode;
-		}
+		parser_compileStr(unit->format, &unit->compiledFormat);
+		PROP_THROW(false, "While preprocessing %s", unit->name);
 	} else {
 		char key[12] = "\0"; //Max key length
 		char **val;
@@ -171,20 +173,15 @@ int unit_preprocess(void* elem, void* metadata) {
 			JSLN(val, unit->envMap, key);
 		}
 	}
-	//TODO: Compile the env
 	unit->isPreProcessed = true;
-	return 0;
+	return true;
 }
 
-int units_preprocess(struct Units* units) {
-	int errCode = vector_foreach_new(&units->left, unit_preprocess, NULL);
-	if(errCode != 0)
-		return errCode;
-	errCode = vector_foreach_new(&units->center, unit_preprocess, NULL);
-	if(errCode != 0)
-		return errCode;
-	errCode = vector_foreach_new(&units->right, unit_preprocess, NULL);
-	if(errCode != 0)
-		return errCode;
-	return 0;
+void units_preprocess(struct Units* units) {
+	vector_foreach_new(&units->left, unit_preprocess, NULL);
+	VPROP_THROW("While preprocessing the left side");
+	vector_foreach_new(&units->center, unit_preprocess, NULL);
+	VPROP_THROW("While preprocessing the conter");
+	vector_foreach_new(&units->right, unit_preprocess, NULL);
+	VPROP_THROW("While preprocessing the right side");
 }

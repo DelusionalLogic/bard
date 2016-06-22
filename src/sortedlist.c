@@ -18,8 +18,8 @@
 #include <setjmp.h>
 #include "myerror.h"
 
-void sl_init(jmp_buf jmpBuf, struct SortedList* list, size_t elementSize, sortCompar comp) {
-	ll_init(jmpBuf, &list->list, elementSize);
+void sl_init(struct SortedList* list, size_t elementSize, sortCompar comp) {
+	ll_init(&list->list, elementSize);
 	list->comparator = comp;
 }
 
@@ -32,25 +32,27 @@ struct FindPlaceData {
 	void* elem;
 	sortCompar comp;
 };
-static bool findPlace(jmp_buf jmpBuf, void* elem, void* userdata) {
+static bool findPlace(void* elem, void* userdata) {
 	struct FindPlaceData* data = (struct FindPlaceData*)userdata;
-	if(data->comp(jmpBuf, data->elem, elem))
+	if(data->comp(data->elem, elem))
 		return false;
 	data->slot++;
 	return true;
 }
 
-void sl_insert(jmp_buf jmpBuf, struct SortedList* list, void* element) {
+void sl_insert(struct SortedList* list, void* element) {
 	struct FindPlaceData data = { .slot = 0, .elem = element, .comp = list->comparator};
-	ll_foreach(jmpBuf, &list->list, findPlace, &data);
-	ll_insert(jmpBuf, &list->list, data.slot, element);
+	ll_foreach(&list->list, findPlace, &data);
+	VPROP_THROW("While finding the place to insert into sorted list");
+	ll_insert(&list->list, data.slot, element);
+	VPROP_THROW("While adding to the sorted list");
 }
 
-void* sl_get(jmp_buf jmpBuf, struct SortedList* list, size_t index) {
-	return ll_get(jmpBuf, &list->list, index);
+void* sl_get(struct SortedList* list, size_t index) {
+	return ll_get(&list->list, index);
 }
 
-void sl_reorder(jmp_buf jmpBuf, struct SortedList* list, size_t index) {
+void sl_reorder(struct SortedList* list, size_t index) {
 	//Remove the element
 	struct llElement* prev = NULL;
 	struct llElement* cur = list->list.first;
@@ -67,7 +69,9 @@ void sl_reorder(jmp_buf jmpBuf, struct SortedList* list, size_t index) {
 	struct llElement* this = cur;
 	//Get the new position
 	struct FindPlaceData data = { .slot = 0, .elem = cur->data, .comp = list->comparator};
-	ll_foreach(jmpBuf, &list->list, findPlace, &data);
+	ll_foreach(&list->list, findPlace, &data);
+	if(error_waiting())
+		VTHROW_CONT("While reordering the sorted list");
 	//Reinsert at new position
 	cur = list->list.first;
 	for(size_t i = 0; i < data.slot; i++)
@@ -83,8 +87,8 @@ void sl_reorder(jmp_buf jmpBuf, struct SortedList* list, size_t index) {
 	this->next = cur;
 }
 
-int sl_foreach(jmp_buf jmpBuf, struct SortedList* list, bool (*cb)(jmp_buf, void*, void*), void* userdata) {
-	return ll_foreach(jmpBuf, &list->list, cb, userdata);
+int sl_foreach(struct SortedList* list, bool (*cb)(void*, void*), void* userdata) {
+	return ll_foreach(&list->list, cb, userdata);
 }
 
 void sl_remove(jmp_buf jmpBuf, struct SortedList* list, size_t index) {
