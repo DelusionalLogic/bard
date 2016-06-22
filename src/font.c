@@ -32,7 +32,7 @@ struct addUnitFontsData{
 	Pvoid_t* revFonts;
 	int fontIndex;
 };
-static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
+static bool addUnitFonts(void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	struct addUnitFontsData* data = (struct addUnitFontsData*)userdata;
 
@@ -62,7 +62,7 @@ static bool addUnitFonts(jmp_buf jmpBuf, void* elem, void* userdata) {
 	return true;
 }
 
-void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* units, char* confPath) {
+void font_createFontList(struct FontList* font, struct Units* units, char* confPath) {
 	dictionary* dict = iniparser_load(confPath);
 	const char* defString = iniparser_getstring(dict, "display:font", NULL);
 	if(defString != NULL) {
@@ -82,12 +82,15 @@ void font_createFontList(jmp_buf jmpBuf, struct FontList* font, struct Units* un
 		.revFonts = &font->revFonts,
 		.fontIndex = 2, //TODO: NOT HARDCODE
 	};
-	vector_foreach(jmpBuf, &units->left, addUnitFonts, &fontData);
-	vector_foreach(jmpBuf, &units->center, addUnitFonts, &fontData);
-	vector_foreach(jmpBuf, &units->right, addUnitFonts, &fontData);
+	vector_foreach(&units->left, addUnitFonts, &fontData);
+		VPROP_THROW("While adding left side");
+	vector_foreach(&units->center, addUnitFonts, &fontData);
+		VPROP_THROW("While adding center");
+	vector_foreach(&units->right, addUnitFonts, &fontData);
+		VPROP_THROW("While adding right side");
 }
 
-void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArray) {
+void font_getArray(struct Unit* unit, struct FormatArray* fmtArray) {
 	strcpy(fmtArray->name, "font");
 
 	uint8_t key[12] = "\0"; //TODO: HARDCODED MAX LENGTH
@@ -110,15 +113,18 @@ void font_getArray(jmp_buf jmpBuf, struct Unit* unit, struct FormatArray* fmtArr
 	}
 }
 
-void font_getArg(jmp_buf jmpBuf, struct FontList* font, Vector* args) {
+void font_getArg(struct FontList* font, Vector* args) {
 	char** val = NULL;
 	Word_t key = 0;
 	JLF(val, font->revFonts, key);
 	while(val != NULL){
 		log_write(LEVEL_INFO, "font arg: %d, %s", key, *val);
-		vector_putListBack(jmpBuf, args, " -f \"", 5);
-		vector_putListBack(jmpBuf, args, *val, strlen(*val));
-		vector_putListBack(jmpBuf, args, "\"", 1);
+		vector_putListBack(args, " -f \"", 5);
+			VPROP_THROW("While adding fonts");
+		vector_putListBack(args, *val, strlen(*val));
+			VPROP_THROW("While adding fonts");
+		vector_putListBack(args, "\"", 1);
+			VPROP_THROW("While adding fonts");
 		JLN(val, font->revFonts, key);
 	}
 	log_write(LEVEL_INFO, "font arg end: %d", key);

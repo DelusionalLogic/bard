@@ -31,10 +31,10 @@ struct WorkManager {
 	fd_set fdset;
 };
 
-void workmanager_init(jmp_buf jmpBuf, struct WorkManager* manager, struct RunnerBuffer* buffers);
+void workmanager_init(struct WorkManager* manager, struct RunnerBuffer* buffers);
 void workmanager_kill(struct WorkManager* manager);
 
-void workmanager_addUnits(jmp_buf jmpBuf, struct WorkManager* manager, struct Units* units);
-bool workmanger_waiting(jmp_buf jmpBuf, struct WorkManager* manager);
-struct Unit* workmanager_next(jmp_buf jmpBuf, struct WorkManager* manager);
+void workmanager_addUnits(struct WorkManager* manager, struct Units* units);
+bool workmanger_waiting(struct WorkManager* manager);
+struct Unit* workmanager_next(struct WorkManager* manager);
 #endif

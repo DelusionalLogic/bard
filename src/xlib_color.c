@@ -59,7 +59,7 @@ static const char* colorName[MAXCOLOR] = {
 	"brightwhite",
 };
 
-void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj) {
+void xcolor_loadColors(struct XlibColor* obj) {
 	obj->color = (char (*)[COLORLEN])obj->colormem;
 
 	log_write(LEVEL_INFO, "Getting config for display");
@@ -70,10 +70,8 @@ void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj) {
 		//Stolen from awesomewm, seems like quite the hack
 		(void)XGetDefault(display, "", "");
 		obj->rdb = XrmGetDatabase(display);
-		if(!obj->rdb) {
-			log_write(LEVEL_WARNING, "Failed opening the X resource manager");
-			longjmp(jmpBuf, MYERR_XOPEN);
-		}
+		if(!obj->rdb)
+			VTHROW_NEW("Failed opening the X resource manager");
 	}
 
 	//Load those colors from the Xrm
@@ -93,7 +91,7 @@ void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj) {
 	XCloseDisplay(display); //This also destroys the database object (rdb)
 }
 
-bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct FormatArray* array) {
+bool xcolor_formatArray(struct XlibColor* xcolor, struct FormatArray* array) {
 	char** val;
 
 	strcpy(array->name, "xcolor");

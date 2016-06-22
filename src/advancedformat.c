@@ -27,7 +27,7 @@
 #include "myerror.h"
 #include "logger.h"
 
-int advformat_execute(jmp_buf jmpBuf, char* format, Pvoid_t compiledEnv, size_t maxKeyLen, const struct FormatArray* fmtArrays[], size_t fmtLen, char** out) {
+int advformat_execute(char* format, Pvoid_t compiledEnv, size_t maxKeyLen, const struct FormatArray* fmtArrays[], size_t fmtLen, char** out) {
 	char* null = NULL;
 	size_t cmdlen = 0;
 	char* ch = format;
@@ -56,7 +56,11 @@ int advformat_execute(jmp_buf jmpBuf, char* format, Pvoid_t compiledEnv, size_t 
 			JSLF(vec, compiledEnv, index);
 			while(vec != NULL) {
 				char* str;
-				formatter_format(jmpBuf, *vec, fmtArrays, fmtLen, &str);
+				formatter_format(*vec, fmtArrays, fmtLen, &str);
+				if(error_waiting()) {
+					ERROR_CONT("While formatting environment in subprocess of advanced format");
+					error_abort();
+				}
 				log_write(LEVEL_INFO, "Env %s -> %s", index, str);
 				setenv(index, str, true);
 				JSLN(vec, compiledEnv, index);
@@ -73,24 +77,26 @@ int advformat_execute(jmp_buf jmpBuf, char* format, Pvoid_t compiledEnv, size_t 
 	wordfree(&p);
 
 	Vector buff;
-	vector_init(jmpBuf, &buff, sizeof(char), 1024);
+	vector_init(&buff, sizeof(char), 1024);
+	PROP_THROW(1, "While initializing the output buffer");
 	ssize_t readLen;
 
 	/* Read output */
 	char chunk[1024];
 	while((readLen = fread(chunk, 1, 1024, output)) > 0){
-		log_write(LEVEL_INFO, "Read: %d", readLen);
-		vector_putListBack(jmpBuf, &buff, chunk, readLen);
+		vector_putListBack(&buff, chunk, readLen);
+		PROP_THROW(1,  "Failed appending the command chunk to the buffer, length: %d", readLen);
 	}
-	if(ferror(output)) {
-		longjmp(jmpBuf, errno);
-	}
+	if(ferror(output))
+		THROW_NEW(1, "Some error while reading the command output, %d", errno);
 
 	//Remove trailing newline
-	if(buff.size > 0 && buff.data[buff.size-1] == '\n')
+	if(buff.size > 0 && buff.data[buff.size-1] == '\n') {
 		buff.data[buff.size-1] = '\0';
-	else
-		vector_putListBack(jmpBuf, &buff, "\0", 1);
+	} else {
+		vector_putListBack(&buff, "\0", 1);
+		PROP_THROW(1, "While inserting null terminator");
+	}
 
 	int status;
 	waitpid(pid, &status, 0);

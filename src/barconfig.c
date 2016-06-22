@@ -29,88 +29,56 @@ struct cnfData{
 	size_t arraysCnt;
 };
 
-static void geometry(jmp_buf jmpBuf, struct cnfData* data, const char* option) {
+static void geometry(struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
-	jmp_buf vecEx;
-	int errCode = setjmp(vecEx);
-	if(errCode == 0) {
-		vector_putListBack(vecEx, data->arg, " -g \"", 5);
-		vector_putListBack(vecEx, data->arg, option, strlen(option));
-		vector_putListBack(vecEx, data->arg, "\"", 1);
-	} else if(errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_ERROR, "Failed to allocate more space for geometry string");
-		longjmp(jmpBuf, errCode);
-	} else {
-		log_write(LEVEL_ERROR, "Failed something something geometry string");
-	}
+	vector_putListBack(data->arg, " -g \"", 5);
+	vector_putListBack(data->arg, option, strlen(option));
+	vector_putListBack(data->arg, "\"", 1);
 }
 
-static void background(jmp_buf jmpBuf, struct cnfData* data, const char* option) {
+static void background(struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
-	jmp_buf vecEx;
-	int errCode = setjmp(vecEx);
-	if(errCode == 0) {
-		vector_putListBack(vecEx, data->arg, " -B \"", 5);
 
-		jmp_buf colorEx;
-		int errCode2 = setjmp(colorEx);
-		char* out;
-		if(errCode2 == 0) {
-			Vector compiled;
-			parser_compileStr(option, &compiled);
-			formatter_format(colorEx, &compiled, data->arrays, data->arraysCnt, &out);
-			vector_putListBack(vecEx, data->arg, out, strlen(out));
-			parser_freeCompiled(&compiled);
-			free(out);
-			vector_putListBack(vecEx, data->arg, "\"", 1);
-		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
-			vector_putListBack(vecEx, data->arg, option, strlen(option));
-			vector_putListBack(vecEx, data->arg, "\"", 1);
-		}
+	vector_putListBack(data->arg, " -B \"", 5);
+	char* out;
 
-	} else if(errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_ERROR, "Failed to allocate more space for background string");
-		longjmp(jmpBuf, errCode);
-	} else {
-		log_write(LEVEL_ERROR, "Failed something something background string");
-	}
+	Vector compiled;
+	parser_compileStr(option, &compiled);
+	VPROP_THROW("While compiling background string");
 
+	formatter_format(&compiled, data->arrays, data->arraysCnt, &out);
+	VPROP_THROW("While formatting background color: %s", option);
+
+	vector_putListBack(data->arg, out, strlen(out));
+	parser_freeCompiled(&compiled);
+	free(out);
+	vector_putListBack(data->arg, "\"", 1);
 }
 
-static void foreground(jmp_buf jmpBuf, struct cnfData* data, const char* option) {
+static void foreground(struct cnfData* data, const char* option) {
 	if(option == NULL)
 		return;
-	jmp_buf vecEx;
-	int errCode = setjmp(vecEx);
-	if(errCode == 0) {
-		vector_putListBack(vecEx, data->arg, " -F \"", 5);
-		jmp_buf colorEx;
-		int errCode2 = setjmp(colorEx);
-		char* out;
-		if(errCode2 == 0) {
-			Vector compiled;
-			parser_compileStr(option, &compiled);
-			formatter_format(colorEx, &compiled, data->arrays, data->arraysCnt, &out);
-			vector_putListBack(vecEx, data->arg, out, strlen(out));
-			parser_freeCompiled(&compiled);
-			free(out);
-			vector_putListBack(vecEx, data->arg, "\"", 1);
-		} else if (errCode2) { //Error trying to allocate out. Lets just put the bare string on there
-			vector_putListBack(vecEx, data->arg, option, strlen(option));
-			vector_putListBack(vecEx, data->arg, "\"", 1);
-		}
-	} else if(errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_ERROR, "Failed to allocate more space for foreground string");
-		longjmp(jmpBuf, errCode);
-	} else {
-		log_write(LEVEL_ERROR, "Failed something something foreground string");
-	}
+
+	vector_putListBack(data->arg, " -F \"", 5);
+	char* out;
+
+	Vector compiled;
+	parser_compileStr(option, &compiled);
+	VPROP_THROW("While compiling foreground string");
+
+	formatter_format(&compiled, data->arrays, data->arraysCnt, &out);
+	VPROP_THROW("While formatting foreground color: %s", option);
+
+	vector_putListBack(data->arg, out, strlen(out));
+	parser_freeCompiled(&compiled);
+	free(out);
+	vector_putListBack(data->arg, "\"", 1);
 
 }
 
-void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, const struct FormatArray* arrays[], size_t arraysCnt) {
+void barconfig_getArgs(Vector* arg, char* configFile, const struct FormatArray* arrays[], size_t arraysCnt) {
 	struct cnfData data = {
 		.arg = arg,
 		.arrays = arrays,
@@ -123,7 +91,9 @@ void barconfig_getArgs(jmp_buf jmpBuf, Vector* arg, char* configFile, const stru
 		StringConfigEntry("bar:foreground", foreground, NULL),
 		{.name = NULL},
 	};
-	cp_init(jmpBuf, &parser, entry);
-	cp_load(jmpBuf, &parser, configFile, &data);
+	cp_init(&parser, entry);
+	VPROP_THROW("While constructing arguments for bar from the config");
+	cp_load(&parser, configFile, &data);
+	VPROP_THROW("While constructing arguments for bar from the config");
 	cp_kill(&parser);
 }

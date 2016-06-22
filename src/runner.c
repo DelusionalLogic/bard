@@ -24,7 +24,7 @@
 #include "myerror.h"
 #include "logger.h"
 
-static int run(jmp_buf jmpBuf, char* command, int writefd) {
+static void run(char* command, int writefd) {
 	assert(writefd > 0);
 	assert(command != NULL);
 
@@ -32,28 +32,27 @@ static int run(jmp_buf jmpBuf, char* command, int writefd) {
 	int err = wordexp(command, &wexp, WRDE_NOCMD);
 	if(err == WRDE_CMDSUB) {
 		wordfree(&wexp);
-		longjmp(jmpBuf, MYERR_USERINPUTERR);
+		VTHROW_NEW("Failed performing shell expansion on %s", command);
 	}
 	if(err != 0) {
 		if(err == WRDE_NOSPACE)
 			wordfree(&wexp);
-		longjmp(jmpBuf, MYERR_USERINPUTERR);
+		VTHROW_NEW("Failed performing shell expansion on %s", command);
 	}
 	int pid = fork();
 	if(pid == -1) {
 		switch(errno) {
 			case EAGAIN:
-				log_write(LEVEL_ERROR, "Maximum number of processes started");
 				wordfree(&wexp);
-				longjmp(jmpBuf, MYERR_NOPROCESS);
+				VTHROW_NEW("Maximum number of processes started");
 				break;
 			case ENOMEM:
-				log_write(LEVEL_ERROR, "Not enough memory to fork process");
 				wordfree(&wexp);
-				longjmp(jmpBuf, MYERR_ALLOCFAIL);
+				VTHROW_NEW("Not enough memory to fork process");
 				break;
 			case ENOSYS:
-				log_write(LEVEL_ERROR, "What are you trying to run this on?");
+				wordfree(&wexp);
+				VTHROW_NEW("What are you trying to run this on?");
 				break;
 		}
 	}
@@ -64,7 +63,6 @@ static int run(jmp_buf jmpBuf, char* command, int writefd) {
 		execvp(wexp.we_wordv[0], wexp.we_wordv);
 	}
 	wordfree(&wexp);
-	return 0;
 }
 
 struct Buffer {
@@ -76,7 +74,7 @@ struct Buffer {
 struct initPipeData {
 	struct RunnerBuffer* buffers;
 };
-bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
+bool initPipe(void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	struct initPipeData* data = (struct initPipeData*)userdata;
 
@@ -87,7 +85,8 @@ bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
 	JSLG(val, data->buffers->buffers, unit->command);
 	if(val == NULL) {
 		struct Buffer* newBuf = calloc(sizeof(struct Buffer), 1);
-		vector_init(jmpBuf, &newBuf->buffer, sizeof(char), 128);
+		vector_init(&newBuf->buffer, sizeof(char), 128);
+		PROP_THROW(false, "While starting pipe for %s", unit->name);
 		log_write(LEVEL_INFO, "Creating pipe for %s", unit->name);
 
 		int fd[2];
@@ -96,7 +95,8 @@ bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
 		newBuf->fd = fd[0];
 		newBuf->writefd = fd[1];
 
-		run(jmpBuf, unit->command, newBuf->writefd);
+		run(unit->command, newBuf->writefd);
+		PROP_THROW(false, "While starting pipe for %s", unit->name);
 
 		size_t commandLen = strlen(unit->command) + 1;
 		if(commandLen > data->buffers->longestKey)
@@ -111,22 +111,19 @@ bool initPipe(jmp_buf jmpBuf, void* elem, void* userdata) {
 	return true;
 }
 
-void runner_startPipes(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Units* units) {
-	jmp_buf runEx;
-	int errCode = setjmp(runEx);
-	if(errCode == 0) {
-		struct initPipeData data = {
-			buffers,
-		};
-		vector_foreach(runEx, &units->left, initPipe, &data);
-		vector_foreach(runEx, &units->center, initPipe, &data);
-		vector_foreach(runEx, &units->right, initPipe, &data);
-	} else {
-		longjmp(jmpBuf, errCode);
-	}
+void runner_startPipes(struct RunnerBuffer* buffers, struct Units* units) {
+	struct initPipeData data = {
+		buffers,
+	};
+	vector_foreach(&units->left, initPipe, &data);
+	VPROP_THROW("While starting runner pipes for left side");
+	vector_foreach(&units->center, initPipe, &data);
+	VPROP_THROW("While starting runner pipes for center");
+	vector_foreach(&units->right, initPipe, &data);
+	VPROP_THROW("While starting runner pipes for right side");
 }
 
-fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers) {
+fd_set runner_getfds(struct RunnerBuffer* buffers) {
 	fd_set set;
 	FD_ZERO(&set);
 	uint8_t* index = malloc(buffers->longestKey * sizeof(char));
@@ -142,24 +139,22 @@ fd_set runner_getfds(jmp_buf jmpBuf, struct RunnerBuffer* buffers) {
 	return set;
 }
 
-bool runner_ready(jmp_buf jmpBuf, struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit) {
+bool runner_ready(struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit) {
 	struct Buffer** val;
 	JSLG(val, buffers->buffers, (uint8_t*)unit->command);
 	bool isset = FD_ISSET((*val)->fd, fdset);
 	return isset;
 }
 
-void runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit, char** const out) {
+void runner_read(struct RunnerBuffer* buffers, struct Unit* unit, char** const out) {
 	assert(unit->type == UNIT_RUNNING);
 
 	struct Buffer* buffer;
 	{
 		struct Buffer** val;
 		JSLG(val, buffers->buffers, (uint8_t*)unit->command);
-		if(val == NULL) {
-			log_write(LEVEL_ERROR, "No command started for %s", unit->name);
-			longjmp(jmpBuf, MYERR_BADFD);
-		}
+		if(val == NULL)
+			VTHROW_NEW("No command started for %s", unit->name);
 		buffer = *val;
 	}
 
@@ -167,49 +162,45 @@ void runner_read(jmp_buf jmpBuf, struct RunnerBuffer* buffers, struct Unit* unit
 	J1T(rc, buffers->owners, (Word_t)unit);
 	if(rc == 1) {
 		//We own this buffer, so update it
-		jmp_buf procEx;
-		int errCode = setjmp(procEx);
-		if(errCode == 0) {
-			//A sliding window implementation for searching for the delimeter
-			size_t delimiterLen = strlen(unit->delimiter);
-			char* window = malloc((delimiterLen+1) * sizeof(char));
-			window[delimiterLen] = '\0';
-			int n = read(buffer->fd, window, delimiterLen);
-			buffer->complete = true;
-			while(strstr(window, unit->delimiter) == NULL) {
-				if(n == 0) {
-					buffer->complete = false;
-					break;
-				}else if(n == -1) {
-					log_write(LEVEL_ERROR, "Could not read from pipe: %s", strerror(errno));
-					longjmp(procEx, 0xDEADBEEF); //TODO: ERR CODE
-				}
-				vector_putBack(procEx, &buffer->buffer, window + delimiterLen-1); //Put last char onto the final string
-				memmove(window+1, window, delimiterLen-1); //Move everything over one
-				n = read(buffer->fd, window, 1);
+		//A sliding window implementation for searching for the delimeter
+		size_t delimiterLen = strlen(unit->delimiter);
+		char* window = malloc((delimiterLen+1) * sizeof(char));
+		window[delimiterLen] = '\0';
+		int n = read(buffer->fd, window, delimiterLen);
+		buffer->complete = true;
+		while(strstr(window, unit->delimiter) == NULL) {
+			if(n == 0) {
+				buffer->complete = false;
+				break;
+			}else if(n == -1) {
+				VTHROW_NEW("Could not read from pipe: %s", strerror(errno));
 			}
-			vector_putListBack(procEx, &buffer->buffer, window, delimiterLen); //Put the remaining window on there
-			free(window);
-
-			if(buffer->complete) {
-				vector_putListBack(jmpBuf, &buffer->buffer, "\0", 1);
-				*out = vector_detach(&buffer->buffer);
-				vector_init(jmpBuf, &buffer->buffer, sizeof(char), 512);
-				return;
-			}
-
-			*out = NULL;
-		} else {
-			log_write(LEVEL_ERROR, "Error while retrieving input from running unit: %s", unit->name);
-			longjmp(jmpBuf, errCode);
+			vector_putBack(&buffer->buffer, window + delimiterLen-1); //Put last char onto the final string
+			VPROP_THROW("While inserting the last char into the buffer %c", window + delimiterLen-1);
+			memmove(window+1, window, delimiterLen-1); //Move everything over one
+			n = read(buffer->fd, window, 1);
 		}
+		vector_putListBack(&buffer->buffer, window, delimiterLen); //Put the remaining window on there
+		VPROP_THROW("While appending the window to the buffer %s", window);
+		free(window);
+
+		if(buffer->complete) {
+			vector_putListBack(&buffer->buffer, "\0", 1);
+			VPROP_THROW("While adding null terminator");
+			*out = vector_detach(&buffer->buffer);
+			vector_init(&buffer->buffer, sizeof(char), 512);
+			VPROP_THROW("While initiating the new buffer");
+			return;
+		}
+
+		*out = NULL;
 	}else{
 		//We don't own this buffer, so just read if complete
 		if(buffer->complete) {
 			size_t listSize = vector_size(&buffer->buffer) * sizeof(char);
 			*out = malloc(listSize);
 			if(*out == NULL)
-				longjmp(jmpBuf, MYERR_ALLOCFAIL);
+				VTHROW_NEW("Failed allocating space for the new buffer");
 			memcpy(*out, buffer->buffer.data, listSize);
 		}else{
 			*out = NULL;

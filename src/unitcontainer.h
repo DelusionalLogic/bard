@@ -24,10 +24,10 @@ struct Units {
 	Vector right;
 };
 
-void units_init(jmp_buf jmpBuf, struct Units* units);
+void units_init(struct Units* units);
 void units_free(struct Units* units);
 
-void units_load(jmp_buf jmpBuf, struct Units* units, char* configDir);
-int units_preprocess(struct Units* units);
+void units_load(struct Units* units, char* configDir);
+void units_preprocess(struct Units* units);
 
 #endif

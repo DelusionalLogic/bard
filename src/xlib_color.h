@@ -32,7 +32,7 @@ struct XlibColor {
 	XrmDatabase rdb;
 };
 
-void xcolor_loadColors(jmp_buf jmpBuf, struct XlibColor* obj);
-bool xcolor_formatArray(jmp_buf jmpBuf, struct XlibColor* xcolor, struct FormatArray* array);
+void xcolor_loadColors(struct XlibColor* obj);
+bool xcolor_formatArray(struct XlibColor* xcolor, struct FormatArray* array);
 
 #endif

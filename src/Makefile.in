@@ -105,9 +105,9 @@ am_bard_OBJECTS = main.$(OBJEXT) barconfig.$(OBJEXT) \
 	configparser.$(OBJEXT) workmanager.$(OBJEXT) \
 	sortedlist.$(OBJEXT) formatter.$(OBJEXT) \
 	advancedformat.$(OBJEXT) output.$(OBJEXT) xlib_color.$(OBJEXT) \
-	unitcontainer.$(OBJEXT) fs.$(OBJEXT) map.$(OBJEXT) \
-	font.$(OBJEXT) regex.$(OBJEXT) formatarray.$(OBJEXT) \
-	parser.$(OBJEXT)
+	unitcontainer.$(OBJEXT) fs.$(OBJEXT) font.$(OBJEXT) \
+	regex.$(OBJEXT) formatarray.$(OBJEXT) parser.$(OBJEXT) \
+	myerror.$(OBJEXT)
 bard_OBJECTS = $(am_bard_OBJECTS)
 bard_DEPENDENCIES =
 AM_V_P = $(am__v_P_@AM_V@)
@@ -254,8 +254,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-bard_SOURCES = main.c barconfig.c unitexecute.c runner.c logger.c vector.c linkedlist.c unit.c configparser.c workmanager.c sortedlist.c formatter.c advancedformat.c output.c xlib_color.c unitcontainer.c fs.c map.c font.c regex.c formatarray.c parser.c
-bard_LDADD = -liniparser -lX11 -lJudy -lpcre2-8
+bard_SOURCES = main.c barconfig.c unitexecute.c runner.c logger.c vector.c linkedlist.c unit.c configparser.c workmanager.c sortedlist.c formatter.c advancedformat.c output.c xlib_color.c unitcontainer.c fs.c font.c regex.c formatarray.c parser.c myerror.c
+bard_LDADD = -liniparser -lX11 -lJudy -lpcre2-8 -lpthread
 all: all-am
 
 .SUFFIXES:
@@ -352,7 +352,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linkedlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/logger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/map.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/myerror.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/output.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parser.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/regex.Po@am__quote@

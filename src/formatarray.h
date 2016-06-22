@@ -10,6 +10,6 @@ struct FormatArray{
 	Pvoid_t array;
 };
 
-void formatarray_kill(jmp_buf jmpBuf, struct FormatArray* fmtArray);
+void formatarray_kill(struct FormatArray* fmtArray);
 
 #endif

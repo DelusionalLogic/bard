@@ -15,6 +15,7 @@
 //    along with bard.  If not, see <http://www.gnu.org/licenses/>.
 #include "fs.h"
 #include <stdio.h>
+#include "myerror.h"
 
 char* pathAppend(const char* path, const char* path2) {
 	size_t pathLen = strlen(path);
@@ -35,16 +36,15 @@ int fileSort(const void* e1, const void* e2)
 }
 
 //nameList is a vector of string (char*)
-void getFiles(jmp_buf jmpBuf, const char* path, Vector* nameList)
+bool getFiles(const char* path, Vector* nameList)
 {
 	DIR* dir;
 	struct dirent *ent;
 	char slash = '/';
 
 	if((dir = opendir(path)) == NULL)
-	{
-		longjmp(jmpBuf, 100);
-	}
+		return false;
+		//VTHROW_NEW("Failed opening the %s directory", path);
 	while((ent = readdir(dir)) != NULL)
 	{
 		if(ent->d_name[0] == '.') 
@@ -52,14 +52,15 @@ void getFiles(jmp_buf jmpBuf, const char* path, Vector* nameList)
 		if(ent->d_type != DT_REG && ent->d_type != DT_LNK)
 			continue;
 		Vector name;
-		vector_init(jmpBuf, &name, sizeof(char), 64);
-		vector_putListBack(jmpBuf, &name, path, strlen(path));
-		vector_putBack(jmpBuf, &name, &slash);
-		vector_putListBack(jmpBuf, &name, ent->d_name, strlen(ent->d_name)+1);
+		vector_init(&name, sizeof(char), 64);
+		vector_putListBack(&name, path, strlen(path));
+		vector_putBack(&name, &slash);
+		vector_putListBack(&name, ent->d_name, strlen(ent->d_name)+1);
 
-		vector_putBack(jmpBuf, nameList, &name.data);
+		vector_putBack(nameList, &name.data);
 		//Name is not destroyed because we want to keep the buffer around
 	}	
 	closedir(dir);
 	vector_qsort(nameList, fileSort);
+	return true;
 }

@@ -5,7 +5,7 @@
 #include "cst.h"
 #include "unit.h"
 
-int parser_compileStr(const char* str, Vector* nodes);
-int parser_freeCompiled(Vector* compiled);
+void parser_compileStr(const char* str, Vector* nodes);
+void parser_freeCompiled(Vector* compiled);
 
 #endif

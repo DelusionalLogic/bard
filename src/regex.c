@@ -29,7 +29,7 @@ struct compileRegexData {
 	Pvoid_t* arr;
 	size_t* maxLen;
 };
-bool compileRegex(jmp_buf jmpBuf, void* elem, void* userdata) {
+bool compileRegex(void* elem, void* userdata) {
 	struct Unit* unit = (struct Unit*)elem;
 	struct compileRegexData* data = (struct compileRegexData*)userdata;
 
@@ -48,36 +48,32 @@ bool compileRegex(jmp_buf jmpBuf, void* elem, void* userdata) {
 	if(unitNameLen > *(data->maxLen))
 		*(data->maxLen) = unitNameLen;
 
-	if(val == PJERR) {
-		longjmp(jmpBuf, MYERR_ALLOCFAIL);
-	}
+	if(val == PJERR)
+		THROW_NEW(false, "Allocation of compiled regex for %s failed", unit->name);
 	*val = (unsigned long)re;
 
 	return true;
 }
 
-bool regex_compile(jmp_buf jmpBuf, struct Regex* regex, struct Units* units) {
+bool regex_compile(struct Regex* regex, struct Units* units) {
 	struct compileRegexData data = {
 		&regex->regexCache,
 		&regex->maxLen,
 	};
-	jmp_buf runEx;
-	int errCode = setjmp(runEx);
-	if(errCode == 0) {
-		vector_foreach(runEx, &units->left, compileRegex, &data);
-		vector_foreach(runEx, &units->center, compileRegex, &data);
-		vector_foreach(runEx, &units->right, compileRegex, &data);
-	} else {
-		longjmp(jmpBuf, errCode);
-	}
+	vector_foreach(&units->left, compileRegex, &data);
+	PROP_THROW(false, "While compiling left side");
+	vector_foreach(&units->center, compileRegex, &data);
+	PROP_THROW(false, "While compiling center");
+	vector_foreach(&units->right, compileRegex, &data);
+	PROP_THROW(false, "While compiling right side");
 	return true;
 }
 
-bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* string, struct FormatArray* array) {
+bool regex_match(struct Regex* regex, struct Unit* unit, char* string, struct FormatArray* array) {
 	pcre2_code** val;
 	JSLG(val,  regex->regexCache, (uint8_t*)unit->name);
 	if(val == NULL)
-		longjmp(jmpBuf, MYERR_UNITWRONGTYPE);
+		THROW_NEW(false, "Tried to match a regex that wasn't compiled for unit %s", unit->name);
 
 	strcpy(array->name, "regex");
 
@@ -111,9 +107,7 @@ bool regex_match(jmp_buf jmpBuf, struct Regex* regex, struct Unit* unit, char* s
 				log_write(LEVEL_ERROR, "No match in %s", unit->name);
 				break;
 			default:
-				log_write(LEVEL_ERROR, "PCRE2 matching error (%d)", rc);
-				longjmp(jmpBuf, rc);
-				break;
+				THROW_NEW(false, "PCRE2 matching error (%d)", rc);
 		}
 		pcre2_match_data_free(match_data);   /* Release memory used for the match */
 		return 1;

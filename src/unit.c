@@ -21,12 +21,12 @@
 #include "logger.h"
 #include "parser.h"
 
-bool fontCmp(jmp_buf jmpBuf, const void* straw, const void* needle, size_t eSize) {
+bool fontCmp(const void* straw, const void* needle, size_t eSize) {
 	char* e1 = *(char**)straw;
 	return strcmp(e1, needle) == 0;
 }
 
-void unit_init(jmp_buf jmpBuf, struct Unit* unit) {
+void unit_init(struct Unit* unit) {
 	unit->name = NULL;
 	unit->type = UNIT_POLL;
 	unit->command = NULL;
@@ -92,7 +92,7 @@ void unit_kill(struct Unit* unit) {
 }
 
 //Setters {{{
-void unit_setName(jmp_buf jmpBuf, struct Unit* unit, const char* name) {
+void unit_setName(struct Unit* unit, const char* name) {
 	free(unit->name);
 	if(name == NULL) {
 		unit->name = NULL;
@@ -101,13 +101,13 @@ void unit_setName(jmp_buf jmpBuf, struct Unit* unit, const char* name) {
 
 	size_t nameLen = strlen(name) + 1;
 	unit->name = malloc(sizeof(char) * nameLen);
-	if(unit->name == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	if(unit->name == NULL) VTHROW_NEW("Failed allocating space for unit name %s", name);
 	strcpy(unit->name, name);
 }
-void unit_setType(jmp_buf jmpBuf, struct Unit* unit, const enum UnitType type) {
+void unit_setType(struct Unit* unit, const enum UnitType type) {
 	unit->type = type;
 }
-void unit_setCommand(jmp_buf jmpBuf, struct Unit* unit, const char* command) {
+void unit_setCommand(struct Unit* unit, const char* command) {
 	free(unit->command);
 	if(command == NULL) {
 		unit->command = NULL;
@@ -116,10 +116,10 @@ void unit_setCommand(jmp_buf jmpBuf, struct Unit* unit, const char* command) {
 
 	size_t commandLen = strlen(command) + 1;
 	unit->command = malloc(sizeof(char) * commandLen);
-	if(unit->command == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	if(unit->command == NULL) VTHROW_NEW("Failed allocating space for unit command %s", command);
 	strcpy(unit->command, command);
 }
-void unit_setRegex(jmp_buf jmpBuf, struct Unit* unit, const char* regex) {
+void unit_setRegex(struct Unit* unit, const char* regex) {
 	free(unit->regex);
 	if(regex == NULL) {
 		unit->regex = NULL;
@@ -127,51 +127,44 @@ void unit_setRegex(jmp_buf jmpBuf, struct Unit* unit, const char* regex) {
 	}
 
 	Vector str;
-	jmp_buf setEx;
-	int errCode = setjmp(setEx);
-	if(errCode == 0) {
-		vector_init(setEx, &str, sizeof(char), 512);
+		vector_init(&str, sizeof(char), 512);
 		//For some insane reason regex depends on all escape chars to already be unescaped before being passsed to it. So here it goes i guess...
 		for(int i = 0; regex[i] != '\0'; i++) {
 			if(regex[i] == '\\'){
 				switch(regex[i+1]) {
 					case 'n':
-						vector_putBack(setEx, &str, "\n");
+						vector_putBack(&str, "\n");
+						VPROP_THROW("While expanding escape characters of regex %s", regex);
 						i++;
 						break;
 					case 't':
-						vector_putBack(setEx, &str, "\t");
+						vector_putBack(&str, "\t");
+						VPROP_THROW("While expanding escape characters of regex %s", regex);
 						i++;
 						break;
 					case '\\':
-						vector_putBack(setEx, &str, "\\");
+						vector_putBack(&str, "\\");
+						VPROP_THROW("While expanding escape characters of regex %s", regex);
 						i++;
 						break;
 					default:
-						vector_putBack(setEx, &str, "\\");
+						vector_putBack(&str, "\\");
+						VPROP_THROW("While expanding escape characters of regex %s", regex);
 				}
 			} else {
-				vector_putBack(setEx, &str, &regex[i]);
+				vector_putBack(&str, &regex[i]);
 			}
 		}
-		vector_putBack(setEx, &str, "\0"); //Using a string lets get a char* from a literal
+		vector_putBack(&str, "\0"); //Using a string lets get a char* from a literal
+		VPROP_THROW("While adding null terminator to regex");
 
 		unit->hasRegex = true;
 		unit->regex = vector_detach(&str);
-	} else if (errCode == MYERR_ALLOCFAIL) {
-		log_write(LEVEL_ERROR, "Memory allocation error reading regex for unit %s", unit->name);
-		vector_kill(&str);
-		unit->regex = NULL;
-		unit->hasRegex = false;
-		longjmp(jmpBuf, MYERR_ALLOCFAIL);
-	} else {
-		log_write(LEVEL_ERROR, "Memory allocation error reading regex for unit %s", unit->name);
-	}
 }
-void unit_setAdvFormat(jmp_buf jmpBuf, struct Unit* unit, const bool advFormat) {
+void unit_setAdvFormat(struct Unit* unit, const bool advFormat) {
 	unit->advancedFormat = advFormat;
 }
-void unit_setFormat(jmp_buf jmpBuf, struct Unit* unit, const char* format){
+void unit_setFormat(struct Unit* unit, const char* format){
 	free(unit->format);
 	if(format == NULL) {
 		unit->format = NULL;
@@ -180,28 +173,26 @@ void unit_setFormat(jmp_buf jmpBuf, struct Unit* unit, const char* format){
 
 	size_t formatLen = strlen(format) + 1;
 	unit->format = malloc(sizeof(char) * formatLen);
-	if(unit->format == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	if(unit->format == NULL) VTHROW_NEW("Failed allocating space for unit format %s", format);
 	strcpy(unit->format, format);
 }
-void unit_setInterval(jmp_buf jmpBuf, struct Unit* unit, const int interval) {
+void unit_setInterval(struct Unit* unit, const int interval) {
 	unit->interval = interval;
 }
 //Add font to fontmap is called once per font
-void unit_setFonts(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value) {
+void unit_setFonts(struct Unit* unit, const char* key, const char* value) {
 	if(key == NULL || value == NULL)
-		longjmp(jmpBuf, MYERR_USERINPUTERR);
+		VTHROW_NEW("Key or Value for the font was NULL, that's not valid");
 
 	size_t valueLen = strlen(value) + 1;
 
 	struct FontContainer* container = malloc(sizeof(struct FontContainer));
-	if(container == NULL) {
-		longjmp(jmpBuf, MYERR_ALLOCFAIL);
-	}
+	if(container == NULL) VTHROW_NEW("Failed allocating space for font container for %s", key);
 
 	container->font = malloc(sizeof(char) * valueLen);
 	if(container->font == NULL) {
 		free(container);
-		longjmp(jmpBuf, MYERR_ALLOCFAIL);
+		VTHROW_NEW("Failed allocating space for font container font string for font %s", key);
 	}
 
 	strcpy(container->font, value);
@@ -213,9 +204,9 @@ void unit_setFonts(jmp_buf jmpBuf, struct Unit* unit, const char* key, const cha
 	JSLI(val, unit->fontMap, (uint8_t*)key);
 	*val = container;
 }
-void unit_setEnvironment(jmp_buf jmpBuf, struct Unit* unit, const char* key, const char* value) {
+void unit_setEnvironment(struct Unit* unit, const char* key, const char* value) {
 	if(key == NULL || value == NULL)
-		longjmp(jmpBuf, MYERR_USERINPUTERR);
+		VTHROW_NEW("Key or Value for the environment was NULL, that's not valid");
 
 	size_t valueLen = strlen(value);
 
@@ -225,14 +216,12 @@ void unit_setEnvironment(jmp_buf jmpBuf, struct Unit* unit, const char* key, con
 	char** newVal;
 	JSLI(newVal, unit->envMap, (uint8_t*)key);
 	*newVal = malloc(valueLen * sizeof(char) + 1);
-	if(*newVal == NULL) {
-		longjmp(jmpBuf, MYERR_ALLOCFAIL);
-	}
+	if(*newVal == NULL) VTHROW_NEW("Failed allocating space for environment value for %s", key);
 
 	strncpy(*newVal, value, valueLen+1);
 }
 
-void unit_setDelimiter(jmp_buf jmpBuf, struct Unit* unit, const char* delimiter) {
+void unit_setDelimiter(struct Unit* unit, const char* delimiter) {
 	free(unit->delimiter);
 	if(delimiter == NULL) {
 		unit->delimiter = NULL;
@@ -241,7 +230,7 @@ void unit_setDelimiter(jmp_buf jmpBuf, struct Unit* unit, const char* delimiter)
 
 	size_t delimiterLen = strlen(delimiter) + 1;
 	unit->delimiter = malloc(sizeof(char) * delimiterLen);
-	if(unit->delimiter == NULL) longjmp(jmpBuf, MYERR_ALLOCFAIL);
+	if(unit->delimiter == NULL) VTHROW_NEW("Failed allocating space for unit delimiter %s", delimiter);
 	strcpy(unit->delimiter, delimiter);
 }
 // }}}

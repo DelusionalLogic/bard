@@ -31,9 +31,9 @@ void parser_eat(struct Parser* parser) {
 	parser->cur = parser_isDone(parser) ? '\0' : parser->str[parser->index];
 }
 
-int parser_freeCompiled(Vector* compiled) {
+void parser_freeCompiled(Vector* compiled) {
 	int index = 0;
-	struct Node* node = vector_getFirst_new(compiled, &index);
+	struct Node* node = vector_getFirst(compiled, &index);
 	while(node != NULL) {
 		if(node->type == NT_STRING) {
 			free(node->str.lit);
@@ -41,19 +41,18 @@ int parser_freeCompiled(Vector* compiled) {
 			free(node->arr.arr);
 			free(node->arr.key);
 		} else {
-			return MYERR_OUTOFRANGE;
+			VTHROW_NEW("Unknown compiled node type: %d", node->type);
 		}
-		node = vector_getNext_new(compiled, &index);
+		node = vector_getNext(compiled, &index);
 	}
 	vector_kill(compiled);
-	return 0;
 }
 
 int parseArrayData(struct Parser * p, struct Node* node);
 
 //TODO: Handle Errors
-int parser_compileStr(const char* str, Vector* nodes) {
-	vector_init_new(nodes, sizeof(struct Node), 8);
+void parser_compileStr(const char* str, Vector* nodes) {
+	vector_init(nodes, sizeof(struct Node), 8);
 
 	struct Parser parser;
 	struct Parser* p = &parser;
@@ -67,45 +66,43 @@ int parser_compileStr(const char* str, Vector* nodes) {
 			parser_eat(p);
 		} else {
 			Vector curLit;
-			vector_init_new(&curLit, sizeof(char), 16);
+			vector_init(&curLit, sizeof(char), 16);
 			while(p->cur != '$' && !parser_isDone(p)) {
 				if(p->cur == '\\') {
 					parser_eat(p);
 					if(p->cur == '\\') {
-						vector_putListBack_new(&curLit, "\\", 1);
+						vector_putListBack(&curLit, "\\", 1);
 						parser_eat(p);
 					}else if(p->cur == '$') {
-						vector_putListBack_new(&curLit, "$", 1);
+						vector_putListBack(&curLit, "$", 1);
 						parser_eat(p);
 					}else{
-						log_write(LEVEL_ERROR, "Unknown escape character %c", p->cur);
-						return MYERR_USERINPUTERR;
+						VTHROW_NEW("Unknown escape character %c", p->cur);
 					}
 				} else {
-					vector_putBack_new(&curLit, &p->cur);
+					vector_putBack(&curLit, &p->cur);
 					parser_eat(p);
 				}
 			}
-			vector_putListBack_new(&curLit, "\0", 1);
+			vector_putListBack(&curLit, "\0", 1);
 			n.type = NT_STRING;
 			n.str.lit = vector_detach(&curLit);
 		}
-		vector_putBack_new(nodes, &n);
+		vector_putBack(nodes, &n);
 	}
-	return 0;
 }
 
 int parseArrayData(struct Parser * p, struct Node* node) {
 	node->type = NT_ARRAY;
 	{
 		Vector ident;
-		vector_init_new(&ident, sizeof(char), 12);
+		vector_init(&ident, sizeof(char), 12);
 
 		while(p->cur != '[' && !parser_isDone(p)) {
-			vector_putBack_new(&ident, &p->cur);
+			vector_putBack(&ident, &p->cur);
 			parser_eat(p);
 		}
-		vector_putListBack_new(&ident, "\0", 1);
+		vector_putListBack(&ident, "\0", 1);
 
 		node->arr.arr = vector_detach(&ident);
 		if(node->arr.arr == NULL)
@@ -116,13 +113,13 @@ int parseArrayData(struct Parser * p, struct Node* node) {
 
 	{
 		Vector key;
-		vector_init_new(&key, sizeof(char), 12);
+		vector_init(&key, sizeof(char), 12);
 
 		while(p->cur != ']' && !parser_isDone(p)) {
-			vector_putBack_new(&key, &p->cur);
+			vector_putBack(&key, &p->cur);
 			parser_eat(p);
 		}
-		vector_putListBack_new(&key, "\0", 1);
+		vector_putListBack(&key, "\0", 1);
 
 		node->arr.key = vector_detach(&key);
 		if(node->arr.key == NULL)
