@@ -91,8 +91,9 @@ int sl_foreach(struct SortedList* list, bool (*cb)(void*, void*), void* userdata
 	return ll_foreach(&list->list, cb, userdata);
 }
 
-void sl_remove(jmp_buf jmpBuf, struct SortedList* list, size_t index) {
-	return ll_remove(jmpBuf, &list->list, index);
+void sl_remove(struct SortedList* list, size_t index) {
+	return ll_remove(&list->list, index);
+	VPROP_THROW("While removing from sorted list");
 }
 
 int sl_size(struct SortedList* list) {

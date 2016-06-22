@@ -42,7 +42,7 @@ void* ll_get(LinkedList* list, size_t index);
 
 bool ll_foreach(LinkedList* list, Callback cb, void* userdata);
 
-void ll_remove(jmp_buf jmpBuf, LinkedList* list, size_t index);
+void ll_remove(LinkedList* list, size_t index);
 
 int ll_size(LinkedList* list);
 

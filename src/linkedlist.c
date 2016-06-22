@@ -28,14 +28,13 @@ void ll_init(LinkedList* list, size_t elementSize)
 void ll_kill(LinkedList* list)
 {
 	list->elementSize = 0x72727272;
-	jmp_buf jmpBuf;
-	int errCode = setjmp(jmpBuf);
-	if(errCode == 0) {
-		while(list->length > 0)
-			ll_remove(jmpBuf, list, 0);
-	} else {
-		log_write(LEVEL_INFO, "err in ll_kill");
-	}//Discard errors. That's too bad
+	while(list->length > 0) {
+		ll_remove(list, 0);
+		if(error_waiting()) {
+			ERROR_CONT("While removing elements before deleting list");
+			break;
+		}
+	}
 }
 
 static struct llElement* construct(size_t elementSize, void* data)
@@ -76,7 +75,7 @@ void* ll_insert(LinkedList* list, size_t index, void* data)
 void* ll_get(LinkedList* list, size_t index)
 {
 	if(index >= list->length)
-		THROW_NEW(NULL, "Tried to read beyond list length");
+		THROW_NEW(NULL, "Tried to read beyond list length: %d >= %d", index, list->length);
 	struct llElement* cur = list->first;
 	for(size_t i = 0; i < index; i++)
 		cur = cur->next;
@@ -95,10 +94,10 @@ bool ll_foreach(LinkedList* list, Callback cb, void* userdata)
 	return true;
 }
 
-void ll_remove(jmp_buf jmpBuf, LinkedList* list, size_t index)
+void ll_remove(LinkedList* list, size_t index)
 {
 	if(index >= list->length)
-		longjmp(jmpBuf, MYERR_OUTOFRANGE);
+		VTHROW_NEW("Tried to remove beyond list length: %d >= %d", index, list->length);
 	struct llElement* prev = NULL;
 	struct llElement* cur = list->first;
 	for(size_t i = 0; i < index; i++)

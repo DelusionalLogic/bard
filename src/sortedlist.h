@@ -34,8 +34,8 @@ void sl_insert(struct SortedList* list, void* element);
 
 void* sl_get(struct SortedList* list, size_t index);
 void sl_reorder(struct SortedList* list, size_t index);
-void sl_remove(jmp_buf jmpBuf, struct SortedList* list, size_t index);
-void* sl_getAndRemove(jmp_buf jmpBuf, struct SortedList* list, size_t index);
+void sl_remove(struct SortedList* list, size_t index);
+void* sl_getAndRemove(struct SortedList* list, size_t index);
 
 int sl_foreach(struct SortedList* list, bool (*cb)(void*, void*), void* userdata);
 
