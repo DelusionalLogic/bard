@@ -102,7 +102,6 @@ int advformat_execute(char* format, Pvoid_t compiledEnv, size_t maxKeyLen, const
 	waitpid(pid, &status, 0);
 	int exitCode = WEXITSTATUS(status);
 	close(pipefd[0]);
-	log_write(LEVEL_INFO, "Done: %d -> %s", exitCode, buff.data);
 	*out = vector_detach(&buff);
 	return exitCode;
 }

@@ -100,10 +100,54 @@ void render(const char* separator, int monitors) {
 	char* out = out_format(&outputs, &units, monitors, separator);
 		VPROP_THROW("While rendering the output");
 	fprintf(bar, "%s\n", out);
-	fprintf(stdout, "%s\n", out);
 	free(out);
 	fflush(bar);
-	fflush(stdout);
+}
+
+char* getInput(struct RunnerBuffer* buff, struct Unit* unit) {
+	char* unitStr = NULL;
+	if(unit->type == UNIT_RUNNING) {
+		runner_read(buff, unit, &unitStr);
+		ERROR_ABORT("While reading from running unit %s", unit->name);
+	} else if (unit->type == UNIT_POLL) {
+		unitexec_execUnit(unit, &unitStr);
+		ERROR_ABORT("While executing from unit %s", unit->name);
+	} else if (unit->type == UNIT_STATIC) {
+		unitStr = calloc(1, 1); //Quite the hack.
+	}
+	return unitStr;
+}
+
+char* formatUnit(struct Unit* unit, char* unitStr, struct Regex* regexCache, struct FormatArray* xcolorArr) {
+	struct FormatArray regexArr = {0};
+	struct FormatArray fontArr = {0};
+	const struct FormatArray *formatArr[] = {
+		&regexArr,
+		xcolorArr,
+		&fontArr,
+	};
+	char* str;
+	font_getArray(unit, &fontArr);
+	ERROR_ABORT("Getting the fonts for %s", unit->name);
+	regex_match(regexCache, unit, unitStr, &regexArr);
+	ERROR_ABORT("Matching the compiled regex for %s", unit->name);
+	if(unit->advancedFormat) {
+		int exitCode = advformat_execute(unit->format, unit->compiledEnv, unit->lEnvKey, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
+		ERROR_ABORT("While formatting for %s", unit->name);
+		if(exitCode != 0) {
+			unit->render = false;
+		} else {
+			/* Don't format whatever we got, since we aren't going to render it anyway */
+			unit->render = true;
+		}
+	} else {
+		log_write(LEVEL_INFO, "Preprocessed: %d, Name: %s", unit->isPreProcessed, unit->name);
+		formatter_format(&unit->compiledFormat, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
+		ERROR_ABORT("While simple-formatting unit: %s", unit->name);
+	}
+	formatarray_kill(&regexArr);
+	formatarray_kill(&fontArr);
+	return str;
 }
 
 int main(int argc, char **argv)
@@ -140,14 +184,10 @@ int main(int argc, char **argv)
 	struct XlibColor xColor;
 
 	struct FormatArray xcolorArr = {0};
-	struct FormatArray regexArr = {0};
-	struct FormatArray fontArr = {0};
-
-	const struct FormatArray *formatArr[] = {
-		&regexArr,
+	const struct FormatArray *staticFormatArray[] = {
 		&xcolorArr,
-		&fontArr,
 	};
+
 	{
 		xcolor_loadColors(&xColor);
 		ERROR_ABORT("While loading xcolor");
@@ -155,55 +195,53 @@ int main(int argc, char **argv)
 		ERROR_ABORT("While constructing xcolor format array");
 	}
 
-
 	char* separator;
 	int monitors;
+
+	char* confPath = pathAppend(arguments.configDir, "bard.conf");
+	dictionary* dict = iniparser_load(confPath);
 	{
-		char* confPath = pathAppend(arguments.configDir, "bard.conf");
-		dictionary* dict = iniparser_load(confPath);
-		{
-			const char* psep = iniparser_getstring(dict, "display:separator", " | ");
-			Vector compiled;
-			parser_compileStr(psep, &compiled);
+		const char* psep = iniparser_getstring(dict, "display:separator", " | ");
+		Vector compiled;
+		parser_compileStr(psep, &compiled);
 
-			formatter_format(&compiled, &formatArr[1], 1, &separator);
-			ERROR_ABORT("While formatting separator");
+		formatter_format(&compiled, staticFormatArray, sizeof(staticFormatArray)/sizeof(struct FormatArray*), &separator);
+		ERROR_ABORT("While formatting separator");
 
-			parser_freeCompiled(&compiled);
-			monitors = iniparser_getint(dict, "display:monitors", 1);
-		}
-		{
-			font_createFontList(&flist, &units, confPath);
-			ERROR_ABORT("While creating font list");
-		}
-		{
-			Vector launch;
-			//Make the lemonbar launch string
-			vector_init(&launch, sizeof(char), 1024);
-			ERROR_ABORT("While constructing lemonbar launch string");
+		parser_freeCompiled(&compiled);
+		monitors = iniparser_getint(dict, "display:monitors", 1);
+	}
+	{
+		font_createFontList(&flist, &units, confPath);
+		ERROR_ABORT("While creating font list");
+	}
+	{
+		Vector launch;
+		//Make the lemonbar launch string
+		vector_init(&launch, sizeof(char), 1024);
+		ERROR_ABORT("While constructing lemonbar launch string");
 
-			const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
+		const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
 
-			vector_putListBack(&launch, executable, strlen(executable));
-			ERROR_ABORT("While constructing lemonbar launch string");
+		vector_putListBack(&launch, executable, strlen(executable));
+		ERROR_ABORT("While constructing lemonbar launch string");
 
-			iniparser_freedict(dict);
-			const struct FormatArray* xcolorPtr = &xcolorArr;
-			barconfig_getArgs(&launch, confPath, &xcolorPtr, 1);
-			ERROR_ABORT("While constructing lemonbar launch string");
-			font_getArg(&flist, &launch);
-			ERROR_ABORT("While constructing lemonbar launch string");
-			vector_putListBack(&launch, "\0", 1);
-			ERROR_ABORT("While constructing lemonbar launch string");
+		iniparser_freedict(dict);
+		const struct FormatArray* xcolorPtr = &xcolorArr;
+		barconfig_getArgs(&launch, confPath, &xcolorPtr, 1);
+		ERROR_ABORT("While constructing lemonbar launch string");
+		font_getArg(&flist, &launch);
+		ERROR_ABORT("While constructing lemonbar launch string");
+		vector_putListBack(&launch, "\0", 1);
+		ERROR_ABORT("While constructing lemonbar launch string");
 
-			free(confPath);
+		free(confPath);
 
-			//TODO: Where the hell does this belong?
-			//Lets load that bar!
-			log_write(LEVEL_INFO, "lemonbar launch string: %s", launch.data);
-			bar = popen(launch.data, "w");
-			vector_kill(&launch);
-		}
+		//TODO: Where the hell does this belong?
+		//Lets load that bar!
+		log_write(LEVEL_INFO, "lemonbar launch string: %s", launch.data);
+		bar = popen(launch.data, "w");
+		vector_kill(&launch);
 	}
 
 	{
@@ -226,60 +264,30 @@ int main(int argc, char **argv)
 	}
 
 	{
-			//Main loop
-			bool oneUpdate = false;
-			while(true) {
-				struct Unit* unit = workmanager_next(&wm);
-				log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+		//Main loop
+		bool oneUpdate = false;
+		while(true) {
+			struct Unit* unit = workmanager_next(&wm);
+			log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
-				/* Format the output for the bar */
-				{
-					char* unitStr = NULL;
+			/* Format the output for the bar */
+			char* unitStr = getInput(&buff, unit);
+			ERROR_ABORT("While getting input for %s", unit->name);
 
-					if(unit->type == UNIT_RUNNING) {
-						runner_read(&buff, unit, &unitStr);
-						ERROR_ABORT("While reading from running unit %s", unit->name);
-					} else if (unit->type == UNIT_POLL) {
-						unitexec_execUnit(unit, &unitStr);
-						ERROR_ABORT("While executing from unit %s", unit->name);
-					} else if (unit->type == UNIT_STATIC) {
-						unitStr = calloc(1, 1);
-					}
-					log_write(LEVEL_INFO, "Unit: %s had command output: %s", unit->name, unitStr);
-					if(unitStr != NULL) {
-						oneUpdate = true;
-						char* str;
-						font_getArray(unit, &fontArr);
-						ERROR_ABORT("Getting the fonts for %s", unit->name);
-						regex_match(&regexCache, unit, unitStr, &regexArr);
-						ERROR_ABORT("Matching the compiled regex for %s", unit->name);
-						if(unit->advancedFormat) {
-							int exitCode = advformat_execute(unit->format, unit->compiledEnv, unit->lEnvKey, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
-							ERROR_ABORT("While formatting for %s", unit->name);
-							if(exitCode != 0) {
-								unit->render = false;
-							} else {
-								/* Don't format whatever we got, since we aren't going to render it anyway */
-								unit->render = true;
-							}
-						} else {
-							log_write(LEVEL_INFO, "Preprocessed: %d, Name: %s", unit->isPreProcessed, unit->name);
-							formatter_format(&unit->compiledFormat, formatArr, sizeof(formatArr)/sizeof(struct FormatArray*), &str);
-							ERROR_ABORT("While simple-formatting unit: %s", unit->name);
-						}
-						formatarray_kill(&regexArr);
-						formatarray_kill(&fontArr);
-						log_write(LEVEL_INFO, "Unit -> %s, str -> %s", unit->name, str);
-						out_set(&outputs, unit, str);
-					}
-					if(oneUpdate && !workmanger_waiting(&wm)) {
-						render(separator, monitors);
-						oneUpdate = false;
-					}
-					if(unitStr != NULL)
-						free(unitStr);
-				}
+			if(unitStr != NULL) {
+				oneUpdate = true;
+
+				char* formatted = formatUnit(unit, unitStr, &regexCache, &xcolorArr);
+
+				out_set(&outputs, unit, formatted);
 			}
+			if(oneUpdate && !workmanger_waiting(&wm)) {
+				render(separator, monitors);
+				oneUpdate = false;
+			}
+			if(unitStr != NULL)
+				free(unitStr);
+		}
 
 		workmanager_kill(&wm);
 		regex_kill(&regexCache);
