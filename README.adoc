@@ -1,12 +1,13 @@
 // vim: textwidth=72
 NOTE
 ====
+
 Bard has had a major update. I ecourage you to read this document (the
 man page) again. It should be better and easier to work with,
 facilitating separation between the format script and the bard units,
 but it will require you rethink some of your units. You can see some
 example in my
-[dotfiles](https://github.com/DelusionalLogic/dotfiles/tree/bspwm/bard/.config/bard)
+https://github.com/DelusionalLogic/dotfiles/tree/bspwm/bard/.config/bard[dotfiles]
 
 
 BARD(1)
