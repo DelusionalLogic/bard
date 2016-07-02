@@ -45,6 +45,7 @@
 #include "linkedlist.h"
 #include "parser.h"
 #include "fs.h"
+#include "manager.h"
 
 const char* argp_program_version = PACKAGE_STRING;
 const char* argp_program_bug_address = PACKAGE_BUGREPORT;
@@ -241,9 +242,9 @@ int main(int argc, char **argv)
 
 		free(confPath);
 
-		//TODO: Where the hell does this belong?
 		//Lets load that bar!
 		log_write(LEVEL_INFO, "lemonbar launch string: %s", launch.data);
+		manager_startBar(executable, launch.data);
 		bar = popen(launch.data, "w");
 		vector_kill(&launch);
 	}
