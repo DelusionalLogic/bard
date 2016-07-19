@@ -31,6 +31,7 @@ struct RunnerBuffer{
 };
 
 void runner_startPipes(struct RunnerBuffer* buffers, struct Units* units);
+void runner_stopPipes(struct RunnerBuffer* buffers);
 fd_set runner_getfds(struct RunnerBuffer* buffers);
 bool runner_ready(struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit);
 void runner_read(struct RunnerBuffer* buffers, struct Unit* unit, char** const out);

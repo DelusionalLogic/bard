@@ -17,6 +17,7 @@
 #include "runner.h"
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <stdio.h>
 #include <wordexp.h>
 #include <errno.h>
@@ -24,7 +25,7 @@
 #include "myerror.h"
 #include "logger.h"
 
-static void run(char* command, int writefd) {
+static pid_t run(char* command, int writefd) {
 	assert(writefd > 0);
 	assert(command != NULL);
 
@@ -32,27 +33,27 @@ static void run(char* command, int writefd) {
 	int err = wordexp(command, &wexp, WRDE_NOCMD);
 	if(err == WRDE_CMDSUB) {
 		wordfree(&wexp);
-		VTHROW_NEW("Failed performing shell expansion on %s", command);
+		THROW_NEW(0, "Failed performing shell expansion on %s", command);
 	}
 	if(err != 0) {
 		if(err == WRDE_NOSPACE)
 			wordfree(&wexp);
-		VTHROW_NEW("Failed performing shell expansion on %s", command);
+		THROW_NEW(0, "Failed performing shell expansion on %s", command);
 	}
 	int pid = fork();
 	if(pid == -1) {
 		switch(errno) {
 			case EAGAIN:
 				wordfree(&wexp);
-				VTHROW_NEW("Maximum number of processes started");
+				THROW_NEW(0, "Maximum number of processes started");
 				break;
 			case ENOMEM:
 				wordfree(&wexp);
-				VTHROW_NEW("Not enough memory to fork process");
+				THROW_NEW(0, "Not enough memory to fork process");
 				break;
 			case ENOSYS:
 				wordfree(&wexp);
-				VTHROW_NEW("What are you trying to run this on?");
+				THROW_NEW(0, "What are you trying to run this on?");
 				break;
 		}
 	}
@@ -61,8 +62,10 @@ static void run(char* command, int writefd) {
 			exit(1); //If dup2 fails in the forked process all hope is lost
 		}
 		execvp(wexp.we_wordv[0], wexp.we_wordv);
+		exit(0);
 	}
 	wordfree(&wexp);
+	return pid;
 }
 
 struct Buffer {
@@ -70,6 +73,7 @@ struct Buffer {
 	bool complete;
 	int fd;
 	int writefd;
+	pid_t pid;
 };
 struct initPipeData {
 	struct RunnerBuffer* buffers;
@@ -95,10 +99,10 @@ bool initPipe(void* elem, void* userdata) {
 		newBuf->fd = fd[0];
 		newBuf->writefd = fd[1];
 
-		run(unit->command, newBuf->writefd);
+		newBuf->pid = run(unit->command, newBuf->writefd);
 		PROP_THROW(false, "While starting pipe for %s", unit->name);
 
-		size_t commandLen = strlen(unit->command) + 1;
+		size_t commandLen = strlen(unit->command);
 		if(commandLen > data->buffers->longestKey)
 			data->buffers->longestKey = commandLen;
 
@@ -123,10 +127,24 @@ void runner_startPipes(struct RunnerBuffer* buffers, struct Units* units) {
 	VPROP_THROW("While starting runner pipes for right side");
 }
 
+void runner_stopPipes(struct RunnerBuffer* buffers) {
+	uint8_t* index = malloc((buffers->longestKey+1) * sizeof(char));
+	index[0] = '\0';
+	struct Buffer** val;
+	JSLF(val, buffers->buffers, index);
+	while(val != NULL) {
+		kill((*val)->pid, SIGKILL);
+		close((*val)->fd);
+		log_write(LEVEL_INFO, "kill %s", index);
+		JSLN(val, buffers->buffers, index);
+	}
+	free(index);
+}
+
 fd_set runner_getfds(struct RunnerBuffer* buffers) {
 	fd_set set;
 	FD_ZERO(&set);
-	uint8_t* index = malloc(buffers->longestKey * sizeof(char));
+	uint8_t* index = malloc((buffers->longestKey+1) * sizeof(char));
 	index[0] = '\0';
 	struct Buffer** val;
 	JSLF(val, buffers->buffers, index);

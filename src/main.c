@@ -222,6 +222,10 @@ int main(int argc, char **argv)
 		ERROR_ABORT("While constructing lemonbar launch string");
 
 		const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
+		if(executable == NULL) {
+			ERROR_NEW("Missing executable in config, and default didn't work?");
+			error_abort();
+		}
 
 		vector_putListBack(&launch, executable, strlen(executable));
 		ERROR_ABORT("While constructing lemonbar launch string");
@@ -293,7 +297,15 @@ int main(int argc, char **argv)
 		regex_kill(&regexCache);
 	}
 
+	runner_stopPipes(&buff);
+	ERROR_ABORT("While stopping child units");
+	workmanager_kill(&wm);
+	ERROR_ABORT("While shutting down workmanager");
+	units_free(&units);
+	ERROR_ABORT("While freeing unitcontainer");
+
 	out_kill(&outputs);
+	ERROR_ABORT("While Freeing output buffers");
 
 	pclose(bar);
 
