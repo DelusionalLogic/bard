@@ -1,0 +1,6 @@
+<node>
+  <interface name="dk.slashwin.bard">
+    <method name="BarReload">
+    </method>
+  </interface>
+</node>

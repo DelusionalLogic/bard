@@ -29,6 +29,7 @@
 
 #include <stdbool.h>
 
+void error_init();
 void error_new(char* file, int line, char* format, ...);
 void error_append(char* file, int line, char* format, ...);
 

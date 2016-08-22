@@ -99,17 +99,24 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_bard_OBJECTS = main.$(OBJEXT) barconfig.$(OBJEXT) \
-	unitexecute.$(OBJEXT) runner.$(OBJEXT) logger.$(OBJEXT) \
-	vector.$(OBJEXT) linkedlist.$(OBJEXT) unit.$(OBJEXT) \
-	configparser.$(OBJEXT) workmanager.$(OBJEXT) \
-	sortedlist.$(OBJEXT) formatter.$(OBJEXT) \
-	advancedformat.$(OBJEXT) output.$(OBJEXT) xlib_color.$(OBJEXT) \
-	unitcontainer.$(OBJEXT) fs.$(OBJEXT) font.$(OBJEXT) \
-	regex.$(OBJEXT) formatarray.$(OBJEXT) parser.$(OBJEXT) \
-	myerror.$(OBJEXT)
+am__dirstamp = $(am__leading_dot)dirstamp
+am_bard_OBJECTS = bard-main.$(OBJEXT) bard-barconfig.$(OBJEXT) \
+	bard-unitexecute.$(OBJEXT) bard-runner.$(OBJEXT) \
+	bard-logger.$(OBJEXT) bard-vector.$(OBJEXT) \
+	bard-linkedlist.$(OBJEXT) bard-unit.$(OBJEXT) \
+	bard-configparser.$(OBJEXT) bard-workmanager.$(OBJEXT) \
+	bard-sortedlist.$(OBJEXT) bard-formatter.$(OBJEXT) \
+	bard-advancedformat.$(OBJEXT) bard-output.$(OBJEXT) \
+	bard-xlib_color.$(OBJEXT) bard-unitcontainer.$(OBJEXT) \
+	bard-fs.$(OBJEXT) bard-font.$(OBJEXT) bard-regex.$(OBJEXT) \
+	bard-formatarray.$(OBJEXT) bard-parser.$(OBJEXT) \
+	bard-myerror.$(OBJEXT) bard-manager.$(OBJEXT) \
+	gdbus/bard-dbus-wrapper.$(OBJEXT) gdbus/bard-dbus.$(OBJEXT)
 bard_OBJECTS = $(am_bard_OBJECTS)
-bard_DEPENDENCIES =
+am__DEPENDENCIES_1 =
+bard_DEPENDENCIES = $(am__DEPENDENCIES_1)
+bard_LINK = $(CCLD) $(bard_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
+	-o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -126,6 +133,10 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 am__mv = mv -f
+AM_V_lt = $(am__v_lt_@AM_V@)
+am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
+am__v_lt_0 = --silent
+am__v_lt_1 = 
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 AM_V_CC = $(am__v_CC_@AM_V@)
@@ -187,6 +198,8 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+GIO_CFLAGS = @GIO_CFLAGS@
+GIO_LIBS = @GIO_LIBS@
 GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -208,6 +221,9 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -254,8 +270,9 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-bard_SOURCES = main.c barconfig.c unitexecute.c runner.c logger.c vector.c linkedlist.c unit.c configparser.c workmanager.c sortedlist.c formatter.c advancedformat.c output.c xlib_color.c unitcontainer.c fs.c font.c regex.c formatarray.c parser.c myerror.c
-bard_LDADD = -liniparser -lX11 -lJudy -lpcre2-8 -lpthread
+bard_SOURCES = main.c barconfig.c unitexecute.c runner.c logger.c vector.c linkedlist.c unit.c configparser.c workmanager.c sortedlist.c formatter.c advancedformat.c output.c xlib_color.c unitcontainer.c fs.c font.c regex.c formatarray.c parser.c myerror.c manager.c gdbus/dbus-wrapper.c gdbus/dbus.c
+bard_CFLAGS = -I$(builddir) $(GIO_CFLAGS)
+bard_LDADD = -liniparser -lX11 -lJudy -lpcre2-8 -lpthread $(GIO_LIBS)
 all: all-am
 
 .SUFFIXES:
@@ -331,53 +348,419 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+gdbus/$(am__dirstamp):
+	@$(MKDIR_P) gdbus
+	@: > gdbus/$(am__dirstamp)
+gdbus/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) gdbus/$(DEPDIR)
+	@: > gdbus/$(DEPDIR)/$(am__dirstamp)
+gdbus/bard-dbus-wrapper.$(OBJEXT): gdbus/$(am__dirstamp) \
+	gdbus/$(DEPDIR)/$(am__dirstamp)
+gdbus/bard-dbus.$(OBJEXT): gdbus/$(am__dirstamp) \
+	gdbus/$(DEPDIR)/$(am__dirstamp)
 
 bard$(EXEEXT): $(bard_OBJECTS) $(bard_DEPENDENCIES) $(EXTRA_bard_DEPENDENCIES) 
 	@rm -f bard$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(bard_OBJECTS) $(bard_LDADD) $(LIBS)
+	$(AM_V_CCLD)$(bard_LINK) $(bard_OBJECTS) $(bard_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f gdbus/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/advancedformat.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/barconfig.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/configparser.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/font.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/formatarray.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/formatter.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fs.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linkedlist.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/logger.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/myerror.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/output.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parser.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/regex.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/runner.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sortedlist.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unit.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unitcontainer.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unitexecute.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vector.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/workmanager.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xlib_color.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-advancedformat.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-barconfig.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-configparser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-font.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-formatarray.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-formatter.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-fs.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-linkedlist.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-logger.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-manager.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-myerror.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-output.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-parser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-regex.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-runner.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-sortedlist.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-unit.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-unitcontainer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-unitexecute.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-vector.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-workmanager.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bard-xlib_color.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gdbus/$(DEPDIR)/bard-dbus-wrapper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gdbus/$(DEPDIR)/bard-dbus.Po@am__quote@
 
 .c.o:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
 
 .c.obj:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+bard-main.o: main.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-main.o -MD -MP -MF $(DEPDIR)/bard-main.Tpo -c -o bard-main.o `test -f 'main.c' || echo '$(srcdir)/'`main.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-main.Tpo $(DEPDIR)/bard-main.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='main.c' object='bard-main.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-main.o `test -f 'main.c' || echo '$(srcdir)/'`main.c
+
+bard-main.obj: main.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-main.obj -MD -MP -MF $(DEPDIR)/bard-main.Tpo -c -o bard-main.obj `if test -f 'main.c'; then $(CYGPATH_W) 'main.c'; else $(CYGPATH_W) '$(srcdir)/main.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-main.Tpo $(DEPDIR)/bard-main.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='main.c' object='bard-main.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-main.obj `if test -f 'main.c'; then $(CYGPATH_W) 'main.c'; else $(CYGPATH_W) '$(srcdir)/main.c'; fi`
+
+bard-barconfig.o: barconfig.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-barconfig.o -MD -MP -MF $(DEPDIR)/bard-barconfig.Tpo -c -o bard-barconfig.o `test -f 'barconfig.c' || echo '$(srcdir)/'`barconfig.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-barconfig.Tpo $(DEPDIR)/bard-barconfig.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='barconfig.c' object='bard-barconfig.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-barconfig.o `test -f 'barconfig.c' || echo '$(srcdir)/'`barconfig.c
+
+bard-barconfig.obj: barconfig.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-barconfig.obj -MD -MP -MF $(DEPDIR)/bard-barconfig.Tpo -c -o bard-barconfig.obj `if test -f 'barconfig.c'; then $(CYGPATH_W) 'barconfig.c'; else $(CYGPATH_W) '$(srcdir)/barconfig.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-barconfig.Tpo $(DEPDIR)/bard-barconfig.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='barconfig.c' object='bard-barconfig.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-barconfig.obj `if test -f 'barconfig.c'; then $(CYGPATH_W) 'barconfig.c'; else $(CYGPATH_W) '$(srcdir)/barconfig.c'; fi`
+
+bard-unitexecute.o: unitexecute.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-unitexecute.o -MD -MP -MF $(DEPDIR)/bard-unitexecute.Tpo -c -o bard-unitexecute.o `test -f 'unitexecute.c' || echo '$(srcdir)/'`unitexecute.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-unitexecute.Tpo $(DEPDIR)/bard-unitexecute.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='unitexecute.c' object='bard-unitexecute.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-unitexecute.o `test -f 'unitexecute.c' || echo '$(srcdir)/'`unitexecute.c
+
+bard-unitexecute.obj: unitexecute.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-unitexecute.obj -MD -MP -MF $(DEPDIR)/bard-unitexecute.Tpo -c -o bard-unitexecute.obj `if test -f 'unitexecute.c'; then $(CYGPATH_W) 'unitexecute.c'; else $(CYGPATH_W) '$(srcdir)/unitexecute.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-unitexecute.Tpo $(DEPDIR)/bard-unitexecute.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='unitexecute.c' object='bard-unitexecute.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-unitexecute.obj `if test -f 'unitexecute.c'; then $(CYGPATH_W) 'unitexecute.c'; else $(CYGPATH_W) '$(srcdir)/unitexecute.c'; fi`
+
+bard-runner.o: runner.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-runner.o -MD -MP -MF $(DEPDIR)/bard-runner.Tpo -c -o bard-runner.o `test -f 'runner.c' || echo '$(srcdir)/'`runner.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-runner.Tpo $(DEPDIR)/bard-runner.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='runner.c' object='bard-runner.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-runner.o `test -f 'runner.c' || echo '$(srcdir)/'`runner.c
+
+bard-runner.obj: runner.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-runner.obj -MD -MP -MF $(DEPDIR)/bard-runner.Tpo -c -o bard-runner.obj `if test -f 'runner.c'; then $(CYGPATH_W) 'runner.c'; else $(CYGPATH_W) '$(srcdir)/runner.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-runner.Tpo $(DEPDIR)/bard-runner.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='runner.c' object='bard-runner.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-runner.obj `if test -f 'runner.c'; then $(CYGPATH_W) 'runner.c'; else $(CYGPATH_W) '$(srcdir)/runner.c'; fi`
+
+bard-logger.o: logger.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-logger.o -MD -MP -MF $(DEPDIR)/bard-logger.Tpo -c -o bard-logger.o `test -f 'logger.c' || echo '$(srcdir)/'`logger.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-logger.Tpo $(DEPDIR)/bard-logger.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='logger.c' object='bard-logger.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-logger.o `test -f 'logger.c' || echo '$(srcdir)/'`logger.c
+
+bard-logger.obj: logger.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-logger.obj -MD -MP -MF $(DEPDIR)/bard-logger.Tpo -c -o bard-logger.obj `if test -f 'logger.c'; then $(CYGPATH_W) 'logger.c'; else $(CYGPATH_W) '$(srcdir)/logger.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-logger.Tpo $(DEPDIR)/bard-logger.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='logger.c' object='bard-logger.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-logger.obj `if test -f 'logger.c'; then $(CYGPATH_W) 'logger.c'; else $(CYGPATH_W) '$(srcdir)/logger.c'; fi`
+
+bard-vector.o: vector.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-vector.o -MD -MP -MF $(DEPDIR)/bard-vector.Tpo -c -o bard-vector.o `test -f 'vector.c' || echo '$(srcdir)/'`vector.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-vector.Tpo $(DEPDIR)/bard-vector.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vector.c' object='bard-vector.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-vector.o `test -f 'vector.c' || echo '$(srcdir)/'`vector.c
+
+bard-vector.obj: vector.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-vector.obj -MD -MP -MF $(DEPDIR)/bard-vector.Tpo -c -o bard-vector.obj `if test -f 'vector.c'; then $(CYGPATH_W) 'vector.c'; else $(CYGPATH_W) '$(srcdir)/vector.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-vector.Tpo $(DEPDIR)/bard-vector.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='vector.c' object='bard-vector.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-vector.obj `if test -f 'vector.c'; then $(CYGPATH_W) 'vector.c'; else $(CYGPATH_W) '$(srcdir)/vector.c'; fi`
+
+bard-linkedlist.o: linkedlist.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-linkedlist.o -MD -MP -MF $(DEPDIR)/bard-linkedlist.Tpo -c -o bard-linkedlist.o `test -f 'linkedlist.c' || echo '$(srcdir)/'`linkedlist.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-linkedlist.Tpo $(DEPDIR)/bard-linkedlist.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='linkedlist.c' object='bard-linkedlist.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-linkedlist.o `test -f 'linkedlist.c' || echo '$(srcdir)/'`linkedlist.c
+
+bard-linkedlist.obj: linkedlist.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-linkedlist.obj -MD -MP -MF $(DEPDIR)/bard-linkedlist.Tpo -c -o bard-linkedlist.obj `if test -f 'linkedlist.c'; then $(CYGPATH_W) 'linkedlist.c'; else $(CYGPATH_W) '$(srcdir)/linkedlist.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-linkedlist.Tpo $(DEPDIR)/bard-linkedlist.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='linkedlist.c' object='bard-linkedlist.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-linkedlist.obj `if test -f 'linkedlist.c'; then $(CYGPATH_W) 'linkedlist.c'; else $(CYGPATH_W) '$(srcdir)/linkedlist.c'; fi`
+
+bard-unit.o: unit.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-unit.o -MD -MP -MF $(DEPDIR)/bard-unit.Tpo -c -o bard-unit.o `test -f 'unit.c' || echo '$(srcdir)/'`unit.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-unit.Tpo $(DEPDIR)/bard-unit.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='unit.c' object='bard-unit.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-unit.o `test -f 'unit.c' || echo '$(srcdir)/'`unit.c
+
+bard-unit.obj: unit.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-unit.obj -MD -MP -MF $(DEPDIR)/bard-unit.Tpo -c -o bard-unit.obj `if test -f 'unit.c'; then $(CYGPATH_W) 'unit.c'; else $(CYGPATH_W) '$(srcdir)/unit.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-unit.Tpo $(DEPDIR)/bard-unit.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='unit.c' object='bard-unit.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-unit.obj `if test -f 'unit.c'; then $(CYGPATH_W) 'unit.c'; else $(CYGPATH_W) '$(srcdir)/unit.c'; fi`
+
+bard-configparser.o: configparser.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-configparser.o -MD -MP -MF $(DEPDIR)/bard-configparser.Tpo -c -o bard-configparser.o `test -f 'configparser.c' || echo '$(srcdir)/'`configparser.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-configparser.Tpo $(DEPDIR)/bard-configparser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='configparser.c' object='bard-configparser.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-configparser.o `test -f 'configparser.c' || echo '$(srcdir)/'`configparser.c
+
+bard-configparser.obj: configparser.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-configparser.obj -MD -MP -MF $(DEPDIR)/bard-configparser.Tpo -c -o bard-configparser.obj `if test -f 'configparser.c'; then $(CYGPATH_W) 'configparser.c'; else $(CYGPATH_W) '$(srcdir)/configparser.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-configparser.Tpo $(DEPDIR)/bard-configparser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='configparser.c' object='bard-configparser.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-configparser.obj `if test -f 'configparser.c'; then $(CYGPATH_W) 'configparser.c'; else $(CYGPATH_W) '$(srcdir)/configparser.c'; fi`
+
+bard-workmanager.o: workmanager.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-workmanager.o -MD -MP -MF $(DEPDIR)/bard-workmanager.Tpo -c -o bard-workmanager.o `test -f 'workmanager.c' || echo '$(srcdir)/'`workmanager.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-workmanager.Tpo $(DEPDIR)/bard-workmanager.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='workmanager.c' object='bard-workmanager.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-workmanager.o `test -f 'workmanager.c' || echo '$(srcdir)/'`workmanager.c
+
+bard-workmanager.obj: workmanager.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-workmanager.obj -MD -MP -MF $(DEPDIR)/bard-workmanager.Tpo -c -o bard-workmanager.obj `if test -f 'workmanager.c'; then $(CYGPATH_W) 'workmanager.c'; else $(CYGPATH_W) '$(srcdir)/workmanager.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-workmanager.Tpo $(DEPDIR)/bard-workmanager.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='workmanager.c' object='bard-workmanager.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-workmanager.obj `if test -f 'workmanager.c'; then $(CYGPATH_W) 'workmanager.c'; else $(CYGPATH_W) '$(srcdir)/workmanager.c'; fi`
+
+bard-sortedlist.o: sortedlist.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-sortedlist.o -MD -MP -MF $(DEPDIR)/bard-sortedlist.Tpo -c -o bard-sortedlist.o `test -f 'sortedlist.c' || echo '$(srcdir)/'`sortedlist.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-sortedlist.Tpo $(DEPDIR)/bard-sortedlist.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sortedlist.c' object='bard-sortedlist.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-sortedlist.o `test -f 'sortedlist.c' || echo '$(srcdir)/'`sortedlist.c
+
+bard-sortedlist.obj: sortedlist.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-sortedlist.obj -MD -MP -MF $(DEPDIR)/bard-sortedlist.Tpo -c -o bard-sortedlist.obj `if test -f 'sortedlist.c'; then $(CYGPATH_W) 'sortedlist.c'; else $(CYGPATH_W) '$(srcdir)/sortedlist.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-sortedlist.Tpo $(DEPDIR)/bard-sortedlist.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sortedlist.c' object='bard-sortedlist.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-sortedlist.obj `if test -f 'sortedlist.c'; then $(CYGPATH_W) 'sortedlist.c'; else $(CYGPATH_W) '$(srcdir)/sortedlist.c'; fi`
+
+bard-formatter.o: formatter.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-formatter.o -MD -MP -MF $(DEPDIR)/bard-formatter.Tpo -c -o bard-formatter.o `test -f 'formatter.c' || echo '$(srcdir)/'`formatter.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-formatter.Tpo $(DEPDIR)/bard-formatter.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='formatter.c' object='bard-formatter.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-formatter.o `test -f 'formatter.c' || echo '$(srcdir)/'`formatter.c
+
+bard-formatter.obj: formatter.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-formatter.obj -MD -MP -MF $(DEPDIR)/bard-formatter.Tpo -c -o bard-formatter.obj `if test -f 'formatter.c'; then $(CYGPATH_W) 'formatter.c'; else $(CYGPATH_W) '$(srcdir)/formatter.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-formatter.Tpo $(DEPDIR)/bard-formatter.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='formatter.c' object='bard-formatter.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-formatter.obj `if test -f 'formatter.c'; then $(CYGPATH_W) 'formatter.c'; else $(CYGPATH_W) '$(srcdir)/formatter.c'; fi`
+
+bard-advancedformat.o: advancedformat.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-advancedformat.o -MD -MP -MF $(DEPDIR)/bard-advancedformat.Tpo -c -o bard-advancedformat.o `test -f 'advancedformat.c' || echo '$(srcdir)/'`advancedformat.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-advancedformat.Tpo $(DEPDIR)/bard-advancedformat.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='advancedformat.c' object='bard-advancedformat.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-advancedformat.o `test -f 'advancedformat.c' || echo '$(srcdir)/'`advancedformat.c
+
+bard-advancedformat.obj: advancedformat.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-advancedformat.obj -MD -MP -MF $(DEPDIR)/bard-advancedformat.Tpo -c -o bard-advancedformat.obj `if test -f 'advancedformat.c'; then $(CYGPATH_W) 'advancedformat.c'; else $(CYGPATH_W) '$(srcdir)/advancedformat.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-advancedformat.Tpo $(DEPDIR)/bard-advancedformat.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='advancedformat.c' object='bard-advancedformat.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-advancedformat.obj `if test -f 'advancedformat.c'; then $(CYGPATH_W) 'advancedformat.c'; else $(CYGPATH_W) '$(srcdir)/advancedformat.c'; fi`
+
+bard-output.o: output.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-output.o -MD -MP -MF $(DEPDIR)/bard-output.Tpo -c -o bard-output.o `test -f 'output.c' || echo '$(srcdir)/'`output.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-output.Tpo $(DEPDIR)/bard-output.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='output.c' object='bard-output.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-output.o `test -f 'output.c' || echo '$(srcdir)/'`output.c
+
+bard-output.obj: output.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-output.obj -MD -MP -MF $(DEPDIR)/bard-output.Tpo -c -o bard-output.obj `if test -f 'output.c'; then $(CYGPATH_W) 'output.c'; else $(CYGPATH_W) '$(srcdir)/output.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-output.Tpo $(DEPDIR)/bard-output.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='output.c' object='bard-output.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-output.obj `if test -f 'output.c'; then $(CYGPATH_W) 'output.c'; else $(CYGPATH_W) '$(srcdir)/output.c'; fi`
+
+bard-xlib_color.o: xlib_color.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-xlib_color.o -MD -MP -MF $(DEPDIR)/bard-xlib_color.Tpo -c -o bard-xlib_color.o `test -f 'xlib_color.c' || echo '$(srcdir)/'`xlib_color.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-xlib_color.Tpo $(DEPDIR)/bard-xlib_color.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='xlib_color.c' object='bard-xlib_color.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-xlib_color.o `test -f 'xlib_color.c' || echo '$(srcdir)/'`xlib_color.c
+
+bard-xlib_color.obj: xlib_color.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-xlib_color.obj -MD -MP -MF $(DEPDIR)/bard-xlib_color.Tpo -c -o bard-xlib_color.obj `if test -f 'xlib_color.c'; then $(CYGPATH_W) 'xlib_color.c'; else $(CYGPATH_W) '$(srcdir)/xlib_color.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-xlib_color.Tpo $(DEPDIR)/bard-xlib_color.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='xlib_color.c' object='bard-xlib_color.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-xlib_color.obj `if test -f 'xlib_color.c'; then $(CYGPATH_W) 'xlib_color.c'; else $(CYGPATH_W) '$(srcdir)/xlib_color.c'; fi`
+
+bard-unitcontainer.o: unitcontainer.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-unitcontainer.o -MD -MP -MF $(DEPDIR)/bard-unitcontainer.Tpo -c -o bard-unitcontainer.o `test -f 'unitcontainer.c' || echo '$(srcdir)/'`unitcontainer.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-unitcontainer.Tpo $(DEPDIR)/bard-unitcontainer.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='unitcontainer.c' object='bard-unitcontainer.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-unitcontainer.o `test -f 'unitcontainer.c' || echo '$(srcdir)/'`unitcontainer.c
+
+bard-unitcontainer.obj: unitcontainer.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-unitcontainer.obj -MD -MP -MF $(DEPDIR)/bard-unitcontainer.Tpo -c -o bard-unitcontainer.obj `if test -f 'unitcontainer.c'; then $(CYGPATH_W) 'unitcontainer.c'; else $(CYGPATH_W) '$(srcdir)/unitcontainer.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-unitcontainer.Tpo $(DEPDIR)/bard-unitcontainer.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='unitcontainer.c' object='bard-unitcontainer.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-unitcontainer.obj `if test -f 'unitcontainer.c'; then $(CYGPATH_W) 'unitcontainer.c'; else $(CYGPATH_W) '$(srcdir)/unitcontainer.c'; fi`
+
+bard-fs.o: fs.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-fs.o -MD -MP -MF $(DEPDIR)/bard-fs.Tpo -c -o bard-fs.o `test -f 'fs.c' || echo '$(srcdir)/'`fs.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-fs.Tpo $(DEPDIR)/bard-fs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='fs.c' object='bard-fs.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-fs.o `test -f 'fs.c' || echo '$(srcdir)/'`fs.c
+
+bard-fs.obj: fs.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-fs.obj -MD -MP -MF $(DEPDIR)/bard-fs.Tpo -c -o bard-fs.obj `if test -f 'fs.c'; then $(CYGPATH_W) 'fs.c'; else $(CYGPATH_W) '$(srcdir)/fs.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-fs.Tpo $(DEPDIR)/bard-fs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='fs.c' object='bard-fs.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-fs.obj `if test -f 'fs.c'; then $(CYGPATH_W) 'fs.c'; else $(CYGPATH_W) '$(srcdir)/fs.c'; fi`
+
+bard-font.o: font.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-font.o -MD -MP -MF $(DEPDIR)/bard-font.Tpo -c -o bard-font.o `test -f 'font.c' || echo '$(srcdir)/'`font.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-font.Tpo $(DEPDIR)/bard-font.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='font.c' object='bard-font.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-font.o `test -f 'font.c' || echo '$(srcdir)/'`font.c
+
+bard-font.obj: font.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-font.obj -MD -MP -MF $(DEPDIR)/bard-font.Tpo -c -o bard-font.obj `if test -f 'font.c'; then $(CYGPATH_W) 'font.c'; else $(CYGPATH_W) '$(srcdir)/font.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-font.Tpo $(DEPDIR)/bard-font.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='font.c' object='bard-font.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-font.obj `if test -f 'font.c'; then $(CYGPATH_W) 'font.c'; else $(CYGPATH_W) '$(srcdir)/font.c'; fi`
+
+bard-regex.o: regex.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-regex.o -MD -MP -MF $(DEPDIR)/bard-regex.Tpo -c -o bard-regex.o `test -f 'regex.c' || echo '$(srcdir)/'`regex.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-regex.Tpo $(DEPDIR)/bard-regex.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='regex.c' object='bard-regex.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-regex.o `test -f 'regex.c' || echo '$(srcdir)/'`regex.c
+
+bard-regex.obj: regex.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-regex.obj -MD -MP -MF $(DEPDIR)/bard-regex.Tpo -c -o bard-regex.obj `if test -f 'regex.c'; then $(CYGPATH_W) 'regex.c'; else $(CYGPATH_W) '$(srcdir)/regex.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-regex.Tpo $(DEPDIR)/bard-regex.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='regex.c' object='bard-regex.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-regex.obj `if test -f 'regex.c'; then $(CYGPATH_W) 'regex.c'; else $(CYGPATH_W) '$(srcdir)/regex.c'; fi`
+
+bard-formatarray.o: formatarray.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-formatarray.o -MD -MP -MF $(DEPDIR)/bard-formatarray.Tpo -c -o bard-formatarray.o `test -f 'formatarray.c' || echo '$(srcdir)/'`formatarray.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-formatarray.Tpo $(DEPDIR)/bard-formatarray.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='formatarray.c' object='bard-formatarray.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-formatarray.o `test -f 'formatarray.c' || echo '$(srcdir)/'`formatarray.c
+
+bard-formatarray.obj: formatarray.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-formatarray.obj -MD -MP -MF $(DEPDIR)/bard-formatarray.Tpo -c -o bard-formatarray.obj `if test -f 'formatarray.c'; then $(CYGPATH_W) 'formatarray.c'; else $(CYGPATH_W) '$(srcdir)/formatarray.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-formatarray.Tpo $(DEPDIR)/bard-formatarray.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='formatarray.c' object='bard-formatarray.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-formatarray.obj `if test -f 'formatarray.c'; then $(CYGPATH_W) 'formatarray.c'; else $(CYGPATH_W) '$(srcdir)/formatarray.c'; fi`
+
+bard-parser.o: parser.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-parser.o -MD -MP -MF $(DEPDIR)/bard-parser.Tpo -c -o bard-parser.o `test -f 'parser.c' || echo '$(srcdir)/'`parser.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-parser.Tpo $(DEPDIR)/bard-parser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parser.c' object='bard-parser.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-parser.o `test -f 'parser.c' || echo '$(srcdir)/'`parser.c
+
+bard-parser.obj: parser.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-parser.obj -MD -MP -MF $(DEPDIR)/bard-parser.Tpo -c -o bard-parser.obj `if test -f 'parser.c'; then $(CYGPATH_W) 'parser.c'; else $(CYGPATH_W) '$(srcdir)/parser.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-parser.Tpo $(DEPDIR)/bard-parser.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parser.c' object='bard-parser.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-parser.obj `if test -f 'parser.c'; then $(CYGPATH_W) 'parser.c'; else $(CYGPATH_W) '$(srcdir)/parser.c'; fi`
+
+bard-myerror.o: myerror.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-myerror.o -MD -MP -MF $(DEPDIR)/bard-myerror.Tpo -c -o bard-myerror.o `test -f 'myerror.c' || echo '$(srcdir)/'`myerror.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-myerror.Tpo $(DEPDIR)/bard-myerror.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='myerror.c' object='bard-myerror.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-myerror.o `test -f 'myerror.c' || echo '$(srcdir)/'`myerror.c
+
+bard-myerror.obj: myerror.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-myerror.obj -MD -MP -MF $(DEPDIR)/bard-myerror.Tpo -c -o bard-myerror.obj `if test -f 'myerror.c'; then $(CYGPATH_W) 'myerror.c'; else $(CYGPATH_W) '$(srcdir)/myerror.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-myerror.Tpo $(DEPDIR)/bard-myerror.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='myerror.c' object='bard-myerror.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-myerror.obj `if test -f 'myerror.c'; then $(CYGPATH_W) 'myerror.c'; else $(CYGPATH_W) '$(srcdir)/myerror.c'; fi`
+
+bard-manager.o: manager.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-manager.o -MD -MP -MF $(DEPDIR)/bard-manager.Tpo -c -o bard-manager.o `test -f 'manager.c' || echo '$(srcdir)/'`manager.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-manager.Tpo $(DEPDIR)/bard-manager.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='manager.c' object='bard-manager.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-manager.o `test -f 'manager.c' || echo '$(srcdir)/'`manager.c
+
+bard-manager.obj: manager.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT bard-manager.obj -MD -MP -MF $(DEPDIR)/bard-manager.Tpo -c -o bard-manager.obj `if test -f 'manager.c'; then $(CYGPATH_W) 'manager.c'; else $(CYGPATH_W) '$(srcdir)/manager.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bard-manager.Tpo $(DEPDIR)/bard-manager.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='manager.c' object='bard-manager.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o bard-manager.obj `if test -f 'manager.c'; then $(CYGPATH_W) 'manager.c'; else $(CYGPATH_W) '$(srcdir)/manager.c'; fi`
+
+gdbus/bard-dbus-wrapper.o: gdbus/dbus-wrapper.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT gdbus/bard-dbus-wrapper.o -MD -MP -MF gdbus/$(DEPDIR)/bard-dbus-wrapper.Tpo -c -o gdbus/bard-dbus-wrapper.o `test -f 'gdbus/dbus-wrapper.c' || echo '$(srcdir)/'`gdbus/dbus-wrapper.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) gdbus/$(DEPDIR)/bard-dbus-wrapper.Tpo gdbus/$(DEPDIR)/bard-dbus-wrapper.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='gdbus/dbus-wrapper.c' object='gdbus/bard-dbus-wrapper.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o gdbus/bard-dbus-wrapper.o `test -f 'gdbus/dbus-wrapper.c' || echo '$(srcdir)/'`gdbus/dbus-wrapper.c
+
+gdbus/bard-dbus-wrapper.obj: gdbus/dbus-wrapper.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT gdbus/bard-dbus-wrapper.obj -MD -MP -MF gdbus/$(DEPDIR)/bard-dbus-wrapper.Tpo -c -o gdbus/bard-dbus-wrapper.obj `if test -f 'gdbus/dbus-wrapper.c'; then $(CYGPATH_W) 'gdbus/dbus-wrapper.c'; else $(CYGPATH_W) '$(srcdir)/gdbus/dbus-wrapper.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) gdbus/$(DEPDIR)/bard-dbus-wrapper.Tpo gdbus/$(DEPDIR)/bard-dbus-wrapper.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='gdbus/dbus-wrapper.c' object='gdbus/bard-dbus-wrapper.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o gdbus/bard-dbus-wrapper.obj `if test -f 'gdbus/dbus-wrapper.c'; then $(CYGPATH_W) 'gdbus/dbus-wrapper.c'; else $(CYGPATH_W) '$(srcdir)/gdbus/dbus-wrapper.c'; fi`
+
+gdbus/bard-dbus.o: gdbus/dbus.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT gdbus/bard-dbus.o -MD -MP -MF gdbus/$(DEPDIR)/bard-dbus.Tpo -c -o gdbus/bard-dbus.o `test -f 'gdbus/dbus.c' || echo '$(srcdir)/'`gdbus/dbus.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) gdbus/$(DEPDIR)/bard-dbus.Tpo gdbus/$(DEPDIR)/bard-dbus.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='gdbus/dbus.c' object='gdbus/bard-dbus.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o gdbus/bard-dbus.o `test -f 'gdbus/dbus.c' || echo '$(srcdir)/'`gdbus/dbus.c
+
+gdbus/bard-dbus.obj: gdbus/dbus.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -MT gdbus/bard-dbus.obj -MD -MP -MF gdbus/$(DEPDIR)/bard-dbus.Tpo -c -o gdbus/bard-dbus.obj `if test -f 'gdbus/dbus.c'; then $(CYGPATH_W) 'gdbus/dbus.c'; else $(CYGPATH_W) '$(srcdir)/gdbus/dbus.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) gdbus/$(DEPDIR)/bard-dbus.Tpo gdbus/$(DEPDIR)/bard-dbus.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='gdbus/dbus.c' object='gdbus/bard-dbus.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bard_CFLAGS) $(CFLAGS) -c -o gdbus/bard-dbus.obj `if test -f 'gdbus/dbus.c'; then $(CYGPATH_W) 'gdbus/dbus.c'; else $(CYGPATH_W) '$(srcdir)/gdbus/dbus.c'; fi`
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -494,16 +877,18 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f gdbus/$(DEPDIR)/$(am__dirstamp)
+	-rm -f gdbus/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
+clean-am: clean-binPROGRAMS clean-generic clean-local mostlyclean-am
 
 distclean: distclean-am
-	-rm -rf ./$(DEPDIR)
+	-rm -rf ./$(DEPDIR) gdbus/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -549,7 +934,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-	-rm -rf ./$(DEPDIR)
+	-rm -rf ./$(DEPDIR) gdbus/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -570,21 +955,28 @@ uninstall-am: uninstall-binPROGRAMS
 .MAKE: install-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
-	clean-binPROGRAMS clean-generic cscopelist-am ctags ctags-am \
-	distclean distclean-compile distclean-generic distclean-tags \
-	distdir dvi dvi-am html html-am info info-am install \
-	install-am install-binPROGRAMS install-data install-data-am \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-info install-info-am \
-	install-man install-pdf install-pdf-am install-ps \
-	install-ps-am install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-compile mostlyclean-generic pdf pdf-am \
-	ps ps-am tags tags-am uninstall uninstall-am \
-	uninstall-binPROGRAMS
+	clean-binPROGRAMS clean-generic clean-local cscopelist-am \
+	ctags ctags-am distclean distclean-compile distclean-generic \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-am install-binPROGRAMS install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am uninstall-binPROGRAMS
 
 .PRECIOUS: Makefile
 
+gdbus/generated.c: gdbus/dk.slashwin.bard.xml
+	gdbus-codegen  --c-namespace dbus --interface-prefix "dk.slashwin." --generate-c-code "bard-generated" $^
+
+gdbus/dbus-wrapper.c: gdbus/generated.c
+
+clean-local:
+	rm -f $(builddir)/gdbus/bard-generated.{h,c}
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -23,6 +23,7 @@
 #include "sortedlist.h"
 #include "vector.h"
 #include "unit.h"
+#include "gdbus/dbus.h"
 
 struct WorkManager {
 	struct RunnerBuffer* buffer;
@@ -31,10 +32,22 @@ struct WorkManager {
 	fd_set fdset;
 };
 
-void workmanager_init(struct WorkManager* manager, struct RunnerBuffer* buffers);
+void workmanager_init(struct WorkManager* manager, struct RunnerBuffer* buffers, struct Dbus* dbus);
 void workmanager_kill(struct WorkManager* manager);
 
 void workmanager_addUnits(struct WorkManager* manager, struct Units* units);
 bool workmanger_waiting(struct WorkManager* manager);
-struct Unit* workmanager_next(struct WorkManager* manager);
+
+union Work {
+	struct Unit* unit;
+	struct DbusWork* dbus;
+};
+
+enum WorkType {
+	WT_NULL,
+	WT_UNIT,
+	WT_DBUS,
+};
+
+enum WorkType workmanager_next(struct WorkManager* manager, struct Dbus* dbus, union Work* unit);
 #endif

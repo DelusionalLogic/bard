@@ -22,6 +22,7 @@
 #include <setjmp.h>
 #include "myerror.h"
 #include "logger.h"
+#include "gdbus/dbus.h"
 
 struct UnitContainer {
 	time_t nextRun;
@@ -40,7 +41,6 @@ static bool unitPlaceComp(void* obj, void* oth) {
 struct AddUnitData {
 	struct SortedList* list;
 	Vector* pipeList;
-	fd_set* fdset;
 };
 static bool vecAddUnit(void* elem, void* userdata) {
 	struct AddUnitData* data = (struct AddUnitData*)userdata;
@@ -65,8 +65,10 @@ static bool vecAddUnit(void* elem, void* userdata) {
 	return true;
 }
 
-void workmanager_init(struct WorkManager* manager, struct RunnerBuffer* buffers) {
+void workmanager_init(struct WorkManager* manager, struct RunnerBuffer* buffers, struct Dbus* dbus) {
 	manager->fdset = runner_getfds(buffers);
+	FD_SET(dbus_getfd(dbus), &manager->fdset); //Get events from dbus
+
 	manager->buffer = buffers;
 	sl_init(&manager->list, sizeof(struct UnitContainer), unitPlaceComp);
 	vector_init(&manager->pipeList, sizeof(struct Unit*), 8);
@@ -140,10 +142,10 @@ bool workmanger_waiting(struct WorkManager* manager) {
 	return !isDone(manager);
 }
 
-struct Unit* workmanager_next(struct WorkManager* manager) {
+enum WorkType workmanager_next(struct WorkManager* manager, struct Dbus* dbus, union Work* work) {
 	struct UnitContainer* container = (struct UnitContainer*)sl_get(&manager->list, 0);
 	if(error_waiting())
-		THROW_CONT(NULL, "While getting the next unit to run");
+		THROW_CONT(WT_NULL, "While getting the next unit to run");
 	time_t curTime = time(NULL);
 
 	//Wait for the next unit or a pipe is ready
@@ -158,20 +160,31 @@ struct Unit* workmanager_next(struct WorkManager* manager) {
 		if(ready == -1) {
 			switch(errno) {
 				case EBADF:
-					THROW_NEW(NULL, "One of the \"running\" units exited");
+					THROW_NEW(WT_NULL, "One of the \"running\" units exited");
 				case EINTR:
-					THROW_NEW(NULL, "The select was interrupted");
+					THROW_NEW(WT_NULL, "The select was interrupted");
 			}
-		} else if(ready > 0) {
+		} else if(ready >= 1) { //TODO: We only actually support a single event at a time, but during startup multiple get ready at the same time, so we lie
+			log_write(LEVEL_INFO, "%d events fired", ready);
+			//Check for dbus event
+			if(FD_ISSET(dbus_getfd(dbus), &newSet)) {
+				struct DbusWork* dwork = NULL;
+				read(dbus_getfd(dbus), &dwork, sizeof(struct DbusWork*));
+				work->dbus = dwork;
+				return WT_DBUS;
+			}
+			//Check for unit event
 			struct pipeRunData data = {
 				.fdset = &newSet,
 				.buffers = manager->buffer,
 			};
-			bool completed = vector_foreach(&manager->pipeList, pipeRun, &data);
+			bool hitEnd = vector_foreach(&manager->pipeList, pipeRun, &data);
 			if(error_waiting())
-				THROW_CONT(NULL, "While searching for the waiting unit");
-			if(!completed)
-				return data.unitReady;
+				THROW_CONT(WT_NULL, "While searching for the waiting unit");
+			if(!hitEnd) {
+				work->unit = data.unitReady;
+				return WT_UNIT;
+			}
 		}
 	}
 	struct Unit* nextUnit = container->unit;
@@ -179,9 +192,10 @@ struct Unit* workmanager_next(struct WorkManager* manager) {
 	container->nextRun = curTime + nextUnit->interval;
 	sl_reorder(&manager->list, 0);
 	if(error_waiting())
-		THROW_CONT(NULL, "While reordering the work queue");
+		THROW_CONT(WT_NULL, "While reordering the work queue");
 	container = (struct UnitContainer*)sl_get(&manager->list, 0);
 	if(error_waiting())
-		THROW_CONT(NULL, "While reordering the work queue");
-	return nextUnit;
+		THROW_CONT(WT_NULL, "While reordering the work queue");
+	work->unit = nextUnit;
+	return WT_UNIT;
 }

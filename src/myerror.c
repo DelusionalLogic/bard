@@ -55,9 +55,11 @@ static struct Error makeErr(char* file, int line, char* format, va_list args) {
 	return err;
 }
 
-void error_new(char* file, int line, char* format, ...) {
+void error_init() {
 	pthread_once(&key_once, makeKey);
+}
 
+void error_new(char* file, int line, char* format, ...) {
 	Vector* ptr = (Vector*)pthread_getspecific(errKey);
 	if(ptr != NULL) {
 		log_write(LEVEL_FATAL, "Error already in progress");

@@ -11,3 +11,6 @@ autom4te.cache/
 session.vim
 
 *.orig
+
+*-generated.c
+*-generated.h

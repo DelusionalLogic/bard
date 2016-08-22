@@ -46,6 +46,7 @@
 #include "parser.h"
 #include "fs.h"
 #include "manager.h"
+#include "gdbus/dbus.h"
 
 const char* argp_program_version = PACKAGE_STRING;
 const char* argp_program_bug_address = PACKAGE_BUGREPORT;
@@ -92,17 +93,16 @@ struct PatternMatch{
 
 struct Units units;
 struct Outputs outputs;
-FILE* bar;
+struct bar_manager manager;
 
 
 void render(const char* separator, int monitors) {
 	//What to do about this? It can't be pipelined because then i might run more than once
 	//per sleep
 	char* out = out_format(&outputs, &units, monitors, separator);
-		VPROP_THROW("While rendering the output");
-	fprintf(bar, "%s\n", out);
+	VPROP_THROW("While rendering the output");
+	manager_setOutput(&manager, out);
 	free(out);
-	fflush(bar);
 }
 
 char* getInput(struct RunnerBuffer* buff, struct Unit* unit) {
@@ -153,6 +153,8 @@ char* formatUnit(struct Unit* unit, char* unitStr, struct Regex* regexCache, str
 
 int main(int argc, char **argv)
 {
+	error_init();
+
 	struct arguments arguments = {0};
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
@@ -177,6 +179,10 @@ int main(int argc, char **argv)
 		error_print();
 		exit(1);
 	}
+
+	//Start the dbus early
+	struct Dbus dbus;
+	dbus_start(&dbus, "/dk/slashwin/bard/1"); //TODO: Make the last param matter
 
 	struct Regex regexCache;
 	struct WorkManager wm;
@@ -228,10 +234,9 @@ int main(int argc, char **argv)
 			error_abort();
 		}
 
-		vector_putListBack(&launch, executable, strlen(executable));
+		//vector_putListBack(&launch, executable, strlen(executable));
 		ERROR_ABORT("While constructing lemonbar launch string");
 
-		iniparser_freedict(dict);
 		const struct FormatArray* xcolorPtr = &xcolorArr;
 		barconfig_getArgs(&launch, confPath, &xcolorPtr, 1);
 		ERROR_ABORT("While constructing lemonbar launch string");
@@ -240,12 +245,11 @@ int main(int argc, char **argv)
 		vector_putListBack(&launch, "\0", 1);
 		ERROR_ABORT("While constructing lemonbar launch string");
 
-		free(confPath);
 
 		//Lets load that bar!
-		log_write(LEVEL_INFO, "lemonbar launch string: %s", launch.data);
-		manager_startBar(executable, launch.data);
-		bar = popen(launch.data, "w");
+		manager = manager_startBar(executable, launch.data);
+		free(confPath);
+		iniparser_freedict(dict);
 		vector_kill(&launch);
 	}
 
@@ -255,7 +259,7 @@ int main(int argc, char **argv)
 	}
 
 	{
-		workmanager_init(&wm, &buff);
+		workmanager_init(&wm, &buff, &dbus);
 		ERROR_ABORT("While starting the workmanager");
 		workmanager_addUnits(&wm, &units);
 		ERROR_ABORT("While adding units to the workmanager");
@@ -272,26 +276,33 @@ int main(int argc, char **argv)
 		//Main loop
 		bool oneUpdate = false;
 		while(true) {
-			struct Unit* unit = workmanager_next(&wm);
-			log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
-
-			/* Format the output for the bar */
-			char* unitStr = getInput(&buff, unit);
-			ERROR_ABORT("While getting input for %s", unit->name);
-
-			if(unitStr != NULL) {
-				oneUpdate = true;
-
-				char* formatted = formatUnit(unit, unitStr, &regexCache, &xcolorArr);
-
-				out_set(&outputs, unit, formatted);
+			union Work work;
+			enum WorkType type = workmanager_next(&wm, &dbus, &work);
+			if(type == WT_DBUS) {
+				manager_restartBar(&manager);
 			}
-			if(oneUpdate && !workmanger_waiting(&wm)) {
-				render(separator, monitors);
-				oneUpdate = false;
+			if(type == WT_UNIT) {
+				struct Unit* unit = work.unit;
+				log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+
+				/* Format the output for the bar */
+				char* unitStr = getInput(&buff, unit);
+				ERROR_ABORT("While getting input for %s", unit->name);
+
+				if(unitStr != NULL) {
+					oneUpdate = true;
+
+					char* formatted = formatUnit(unit, unitStr, &regexCache, &xcolorArr);
+
+					out_set(&outputs, unit, formatted);
+				}
+				if(oneUpdate && !workmanger_waiting(&wm)) {
+					render(separator, monitors);
+					oneUpdate = false;
+				}
+				if(unitStr != NULL)
+					free(unitStr);
 			}
-			if(unitStr != NULL)
-				free(unitStr);
 		}
 
 		workmanager_kill(&wm);
@@ -308,7 +319,7 @@ int main(int argc, char **argv)
 	out_kill(&outputs);
 	ERROR_ABORT("While Freeing output buffers");
 
-	pclose(bar);
+	manager_exitBar(&manager);
 
 	return 0;
 }
