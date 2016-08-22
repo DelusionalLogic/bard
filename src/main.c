@@ -86,11 +86,6 @@ int freePtr(void* elem, void* userdata) {
 	return 0;
 }
 
-struct PatternMatch{
-	size_t startPos;
-	size_t endPos;
-};
-
 struct Units units;
 struct Outputs outputs;
 struct bar_manager manager;
@@ -279,7 +274,11 @@ int main(int argc, char **argv)
 			union Work work;
 			enum WorkType type = workmanager_next(&wm, &dbus, &work);
 			if(type == WT_DBUS) {
-				manager_restartBar(&manager);
+				if(work.dbus->command == DC_RESTART) {
+					manager_restartBar(&manager);
+					render(separator, monitors);
+				}
+				free(work.dbus);
 			}
 			if(type == WT_UNIT) {
 				struct Unit* unit = work.unit;
@@ -318,6 +317,8 @@ int main(int argc, char **argv)
 
 	out_kill(&outputs);
 	ERROR_ABORT("While Freeing output buffers");
+
+	dbus_stop(&dbus);
 
 	manager_exitBar(&manager);
 

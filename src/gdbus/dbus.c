@@ -7,34 +7,56 @@
 
 static gboolean on_handle_bar_reload(dbusBard* obj, GDBusMethodInvocation* inv, gpointer userdata) {
 	struct Dbus* dbus = (struct Dbus*)userdata;
-	log_write(LEVEL_INFO, "Dbus told us to reload");
+	log_write(LEVEL_INFO, "Dbus told us to restart the bar");
 
 	struct DbusWork* work = malloc(sizeof(struct DbusWork));
 	work->command = DC_RESTART;
 
 	//Should be atomic according to POSIX spec, assuming that PIPE_BUF > 4
-	write(dbus->fd[1], work, sizeof(work));
+	write(dbus->fd[1], &work, sizeof(&work));
+
+	dbus_bard_complete_bar_reload(obj, inv);
+
+	return true;
+}
+
+static gboolean on_handle_reload(dbusBard* obj, GDBusMethodInvocation* inv, gpointer userdata) {
+	struct Dbus* dbus = (struct Dbus*)userdata;
+	log_write(LEVEL_INFO, "Dbus told us to reload");
+
+	struct DbusWork* work = malloc(sizeof(struct DbusWork));
+	work->command = DC_RELOAD;
+
+	//Should be atomic according to POSIX spec, assuming that PIPE_BUF > 4
+	write(dbus->fd[1], &work, sizeof(&work));
+
+	dbus_bard_complete_bar_reload(obj, inv);
 
 	return true;
 }
 
 static void on_bus_aquired(GDBusConnection* conn, const gchar* name, gpointer userdata) {
-	 dbusBard* bardbus = dbus_bard_skeleton_new();
-	 GError* error = NULL;
-	 if (!g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (bardbus),
-		 conn,
-		 "/dk/slashwin/bard",
-		 &error))
-	 {
-		 log_write(LEVEL_ERROR, "Failed exporting skeleton: %s", error->message);
-		 g_error_free(error);
-		 return;
-	 }
+	dbusBard* bardbus = dbus_bard_skeleton_new();
+	GError* error = NULL;
+	if (!g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (bardbus),
+				conn,
+				"/dk/slashwin/bard",
+				&error))
+	{
+		log_write(LEVEL_ERROR, "Failed exporting skeleton: %s", error->message);
+		g_error_free(error);
+		return;
+	}
 
-	 g_signal_connect(G_DBUS_INTERFACE_SKELETON(bardbus),
-			 "handle-bar-reload",
-			 G_CALLBACK(on_handle_bar_reload),
-			 userdata);
+	g_signal_connect(G_DBUS_INTERFACE_SKELETON(bardbus),
+			"handle-bar-reload",
+			G_CALLBACK(on_handle_bar_reload),
+			userdata);
+
+	g_signal_connect(G_DBUS_INTERFACE_SKELETON(bardbus),
+			"handle-reload",
+			G_CALLBACK(on_handle_bar_reload),
+			userdata);
 }
 
 static void on_name_aquired(GDBusConnection* conn, const gchar* name, gpointer userdata) {

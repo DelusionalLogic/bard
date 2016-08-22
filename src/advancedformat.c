@@ -39,7 +39,8 @@ int advformat_execute(char* format, Pvoid_t compiledEnv, size_t maxKeyLen, const
 	w = p.we_wordv;
 
 	int pipefd[2];
-	pipe(pipefd);
+	if(pipe(pipefd))
+		THROW_NEW(1, "Failed creating pipe %d", errno);
 
 	log_write(LEVEL_INFO, "Executing: %s", w[0]);
 

@@ -6,6 +6,7 @@
 
 enum DbusCommand {
 	DC_RESTART,
+	DC_RELOAD,
 };
 
 struct DbusWork {

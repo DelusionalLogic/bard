@@ -56,6 +56,10 @@ static pid_t run(char* command, int fd[2]) {
 		}
 		execvp(wexp.we_wordv[0], wexp.we_wordv);
 	}
+	//Actually remember to close the unused file descriptors in the parent
+	close(fdout[1]);
+	close(fdin[0]);
+
 	wordfree(&wexp);
 	fd[0] = fdout[0];
 	fd[1] = fdin[1];
@@ -81,9 +85,11 @@ void manager_restartBar(struct bar_manager* manager) {
 }
 
 void manager_exitBar(struct bar_manager* manager) {
+	if(close(manager->fd[1]))
+		VTHROW_NEW("Failed closing file descriptor");
+	if(close(manager->fd[0]))
+		VTHROW_NEW("Failed closing file descriptor");
 	kill(manager->pid, SIGTERM);
-	close(manager->fd[1]);
-	close(manager->fd[0]);
 }
 
 void manager_setOutput(struct bar_manager* manager, const char* output) {

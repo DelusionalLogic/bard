@@ -14,3 +14,5 @@ session.vim
 
 *-generated.c
 *-generated.h
+
+*/config.h
