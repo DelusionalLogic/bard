@@ -40,7 +40,7 @@ static bool freeUnit(void* elem, void* userdata) {
 	return true;
 }
 
-void units_kill(struct Units* units) {
+void units_free(struct Units* units) {
 	vector_foreach(&units->left, freeUnit, NULL);
 	vector_kill(&units->left);
 

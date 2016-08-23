@@ -273,10 +273,103 @@ int main(int argc, char **argv)
 		while(true) {
 			union Work work;
 			enum WorkType type = workmanager_next(&wm, &dbus, &work);
+			ERROR_ABORT("While in main loop");
 			if(type == WT_DBUS) {
 				if(work.dbus->command == DC_RESTART) {
 					manager_restartBar(&manager);
 					render(separator, monitors);
+				} else if(work.dbus->command == DC_RELOAD) {
+					workmanager_kill(&wm);
+					ERROR_ABORT("While shutting down workmanager");
+					runner_stopPipes(&buff);
+					ERROR_ABORT("While stopping child units");
+					units_free(&units);
+					ERROR_ABORT("While freeing unitcontainer");
+					font_kill(&flist);
+
+					out_kill(&outputs);
+					ERROR_ABORT("While Freeing output buffers");
+					manager_exitBar(&manager);
+
+					units_init(&units);
+					if(error_waiting())
+						error_abort();
+
+					units_load(&units, arguments.configDir);
+					if(error_waiting())
+						error_abort();
+
+					units_preprocess(&units);
+					if(error_waiting()) {
+						error_print();
+						exit(1);
+					}
+					char* confPath = pathAppend(arguments.configDir, "bard.conf");
+					dictionary* dict = iniparser_load(confPath);
+					{
+						const char* psep = iniparser_getstring(dict, "display:separator", " | ");
+						Vector compiled;
+						parser_compileStr(psep, &compiled);
+
+						formatter_format(&compiled, staticFormatArray, sizeof(staticFormatArray)/sizeof(struct FormatArray*), &separator);
+						ERROR_ABORT("While formatting separator");
+
+						parser_freeCompiled(&compiled);
+						monitors = iniparser_getint(dict, "display:monitors", 1);
+					}
+					{
+						font_createFontList(&flist, &units, confPath);
+						ERROR_ABORT("While creating font list");
+					}
+					{
+						Vector launch;
+						//Make the lemonbar launch string
+						vector_init(&launch, sizeof(char), 1024);
+						ERROR_ABORT("While constructing lemonbar launch string");
+
+						const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
+						if(executable == NULL) {
+							ERROR_NEW("Missing executable in config, and default didn't work?");
+							error_abort();
+						}
+
+						//vector_putListBack(&launch, executable, strlen(executable));
+						ERROR_ABORT("While constructing lemonbar launch string");
+
+						const struct FormatArray* xcolorPtr = &xcolorArr;
+						barconfig_getArgs(&launch, confPath, &xcolorPtr, 1);
+						ERROR_ABORT("While constructing lemonbar launch string");
+						font_getArg(&flist, &launch);
+						ERROR_ABORT("While constructing lemonbar launch string");
+						vector_putListBack(&launch, "\0", 1);
+						ERROR_ABORT("While constructing lemonbar launch string");
+
+
+						//Lets load that bar!
+						manager = manager_startBar(executable, launch.data);
+						free(confPath);
+						iniparser_freedict(dict);
+						vector_kill(&launch);
+					}
+
+					{
+						runner_startPipes(&buff, &units);
+						ERROR_ABORT("While starting the processes");
+					}
+
+					{
+						workmanager_init(&wm, &buff, &dbus);
+						ERROR_ABORT("While starting the workmanager");
+						workmanager_addUnits(&wm, &units);
+						ERROR_ABORT("While adding units to the workmanager");
+					}
+
+					{
+						regex_init(&regexCache);
+						ERROR_ABORT("While initializing regex matcher");
+						regex_compile(&regexCache, &units);
+						ERROR_ABORT("While compiling regexes");
+					}
 				}
 				free(work.dbus);
 			}

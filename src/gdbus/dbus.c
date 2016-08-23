@@ -55,7 +55,7 @@ static void on_bus_aquired(GDBusConnection* conn, const gchar* name, gpointer us
 
 	g_signal_connect(G_DBUS_INTERFACE_SKELETON(bardbus),
 			"handle-reload",
-			G_CALLBACK(on_handle_bar_reload),
+			G_CALLBACK(on_handle_reload),
 			userdata);
 }
 

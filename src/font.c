@@ -25,6 +25,13 @@
 #include "configparser.h"
 
 void font_kill(struct FontList* font) {
+	char** val = NULL;
+	Word_t index = 0; //64 bit
+	JLF(val, font->revFonts, index);
+	free(*val); //Only free the first one, because someone else owns the rest
+	Word_t bytes;
+	JSLFA(bytes, font->fonts);
+	JLFA(bytes, font->revFonts);
 }
 
 struct addUnitFontsData{

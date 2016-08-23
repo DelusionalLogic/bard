@@ -138,6 +138,9 @@ void runner_stopPipes(struct RunnerBuffer* buffers) {
 		log_write(LEVEL_INFO, "kill %s", index);
 		JSLN(val, buffers->buffers, index);
 	}
+	Word_t bytes;
+	JSLFA(bytes, buffers->buffers);
+	J1FA(bytes, buffers->owners);
 	free(index);
 }
 
@@ -150,7 +153,7 @@ fd_set runner_getfds(struct RunnerBuffer* buffers) {
 	JSLF(val, buffers->buffers, index);
 	while(val != NULL) {
 		FD_SET((*val)->fd, &set);
-		log_write(LEVEL_INFO, "fdset %s", index);
+		log_write(LEVEL_INFO, "fdset %s, fd: %d", index, (*val)->fd);
 		JSLN(val, buffers->buffers, index);
 	}
 	free(index);

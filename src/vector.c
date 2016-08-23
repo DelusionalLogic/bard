@@ -68,6 +68,7 @@ void vector_kill(Vector* vector)
 {
 	assert(vector->elementSize != 0);
 	free(vector->data);
+	vector->data=(void*)0x72727272;
 }
 
 char* vector_detach(Vector* vector)
