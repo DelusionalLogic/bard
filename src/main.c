@@ -80,23 +80,33 @@ static error_t parse_opt(int key, char* arg, struct argp_state *state)
 
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
+struct Bard {
+	struct WorkManager wm;
+	struct RunnerBuffer buffer;
+	struct Units units;
+	struct FontList flist;
+	struct Outputs output;
+	struct Dbus dbus;
+	struct bar_manager manager;
+	struct Regex regexCache;
+	struct FormatArray xcolorArr;
+	//TODO: This should not be here
+	char* barLaunchStr;
+	char* barExecutable;
+};
+
 int freePtr(void* elem, void* userdata) {
 	char** data = (char**) elem;
 	free(*data);
 	return 0;
 }
 
-struct Units units;
-struct Outputs outputs;
-struct bar_manager manager;
-
-
-void render(const char* separator, int monitors) {
+void render(struct Bard* bard, const char* separator, int monitors) {
 	//What to do about this? It can't be pipelined because then i might run more than once
 	//per sleep
-	char* out = out_format(&outputs, &units, monitors, separator);
+	char* out = out_format(&bard->output, &bard->units, monitors, separator);
 	VPROP_THROW("While rendering the output");
-	manager_setOutput(&manager, out);
+	manager_setOutput(&bard->manager, out);
 	free(out);
 }
 
@@ -123,7 +133,7 @@ char* formatUnit(struct Unit* unit, char* unitStr, struct Regex* regexCache, str
 		&fontArr,
 	};
 	char* str;
-	font_getArray(unit, &fontArr);
+	font_getArray(unit, &fontArr); //TODO: Cache this fro every unit
 	ERROR_ABORT("Getting the fonts for %s", unit->name);
 	regex_match(regexCache, unit, unitStr, &regexArr);
 	ERROR_ABORT("Matching the compiled regex for %s", unit->name);
@@ -146,75 +156,42 @@ char* formatUnit(struct Unit* unit, char* unitStr, struct Regex* regexCache, str
 	return str;
 }
 
-int main(int argc, char **argv)
-{
-	error_init();
-
-	struct arguments arguments = {0};
-	argp_parse(&argp, argc, argv, 0, 0, &arguments);
-
-	if(arguments.configDir == NULL)
-	{
-		log_write(LEVEL_ERROR, "Config directory required");
-		exit(0);
-	}
-
-	struct FontList flist = {0};
-
-	units_init(&units);
+void load_units(struct Units* units, char* confDir) {
+	units_init(units);
 	if(error_waiting())
 		error_abort();
 
-	units_load(&units, arguments.configDir);
+	units_load(units, confDir);
 	if(error_waiting())
 		error_abort();
 
-	units_preprocess(&units);
+	units_preprocess(units);
 	if(error_waiting()) {
 		error_print();
 		exit(1);
 	}
+}
 
-	//Start the dbus early
-	struct Dbus dbus;
-	dbus_start(&dbus, "/dk/slashwin/bard/1"); //TODO: Make the last param matter
-
-	struct Regex regexCache;
-	struct WorkManager wm;
-	struct RunnerBuffer buff = {0};
-
-	struct XlibColor xColor;
-
-	struct FormatArray xcolorArr = {0};
-	const struct FormatArray *staticFormatArray[] = {
-		&xcolorArr,
-	};
-
-	{
-		xcolor_loadColors(&xColor);
-		ERROR_ABORT("While loading xcolor");
-		xcolor_formatArray(&xColor, &xcolorArr);
-		ERROR_ABORT("While constructing xcolor format array");
-	}
-
-	char* separator;
-	int monitors;
-
-	char* confPath = pathAppend(arguments.configDir, "bard.conf");
+void load_mainConfig(struct Bard* bard, char** separator, int* monitors, char* confDir) {
+	char* confPath = pathAppend(confDir, "bard.conf");
 	dictionary* dict = iniparser_load(confPath);
 	{
 		const char* psep = iniparser_getstring(dict, "display:separator", " | ");
 		Vector compiled;
 		parser_compileStr(psep, &compiled);
 
-		formatter_format(&compiled, staticFormatArray, sizeof(staticFormatArray)/sizeof(struct FormatArray*), &separator);
+		const struct FormatArray *const staticFormatArray[] = {
+			&bard->xcolorArr,
+		};
+
+		formatter_format(&compiled, staticFormatArray, sizeof(staticFormatArray)/sizeof(struct FormatArray*), separator);
 		ERROR_ABORT("While formatting separator");
 
 		parser_freeCompiled(&compiled);
-		monitors = iniparser_getint(dict, "display:monitors", 1);
+		*monitors = iniparser_getint(dict, "display:monitors", 1);
 	}
 	{
-		font_createFontList(&flist, &units, confPath);
+		font_createFontList(&bard->flist, &bard->units, confPath);
 		ERROR_ABORT("While creating font list");
 	}
 	{
@@ -232,144 +209,107 @@ int main(int argc, char **argv)
 		//vector_putListBack(&launch, executable, strlen(executable));
 		ERROR_ABORT("While constructing lemonbar launch string");
 
-		const struct FormatArray* xcolorPtr = &xcolorArr;
+		const struct FormatArray* xcolorPtr = &bard->xcolorArr;
 		barconfig_getArgs(&launch, confPath, &xcolorPtr, 1);
 		ERROR_ABORT("While constructing lemonbar launch string");
-		font_getArg(&flist, &launch);
+		font_getArg(&bard->flist, &launch);
 		ERROR_ABORT("While constructing lemonbar launch string");
 		vector_putListBack(&launch, "\0", 1);
 		ERROR_ABORT("While constructing lemonbar launch string");
 
 
-		//Lets load that bar!
-		manager = manager_startBar(executable, launch.data);
+		//Lets load that bar! (Not really though)
+		bard->barLaunchStr = vector_detach(&launch);
+		bard->barExecutable = malloc(strlen(executable));
+		strcpy(bard->barExecutable, executable);
+
 		free(confPath);
 		iniparser_freedict(dict);
-		vector_kill(&launch);
 	}
 
+}
+
+void startup(struct Bard *bard, char ** separator, char* confDir, int* monitors){
+	load_units(&bard->units, confDir);
+
+	load_mainConfig(bard, separator, monitors, confDir);
+
+	runner_startPipes(&bard->buffer, &bard->units);
+	ERROR_ABORT("While starting the processes");
+
+	workmanager_init(&bard->wm, &bard->buffer, &bard->dbus);
+	ERROR_ABORT("While starting the workmanager");
+	workmanager_addUnits(&bard->wm, &bard->units);
+	ERROR_ABORT("While adding units to the workmanager");
+
+	regex_init(&bard->regexCache);
+	ERROR_ABORT("While initializing regex matcher");
+	regex_compile(&bard->regexCache, &bard->units);
+	ERROR_ABORT("While compiling regexes");
+}
+
+void bard_shutdown(struct Bard* bard) {
+	runner_stopPipes(&bard->buffer);
+	ERROR_ABORT("While stopping child units");
+	workmanager_kill(&bard->wm);
+	ERROR_ABORT("While shutting down workmanager");
+	units_free(&bard->units);
+	ERROR_ABORT("While freeing unitcontainer");
+	font_kill(&bard->flist);
+	ERROR_ABORT("While freeing font list");
+
+	out_kill(&bard->output);
+	ERROR_ABORT("While freeing output buffers");
+}
+
+
+int main(int argc, char **argv)
+{
+	error_init();
+
+	struct arguments arguments = {0};
+	argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+	if(arguments.configDir == NULL)
 	{
-		runner_startPipes(&buff, &units);
-		ERROR_ABORT("While starting the processes");
+		log_write(LEVEL_ERROR, "Config directory required");
+		exit(0);
 	}
 
-	{
-		workmanager_init(&wm, &buff, &dbus);
-		ERROR_ABORT("While starting the workmanager");
-		workmanager_addUnits(&wm, &units);
-		ERROR_ABORT("While adding units to the workmanager");
-	}
+	struct Bard bard = {0};
+
+	dbus_start(&bard.dbus, "/dk/slashwin/bard/1"); //TODO: Make the last param matter
+
+	struct XlibColor xColor;
 
 	{
-		regex_init(&regexCache);
-		ERROR_ABORT("While initializing regex matcher");
-		regex_compile(&regexCache, &units);
-		ERROR_ABORT("While compiling regexes");
+		xcolor_loadColors(&xColor);
+		ERROR_ABORT("While loading xcolor");
+		xcolor_formatArray(&xColor, &bard.xcolorArr);
+		ERROR_ABORT("While constructing xcolor format array");
 	}
+
+	char* separator;
+	int monitors;
+
+	startup(&bard, &separator, arguments.configDir, &monitors);
+
+	bard.manager = manager_startBar(bard.barExecutable, bard.barLaunchStr);
 
 	{
 		//Main loop
 		bool oneUpdate = false;
 		while(true) {
 			union Work work;
-			enum WorkType type = workmanager_next(&wm, &dbus, &work);
+			enum WorkType type = workmanager_next(&bard.wm, &bard.dbus, &work);
 			ERROR_ABORT("While in main loop");
 			if(type == WT_DBUS) {
 				if(work.dbus->command == DC_RESTART) {
-					manager_restartBar(&manager);
-					render(separator, monitors);
+					manager_restartBar(&bard.manager);
+					render(&bard, separator, monitors);
 				} else if(work.dbus->command == DC_RELOAD) {
-					workmanager_kill(&wm);
-					ERROR_ABORT("While shutting down workmanager");
-					runner_stopPipes(&buff);
-					ERROR_ABORT("While stopping child units");
-					units_free(&units);
-					ERROR_ABORT("While freeing unitcontainer");
-					font_kill(&flist);
-
-					out_kill(&outputs);
-					ERROR_ABORT("While Freeing output buffers");
-					manager_exitBar(&manager);
-
-					units_init(&units);
-					if(error_waiting())
-						error_abort();
-
-					units_load(&units, arguments.configDir);
-					if(error_waiting())
-						error_abort();
-
-					units_preprocess(&units);
-					if(error_waiting()) {
-						error_print();
-						exit(1);
-					}
-					char* confPath = pathAppend(arguments.configDir, "bard.conf");
-					dictionary* dict = iniparser_load(confPath);
-					{
-						const char* psep = iniparser_getstring(dict, "display:separator", " | ");
-						Vector compiled;
-						parser_compileStr(psep, &compiled);
-
-						formatter_format(&compiled, staticFormatArray, sizeof(staticFormatArray)/sizeof(struct FormatArray*), &separator);
-						ERROR_ABORT("While formatting separator");
-
-						parser_freeCompiled(&compiled);
-						monitors = iniparser_getint(dict, "display:monitors", 1);
-					}
-					{
-						font_createFontList(&flist, &units, confPath);
-						ERROR_ABORT("While creating font list");
-					}
-					{
-						Vector launch;
-						//Make the lemonbar launch string
-						vector_init(&launch, sizeof(char), 1024);
-						ERROR_ABORT("While constructing lemonbar launch string");
-
-						const char* executable = iniparser_getstring(dict, "bar:path", "lemonbar");
-						if(executable == NULL) {
-							ERROR_NEW("Missing executable in config, and default didn't work?");
-							error_abort();
-						}
-
-						//vector_putListBack(&launch, executable, strlen(executable));
-						ERROR_ABORT("While constructing lemonbar launch string");
-
-						const struct FormatArray* xcolorPtr = &xcolorArr;
-						barconfig_getArgs(&launch, confPath, &xcolorPtr, 1);
-						ERROR_ABORT("While constructing lemonbar launch string");
-						font_getArg(&flist, &launch);
-						ERROR_ABORT("While constructing lemonbar launch string");
-						vector_putListBack(&launch, "\0", 1);
-						ERROR_ABORT("While constructing lemonbar launch string");
-
-
-						//Lets load that bar!
-						manager = manager_startBar(executable, launch.data);
-						free(confPath);
-						iniparser_freedict(dict);
-						vector_kill(&launch);
-					}
-
-					{
-						runner_startPipes(&buff, &units);
-						ERROR_ABORT("While starting the processes");
-					}
-
-					{
-						workmanager_init(&wm, &buff, &dbus);
-						ERROR_ABORT("While starting the workmanager");
-						workmanager_addUnits(&wm, &units);
-						ERROR_ABORT("While adding units to the workmanager");
-					}
-
-					{
-						regex_init(&regexCache);
-						ERROR_ABORT("While initializing regex matcher");
-						regex_compile(&regexCache, &units);
-						ERROR_ABORT("While compiling regexes");
-					}
+					bard_shutdown(&bard);
+					startup(&bard, &separator, arguments.configDir, &monitors);
 				}
 				free(work.dbus);
 			}
@@ -378,18 +318,18 @@ int main(int argc, char **argv)
 				log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
 				/* Format the output for the bar */
-				char* unitStr = getInput(&buff, unit);
+				char* unitStr = getInput(&bard.buffer, unit);
 				ERROR_ABORT("While getting input for %s", unit->name);
 
 				if(unitStr != NULL) {
 					oneUpdate = true;
 
-					char* formatted = formatUnit(unit, unitStr, &regexCache, &xcolorArr);
+					char* formatted = formatUnit(unit, unitStr, &bard.regexCache, &bard.xcolorArr);
 
-					out_set(&outputs, unit, formatted);
+					out_set(&bard.output, unit, formatted);
 				}
-				if(oneUpdate && !workmanger_waiting(&wm)) {
-					render(separator, monitors);
+				if(oneUpdate && !workmanger_waiting(&bard.wm)) {
+					render(&bard, separator, monitors);
 					oneUpdate = false;
 				}
 				if(unitStr != NULL)
@@ -397,23 +337,15 @@ int main(int argc, char **argv)
 			}
 		}
 
-		workmanager_kill(&wm);
-		regex_kill(&regexCache);
+		workmanager_kill(&bard.wm);
+		regex_kill(&bard.regexCache);
 	}
 
-	runner_stopPipes(&buff);
-	ERROR_ABORT("While stopping child units");
-	workmanager_kill(&wm);
-	ERROR_ABORT("While shutting down workmanager");
-	units_free(&units);
-	ERROR_ABORT("While freeing unitcontainer");
+	bard_shutdown(&bard);
 
-	out_kill(&outputs);
-	ERROR_ABORT("While Freeing output buffers");
+	dbus_stop(&bard.dbus);
 
-	dbus_stop(&dbus);
-
-	manager_exitBar(&manager);
+	manager_exitBar(&bard.manager);
 
 	return 0;
 }
