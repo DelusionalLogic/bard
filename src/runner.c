@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <wordexp.h>
+#include <sys/wait.h>
 #include <errno.h>
 #include <assert.h>
 #include "myerror.h"
@@ -133,7 +134,9 @@ void runner_stopPipes(struct RunnerBuffer* buffers) {
 	struct Buffer** val;
 	JSLF(val, buffers->buffers, index);
 	while(val != NULL) {
-		kill((*val)->pid, SIGKILL);
+		kill((*val)->pid, SIGTERM);
+		log_write(LEVEL_INFO, "Waiting for %d to exit", (*val)->pid);
+		waitpid((*val)->pid, NULL, 0);
 		close((*val)->fd);
 		log_write(LEVEL_INFO, "kill %s", index);
 		JSLN(val, buffers->buffers, index);
