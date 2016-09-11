@@ -42,8 +42,11 @@ static struct llElement* construct(size_t elementSize, void* data)
 	void* newDat = malloc(elementSize);
 	memcpy(newDat, data, elementSize);
 	struct llElement* elem = (struct llElement*)calloc(1, sizeof(struct llElement));
-	if(elem == NULL)
+	if(elem == NULL) {
+		free(newDat);
+		free(elem);
 		THROW_NEW(NULL, "Failed allocating linked list element");
+	}
 	elem->data = newDat;
 	return elem;
 }

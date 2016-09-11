@@ -95,7 +95,7 @@ void workmanager_addUnits(struct WorkManager* manager, struct Units *units) {
 struct pipeRunData {
 	fd_set* fdset;
 	struct RunnerBuffer* buffers;
-	struct Unit* unitReady;
+	Vector unitsReady;
 };
 bool pipeRun(void* elem, void* userdata) {
 	struct pipeRunData* data = (struct pipeRunData*)userdata;
@@ -105,8 +105,7 @@ bool pipeRun(void* elem, void* userdata) {
 
 	if(runner_ready(data->buffers, data->fdset, unit)) {
 		log_write(LEVEL_INFO, "A pipe got ready for unit %s", unit->name);
-		data->unitReady = unit;
-		return false;
+		vector_putBack(&data->unitsReady, &unit);
 	}
 	return true;
 }
@@ -178,11 +177,12 @@ enum WorkType workmanager_next(struct WorkManager* manager, struct Dbus* dbus, u
 				.fdset = &newSet,
 				.buffers = manager->buffer,
 			};
+			vector_init(&data.unitsReady, sizeof(struct Unit*), ready);
 			bool hitEnd = vector_foreach(&manager->pipeList, pipeRun, &data);
 			if(error_waiting())
 				THROW_CONT(WT_NULL, "While searching for the waiting unit");
-			if(!hitEnd) {
-				work->unit = data.unitReady;
+			if(vector_size(&data.unitsReady) > 0) {
+				work->unit.unitsReady = data.unitsReady;
 				return WT_UNIT;
 			}
 		}
@@ -193,9 +193,7 @@ enum WorkType workmanager_next(struct WorkManager* manager, struct Dbus* dbus, u
 	sl_reorder(&manager->list, 0);
 	if(error_waiting())
 		THROW_CONT(WT_NULL, "While reordering the work queue");
-	container = (struct UnitContainer*)sl_get(&manager->list, 0);
-	if(error_waiting())
-		THROW_CONT(WT_NULL, "While reordering the work queue");
-	work->unit = nextUnit;
+	vector_init(&work->unit.unitsReady, sizeof(struct Unit*), 1);
+	vector_putBack(&work->unit.unitsReady, &nextUnit);
 	return WT_UNIT;
 }

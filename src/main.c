@@ -314,26 +314,32 @@ int main(int argc, char **argv)
 				free(work.dbus);
 			}
 			if(type == WT_UNIT) {
-				struct Unit* unit = work.unit;
-				log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
+				struct UnitWork unitWork = work.unit;
+				size_t index = 0;
+				struct Unit** unitptr = vector_getFirst(&unitWork.unitsReady, &index);
+				while(unitptr != NULL) {
+					struct Unit* unit = *unitptr;
+					log_write(LEVEL_INFO, "[%ld] Processing %s (%s, %s)", time(NULL), unit->name, unit->command, TypeStr[unit->type]);
 
-				/* Format the output for the bar */
-				char* unitStr = getInput(&bard.buffer, unit);
-				ERROR_ABORT("While getting input for %s", unit->name);
+					/* Format the output for the bar */
+					char* unitStr = getInput(&bard.buffer, unit);
+					ERROR_ABORT("While getting input for %s", unit->name);
 
-				if(unitStr != NULL) {
-					oneUpdate = true;
+					if(unitStr != NULL) {
+						oneUpdate = true;
 
-					char* formatted = formatUnit(unit, unitStr, &bard.regexCache, &bard.xcolorArr);
+						char* formatted = formatUnit(unit, unitStr, &bard.regexCache, &bard.xcolorArr);
 
-					out_set(&bard.output, unit, formatted);
+						out_set(&bard.output, unit, formatted);
+					}
+					if(unitStr != NULL)
+						free(unitStr);
+					unitptr = vector_getNext(&unitWork.unitsReady, &index);
 				}
 				if(oneUpdate && !workmanger_waiting(&bard.wm)) {
 					render(&bard, separator, monitors);
 					oneUpdate = false;
 				}
-				if(unitStr != NULL)
-					free(unitStr);
 			}
 		}
 

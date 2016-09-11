@@ -69,9 +69,13 @@ static pid_t run(char* command, int writefd) {
 	return pid;
 }
 
-struct Buffer {
+struct BufferData {
 	Vector buffer;
-	bool complete;
+	bool complete; //@MEM: We could probably save some memory here
+	int rc;
+};
+struct Buffer {
+	struct BufferData* data;
 	int fd;
 	int writefd;
 	pid_t pid;
@@ -87,16 +91,22 @@ bool initPipe(void* elem, void* userdata) {
 		return true;
 
 	struct Buffer** val;
-	JSLG(val, data->buffers->buffers, unit->command);
+	JSLG(val, data->buffers->cbuff, unit->command);
 	if(val == NULL) {
 		struct Buffer* newBuf = calloc(sizeof(struct Buffer), 1);
-		vector_init(&newBuf->buffer, sizeof(char), 128);
+		if(newBuf == NULL)
+			THROW_NEW(false, "Failed allocating the command buffer");
+		newBuf->data = calloc(sizeof(struct BufferData), 1);
+		if(newBuf->data == NULL)
+			THROW_NEW(false, "Failed allocating the command buffer data");
+		newBuf->data->rc = 1;
+		vector_init(&newBuf->data->buffer, sizeof(char), 128);
 		PROP_THROW(false, "While starting pipe for %s", unit->name);
-		log_write(LEVEL_INFO, "Creating pipe for %s", unit->name);
 
 		int fd[2];
 		pipe(fd);
-		log_write(LEVEL_INFO, "The new fd's are %d and %d", fd[0], fd[1]);
+		PROP_THROW(false, "While starting pipe for %s", unit->name);
+		log_write(LEVEL_INFO, "The fd's for %s are %d and %d", unit->command, fd[0], fd[1]);
 		newBuf->fd = fd[0];
 		newBuf->writefd = fd[1];
 
@@ -107,10 +117,19 @@ bool initPipe(void* elem, void* userdata) {
 		if(commandLen > data->buffers->longestKey)
 			data->buffers->longestKey = commandLen;
 
-		JSLI(val, data->buffers->buffers, unit->command);
+		JSLI(val, data->buffers->cbuff, unit->command);
 		*val = newBuf;
+		struct BufferData** newData;
+		JLI(newData, data->buffers->ubuff, (Word_t)unit);
+		*newData = newBuf->data;
 		int rc;
 		J1S(rc, data->buffers->owners, (Word_t)unit);
+	} else {
+		//Command already started. We just need to hook unit up to the running command
+		(*val)->data->rc += 1;
+		struct BufferData** val2;
+		JLI(val2, data->buffers->ubuff, (Word_t)unit);
+		*val2 = (*val)->data;
 	}
 
 	return true;
@@ -132,17 +151,17 @@ void runner_stopPipes(struct RunnerBuffer* buffers) {
 	uint8_t* index = malloc((buffers->longestKey+1) * sizeof(char));
 	index[0] = '\0';
 	struct Buffer** val;
-	JSLF(val, buffers->buffers, index);
+	JSLF(val, buffers->cbuff, index);
 	while(val != NULL) {
 		kill((*val)->pid, SIGTERM);
 		log_write(LEVEL_INFO, "Waiting for %d to exit", (*val)->pid);
 		waitpid((*val)->pid, NULL, 0);
 		close((*val)->fd);
 		log_write(LEVEL_INFO, "kill %s", index);
-		JSLN(val, buffers->buffers, index);
+		JSLN(val, buffers->cbuff, index);
 	}
 	Word_t bytes;
-	JSLFA(bytes, buffers->buffers);
+	JSLFA(bytes, buffers->cbuff);
 	J1FA(bytes, buffers->owners);
 	free(index);
 }
@@ -153,11 +172,11 @@ fd_set runner_getfds(struct RunnerBuffer* buffers) {
 	uint8_t* index = malloc((buffers->longestKey+1) * sizeof(char));
 	index[0] = '\0';
 	struct Buffer** val;
-	JSLF(val, buffers->buffers, index);
+	JSLF(val, buffers->cbuff, index);
 	while(val != NULL) {
 		FD_SET((*val)->fd, &set);
 		log_write(LEVEL_INFO, "fdset %s, fd: %d", index, (*val)->fd);
-		JSLN(val, buffers->buffers, index);
+		JSLN(val, buffers->cbuff, index);
 	}
 	free(index);
 	return set;
@@ -165,7 +184,7 @@ fd_set runner_getfds(struct RunnerBuffer* buffers) {
 
 bool runner_ready(struct RunnerBuffer* buffers, fd_set* fdset, struct Unit* unit) {
 	struct Buffer** val;
-	JSLG(val, buffers->buffers, (uint8_t*)unit->command);
+	JSLG(val, buffers->cbuff, (uint8_t*)unit->command);
 	bool isset = FD_ISSET((*val)->fd, fdset);
 	return isset;
 }
@@ -175,12 +194,19 @@ void runner_read(struct RunnerBuffer* buffers, struct Unit* unit, char** const o
 
 	struct Buffer* buffer;
 	{
+		//Done early to bail on error
 		struct Buffer** val;
-		JSLG(val, buffers->buffers, (uint8_t*)unit->command);
+		JSLG(val, buffers->cbuff, unit->command);
 		if(val == NULL)
-			VTHROW_NEW("No command started for %s", unit->name);
+			VTHROW_NEW("No command started for %s", unit->command);
 		buffer = *val;
 	}
+	struct BufferData* udata;
+	struct BufferData** udataPtr;
+	JLG(udataPtr, buffers->ubuff, (Word_t)unit);
+	if(udataPtr == NULL)
+		VTHROW_NEW("No command started for %s", unit->name);
+	udata = *udataPtr;
 
 	int rc;
 	J1T(rc, buffers->owners, (Word_t)unit);
@@ -191,41 +217,66 @@ void runner_read(struct RunnerBuffer* buffers, struct Unit* unit, char** const o
 		char* window = malloc((delimiterLen+1) * sizeof(char));
 		window[delimiterLen] = '\0';
 		int n = read(buffer->fd, window, delimiterLen);
-		buffer->complete = true;
+		buffer->data->complete = true;
 		while(strstr(window, unit->delimiter) == NULL) {
 			if(n == 0) {
-				buffer->complete = false;
+				buffer->data->complete = false;
 				break;
 			}else if(n == -1) {
 				VTHROW_NEW("Could not read from pipe: %s", strerror(errno));
 			}
-			vector_putBack(&buffer->buffer, window + delimiterLen-1); //Put last char onto the final string
+			vector_putBack(&buffer->data->buffer, window + delimiterLen-1); //Put last char onto the final string
 			VPROP_THROW("While inserting the last char into the buffer %c", window + delimiterLen-1);
 			memmove(window+1, window, delimiterLen-1); //Move everything over one
 			n = read(buffer->fd, window, 1);
 		}
-		vector_putListBack(&buffer->buffer, window, delimiterLen); //Put the remaining window on there
+		vector_putListBack(&buffer->data->buffer, window, delimiterLen); //Put the remaining window on there
 		VPROP_THROW("While appending the window to the buffer %s", window);
 		free(window);
 
-		if(buffer->complete) {
-			vector_putListBack(&buffer->buffer, "\0", 1);
+		if(buffer->data->complete) {
+			//We are done with this buffer, finish the old one off
+			vector_putListBack(&buffer->data->buffer, "\0", 1);
 			VPROP_THROW("While adding null terminator");
-			*out = vector_detach(&buffer->buffer);
-			vector_init(&buffer->buffer, sizeof(char), 512);
-			VPROP_THROW("While initiating the new buffer");
-			return;
-		}
 
-		*out = NULL;
-	}else{
-		//We don't own this buffer, so just read if complete
-		if(buffer->complete) {
-			size_t listSize = vector_size(&buffer->buffer) * sizeof(char);
+			//Copy the data to the output
+			size_t listSize = vector_size(&buffer->data->buffer) * sizeof(char);
 			*out = malloc(listSize);
 			if(*out == NULL)
-				VTHROW_NEW("Failed allocating space for the new buffer");
-			memcpy(*out, buffer->buffer.data, listSize);
+				VTHROW_NEW("Failed allocating space for the output buffer");
+			memcpy(*out, buffer->data->buffer.data, listSize);
+			buffer->data->rc -= 1;
+			if(buffer->data->rc == 0) {
+				vector_kill(&buffer->data->buffer);
+				free(buffer->data);
+			}
+
+			//And get a new buffer ready
+			buffer->data = calloc(sizeof(struct BufferData), 1);
+			if(buffer->data == NULL)
+				VTHROW_NEW("Failed allocating new buffer data struct");
+			vector_init(&buffer->data->buffer, sizeof(char), 512);
+			VPROP_THROW("While initiating the new buffer");
+			buffer->data->rc = 1;
+			*udataPtr = buffer->data;
+		} else {
+			*out = NULL;
+		}
+	}else{
+		//We don't own this buffer, so just read if complete
+		if(udata->complete) {
+			size_t listSize = vector_size(&udata->buffer) * sizeof(char);
+			*out = malloc(listSize);
+			if(*out == NULL)
+				VTHROW_NEW("Failed allocating space for the output buffer");
+			memcpy(*out, udata->buffer.data, listSize);
+			udata->rc -= 1;
+			if(udata->rc == 0) {
+				vector_kill(&udata->buffer);
+				free(udata);
+			}
+			*udataPtr = buffer->data;
+			buffer->data->rc += 1;
 		}else{
 			*out = NULL;
 		}

@@ -27,7 +27,7 @@ void formatter_format(Vector* compiledStr, const struct FormatArray *const array
 	vector_init(&output, sizeof(char), 512);
 		VPROP_THROW("While formatting");
 
-	int index = 0;
+	size_t index = 0;
 	struct Node* node = vector_getFirst(compiledStr, &index);
 	while(node != NULL) {
 		if(node->type == NT_STRING) {

@@ -32,7 +32,7 @@ void parser_eat(struct Parser* parser) {
 }
 
 void parser_freeCompiled(Vector* compiled) {
-	int index = 0;
+	size_t index = 0;
 	struct Node* node = vector_getFirst(compiled, &index);
 	while(node != NULL) {
 		if(node->type == NT_STRING) {

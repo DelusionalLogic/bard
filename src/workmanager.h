@@ -38,8 +38,12 @@ void workmanager_kill(struct WorkManager* manager);
 void workmanager_addUnits(struct WorkManager* manager, struct Units* units);
 bool workmanger_waiting(struct WorkManager* manager);
 
+struct UnitWork {
+	Vector unitsReady;
+};
+
 union Work {
-	struct Unit* unit;
+	struct UnitWork unit;
 	struct DbusWork* dbus;
 };
 

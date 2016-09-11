@@ -14,7 +14,7 @@ static pthread_key_t errKey;
 static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 
 static void freeElems(Vector* errList) {
-	int index;
+	size_t index;
 	struct Error* err = vector_getFirst(errList, &index);
 	while(err != NULL) {
 		free(err->message);

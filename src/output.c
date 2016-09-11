@@ -60,7 +60,7 @@ char* out_format(struct Outputs* outs, struct Units* container, int monitors, co
 			vector_putListBack(&vec, AlignStr[i], strlen(AlignStr[i]));
 			if(error_waiting())
 				THROW_CONT(NULL, "While adding alignment output");
-			int index;
+			size_t index = 0;
 			struct Unit* unit = vector_getFirst(aligns[i], &index);
 			if(error_waiting())
 				THROW_CONT(NULL, "While iterating unit outputs");

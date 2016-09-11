@@ -37,7 +37,7 @@ bool error_waiting();
 
 void error_eat();
 void error_print();
-void error_abort();
+void error_abort() __attribute__((__noreturn__));
 
 #define THROW_NEW(ret_val, format, ...) do{ error_new(__FILE__, __LINE__, format, ##__VA_ARGS__); return ret_val; } while(0)
 #define THROW_CONT(ret_val, format, ...) do{ error_append(__FILE__, __LINE__, format, ##__VA_ARGS__); return ret_val; } while(0)

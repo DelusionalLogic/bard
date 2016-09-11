@@ -25,7 +25,8 @@
 #include "unit.h"
 
 struct RunnerBuffer{
-	Pvoid_t buffers;
+	Pvoid_t cbuff; //Command to buffer
+	Pvoid_t ubuff; //Unit to buffer
 	size_t longestKey;
 	Pvoid_t owners;
 };

@@ -43,8 +43,8 @@ void vector_qsort(Vector* vector, int (*compar)(const void *, const void*));
 
 bool vector_foreach(Vector* vector, bool (*callback)(void* elem, void* userdata), void* userdata);
 
-void* vector_getFirst(Vector* vector, int* index);
-void* vector_getNext(Vector* vector, int* index);
+void* vector_getFirst(Vector* vector, size_t* index);
+void* vector_getNext(Vector* vector, size_t* index);
 
 int vector_size(Vector* vector);
 

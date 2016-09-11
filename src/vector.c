@@ -150,7 +150,7 @@ void vector_qsort(Vector* vector, int (*compar)(const void *, const void*))
 bool vector_foreach(Vector* vector, bool (*callback)(void* elem, void* userdata), void* userdata)
 {
 	assert(vector->elementSize != 0);
-	int index = 0;
+	size_t index = 0;
 	void* elem  = vector_getFirst(vector, &index); //Should never error out
 	while(elem != NULL) {
 		bool cont = callback(elem, userdata);
@@ -163,26 +163,26 @@ bool vector_foreach(Vector* vector, bool (*callback)(void* elem, void* userdata)
 	return true;
 }
 
-void* vector_getFirst(Vector* vector, int* index) {
+void* vector_getFirst(Vector* vector, size_t* index) {
 	*index = 0;
 	if(*index >= vector_size(vector))
 		return NULL;
 	return vector_get(vector, *index);
 }
-void* vector_getFirst_assert(Vector* vector, int* index) {
+void* vector_getFirst_assert(Vector* vector, size_t* index) {
 	*index = 0;
 	if(*index >= vector_size(vector))
 		return NULL;
 	return vector_get_assert(vector, *index);
 }
 
-void* vector_getNext(Vector* vector, int* index) {
+void* vector_getNext(Vector* vector, size_t* index) {
 	++(*index);
 	if(*index >= vector_size(vector))
 		return NULL;
 	return vector_get(vector, *index);
 }
-void* vector_getNext_assert(Vector* vector, int* index) {
+void* vector_getNext_assert(Vector* vector, size_t* index) {
 	++(*index);
 	if(*index >= vector_size(vector))
 		return NULL;
