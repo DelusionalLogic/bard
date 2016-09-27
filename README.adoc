@@ -1,4 +1,4 @@
-You really should try the rewire branch. I'm still working on it, so i've chosen to keep this as master for a bit yet. Rewire (or bard 2.0) has a nunch of improvments and where all my development effort is going.
+You really should try the rewire branch. I'm still working on it, so i've chosen to keep this as master for a bit yet. Rewire (or bard 2.0) has a bunch of improvments and is where all my development effort is going.
 
 BARD(1)
 =======
