@@ -2,7 +2,7 @@
 
 _pkgname=bard
 pkgname=${_pkgname}-git
-pkgver=51
+pkgver=123
 pkgrel=1
 pkgdesc='A tool for generating a system bar by using lemonbar'
 arch=('i686' 'x86_64')
@@ -13,7 +13,7 @@ makedepends=('git' 'asciidoc')
 optdepends=()
 provides=("${_pkgname}")
 conflicts=("${_pkgname}")
-source=("git://github.com/DelusionalLogic/${_pkgname}.git")
+source=("git://github.com/DelusionalLogic/${_pkgname}.git#branch=rewire")
 md5sums=('SKIP')
 
 pkgver() {
