@@ -60,23 +60,27 @@ char* out_format(struct Outputs* outs, struct Units* container, int monitors, co
 			PROP_THROW(NULL, "While iterating unit outputs");
 			bool first = true;
 			while(unit != NULL) {
-				char** str;
-				JLG(str, outs->outputs, (Word_t)unit);
-				if(str != NULL && str != NULL && *str != NULL && unit->render) {
-					vector_putListBack(&vec, "%{F-}%{B-}%{T-}", 15);
-					PROP_THROW(NULL, "While iterating unit outputs");
+				int isHidden;
+				J1T(isHidden, unit->disabledMonitors, mon);
+				if(!isHidden && unit->render) {
+					char** str;
+					JLG(str, outs->outputs, (Word_t)unit);
+					if(str != NULL && str != NULL && *str != NULL) {
+						vector_putListBack(&vec, "%{F-}%{B-}%{T-}", 15);
+						PROP_THROW(NULL, "While iterating unit outputs");
 
-					if(!first) {
-						vector_putListBack(&vec, separator, sepLen);
+						if(!first) {
+							vector_putListBack(&vec, separator, sepLen);
+							PROP_THROW(NULL, "While iterating unit outputs");
+						}
+						first = false;
+
+						vector_putListBack(&vec, "%{F-}%{B-}%{T-}", 15);
+						PROP_THROW(NULL, "While iterating unit outputs");
+
+						vector_putListBack(&vec, *str, strlen(*str));
 						PROP_THROW(NULL, "While iterating unit outputs");
 					}
-					first = false;
-
-					vector_putListBack(&vec, "%{F-}%{B-}%{T-}", 15);
-					PROP_THROW(NULL, "While iterating unit outputs");
-
-					vector_putListBack(&vec, *str, strlen(*str));
-					PROP_THROW(NULL, "While iterating unit outputs");
 				}
 				unit = vector_getNext(aligns[i], &index);
 				PROP_THROW(NULL, "While iterating unit outputs");

@@ -30,4 +30,6 @@ void units_free(struct Units* units);
 void units_load(struct Units* units, char* configDir);
 void units_preprocess(struct Units* units);
 
+struct Unit* units_find(struct Units* units, char* name);
+
 #endif

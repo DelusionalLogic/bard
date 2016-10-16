@@ -43,7 +43,9 @@ void unit_init(struct Unit* unit) {
 	unit->fontMap = NULL;
 	unit->lEnvKey = 0;
 	unit->envMap = NULL;
-	
+
+	unit->disabledMonitors = NULL;
+
 	unit->delimiter = NULL;
 
 	unit->hash = 0;

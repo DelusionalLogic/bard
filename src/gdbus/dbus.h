@@ -7,10 +7,20 @@
 enum DbusCommand {
 	DC_RESTART,
 	DC_RELOAD,
+	DC_DISABLEUNIT,
+	DC_ENABLEUNIT,
+};
+
+struct EnDisWork {
+	char* unitName;
+	int monitor;
 };
 
 struct DbusWork {
 	enum DbusCommand command;
+	union {
+		struct EnDisWork endis;
+	};
 };
 
 struct Dbus {

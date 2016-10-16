@@ -185,3 +185,40 @@ void units_preprocess(struct Units* units) {
 	vector_foreach(&units->right, unit_preprocess, NULL);
 	VPROP_THROW("While preprocessing the right side");
 }
+
+struct MatchData {
+	char* name;
+	struct Unit* result;
+};
+bool match(void* elem, void* userdata) {
+	struct Unit* unit = (struct Unit*)elem;
+	struct MatchData* data = (struct MatchData*)userdata;
+	if(strcmp(data->name, unit->name) == 0) {
+		log_write(LEVEL_INFO, "Found the unit %s", unit->name);
+		data->result = unit;
+		return false;
+	}
+	return true;
+}
+
+struct Unit* units_find(struct Units* units, char* name) {
+	struct MatchData data = {
+		.name = name
+	};
+
+	bool found = vector_foreach(&units->left, match, &data);
+	PROP_THROW(NULL, "While searching the left side");
+	if(!found)
+		return data.result;
+
+	found = vector_foreach(&units->center, match, &data);
+	PROP_THROW(NULL, "While searching the center");
+	if(!found)
+		return data.result;
+
+	found = vector_foreach(&units->right, match, &data);
+	PROP_THROW(NULL, "While searching the right side");
+	if(!found)
+		return data.result;
+	return NULL;
+}

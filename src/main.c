@@ -46,6 +46,7 @@
 #include "parser.h"
 #include "fs.h"
 #include "manager.h"
+#include "Judy.h"
 #include "gdbus/dbus.h"
 
 const char* argp_program_version = PACKAGE_STRING;
@@ -310,10 +311,23 @@ int main(int argc, char **argv)
 				} else if(work.dbus->command == DC_RELOAD) {
 					bard_shutdown(&bard);
 					startup(&bard, &separator, arguments.configDir, &monitors);
+				} else if(work.dbus->command == DC_DISABLEUNIT || work.dbus->command == DC_ENABLEUNIT) {
+					struct Unit* unit = units_find(&bard.units, work.dbus->endis.unitName);
+					if(unit == NULL) {
+						log_write(LEVEL_WARNING, "Unit not found %s", work.dbus->endis.unitName);
+					} else {
+						int rc;
+						if(work.dbus->command == DC_DISABLEUNIT) {
+							J1S(rc, unit->disabledMonitors, work.dbus->endis.monitor);
+						} else {
+							J1U(rc, unit->disabledMonitors, work.dbus->endis.monitor);
+						}
+						render(&bard, separator, monitors);
+						free(work.dbus->endis.unitName);
+					}
 				}
 				free(work.dbus);
-			}
-			if(type == WT_UNIT) {
+			} else if(type == WT_UNIT) {
 				struct UnitWork unitWork = work.unit;
 				size_t index = 0;
 				struct Unit** unitptr = vector_getFirst(&unitWork.unitsReady, &index);

@@ -1,8 +1,16 @@
 <node>
-  <interface name="dk.slashwin.bard">
-    <method name="BarReload">
-    </method>
-    <method name="Reload">
-    </method>
-  </interface>
+	<interface name="dk.slashwin.bard">
+		<method name="BarReload">
+		</method>
+		<method name="Reload">
+		</method>
+		<method name="DisableUnit">
+			<arg name="unit_name" type="s"/>
+			<arg name="monitor" type="i"/>
+		</method>
+		<method name="EnableUnit">
+			<arg name="unit_name" type="s"/>
+			<arg name="monitor" type="i"/>
+		</method>
+	</interface>
 </node>
