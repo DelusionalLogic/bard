@@ -122,7 +122,7 @@ void error_print() {
 		log_write(LEVEL_FATAL, "No error to print");
 		exit(1);
 	}
-	int index;
+	size_t index;
 	struct Error* err = vector_getFirst(ptr, &index);
 	while(err != NULL) {
 		for(int i = 0; i < index; i++)

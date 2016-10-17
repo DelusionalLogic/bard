@@ -12,5 +12,6 @@
 			<arg name="unit_name" type="s"/>
 			<arg name="monitor" type="i"/>
 		</method>
+		<property name="ConfigPath" type="s" access="read" />
 	</interface>
 </node>

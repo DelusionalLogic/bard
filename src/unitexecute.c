@@ -24,8 +24,6 @@
 #include "logger.h"
 #include "myerror.h"
 
-static int min(int a, int b) { return a < b ? a : b; }
-
 static unsigned long hashString(char *str)
 {
 	unsigned long hash = 5381;

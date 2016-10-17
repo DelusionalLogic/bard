@@ -279,7 +279,8 @@ int main(int argc, char **argv)
 
 	struct Bard bard = {0};
 
-	dbus_start(&bard.dbus, "/dk/slashwin/bard/1"); //TODO: Make the last param matter
+	dbus_start(&bard.dbus, "/dk/slashwin/bard/1", arguments.configDir); //TODO: Increment the name if another instance is running
+	ERROR_ABORT("While starting dbus");
 
 	struct XlibColor xColor;
 
@@ -307,10 +308,14 @@ int main(int argc, char **argv)
 			if(type == WT_DBUS) {
 				if(work.dbus->command == DC_RESTART) {
 					manager_restartBar(&bard.manager);
+					ERROR_ABORT("While restarting lemonbar after dbus signal");
 					render(&bard, separator, monitors);
+					ERROR_ABORT("While rendering bar after dbus restart");
 				} else if(work.dbus->command == DC_RELOAD) {
 					bard_shutdown(&bard);
+					ERROR_ABORT("While stopping bard after dbus reload");
 					startup(&bard, &separator, arguments.configDir, &monitors);
+					ERROR_ABORT("While restarting bard after dbus reload");
 				} else if(work.dbus->command == DC_DISABLEUNIT || work.dbus->command == DC_ENABLEUNIT) {
 					struct Unit* unit = units_find(&bard.units, work.dbus->endis.unitName);
 					if(unit == NULL) {
@@ -323,6 +328,7 @@ int main(int argc, char **argv)
 							J1U(rc, unit->disabledMonitors, work.dbus->endis.monitor);
 						}
 						render(&bard, separator, monitors);
+						ERROR_ABORT("While rendering bar switching unit state for %s", unit->name);
 						free(work.dbus->endis.unitName);
 					}
 				}

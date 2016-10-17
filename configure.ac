@@ -1,7 +1,6 @@
 AC_INIT([bard], [1.0], [https://github.com/DelusionalLogic/bard/issues])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror subdir-objects])
 AC_CONFIG_SRCDIR([src/xlib_color.c])
-: ${CFLAGS="-g -O0 -Wall"}
 AC_PROG_CC
 AX_CHECK_COMPILE_FLAG([-std=gnu11],,[AC_MSG_FAILURE([no acceptable C11 compiler found.])])
 AC_PROG_CC_STDC

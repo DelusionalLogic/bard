@@ -108,6 +108,8 @@ static void on_bus_aquired(GDBusConnection* conn, const gchar* name, gpointer us
 			"handle-enable-unit",
 			G_CALLBACK(on_handle_enable_unit),
 			userdata);
+
+	dbus_bard_set_config_path(bardbus, dbus->configPath);
 }
 
 static void on_name_aquired(GDBusConnection* conn, const gchar* name, gpointer userdata) {
@@ -137,11 +139,11 @@ static void* workThread(void* userdata) {
 	return NULL;
 }
 
-void dbus_start(struct Dbus* dbus, char* name) {
+void dbus_start(struct Dbus* dbus, char* name, char* configPath) {
 	pipe(dbus->fd);
+	dbus->configPath = configPath;
 	if(pthread_create(&dbus->thread, NULL, workThread, dbus) != 0)
 		VTHROW_NEW("Failed creating dbus thread");
-		return;
 }
 
 void dbus_stop(struct Dbus* dbus) {
