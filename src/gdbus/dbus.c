@@ -1,6 +1,7 @@
 #include "dbus.h"
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include "bard-generated.h"
 #include "logger.h"
 #include "myerror.h"
@@ -8,6 +9,7 @@
 static gboolean on_handle_bar_reload(dbusBard* obj, GDBusMethodInvocation* inv, gpointer userdata) {
 	struct Dbus* dbus = (struct Dbus*)userdata;
 	log_write(LEVEL_INFO, "Dbus told us to restart the bar");
+	log_write(LEVEL_INFO, "Dbus fd %d", dbus->fd[1]);
 
 	struct DbusWork* work = malloc(sizeof(struct DbusWork));
 	work->command = DC_RESTART;
@@ -30,12 +32,51 @@ static gboolean on_handle_reload(dbusBard* obj, GDBusMethodInvocation* inv, gpoi
 	//Should be atomic according to POSIX spec, assuming that PIPE_BUF > 4
 	write(dbus->fd[1], &work, sizeof(&work));
 
-	dbus_bard_complete_bar_reload(obj, inv);
+	dbus_bard_complete_reload(obj, inv);
+
+	return true;
+}
+
+static gboolean on_handle_disable_unit(dbusBard* obj, GDBusMethodInvocation* inv, char* name, int32_t monitor, gpointer userdata) {
+	struct Dbus* dbus = (struct Dbus*)userdata;
+
+	log_write(LEVEL_INFO, "Dbus told us to disable %s, on %d", name, monitor);
+
+	struct DbusWork* work = malloc(sizeof(struct DbusWork));
+	work->command = DC_DISABLEUNIT;
+	work->endis.unitName = malloc(strlen(name) * sizeof(char));
+	strcpy(work->endis.unitName, name);
+	work->endis.monitor = monitor;
+
+	//Should be atomic according to POSIX spec, assuming that PIPE_BUF > 4
+	write(dbus->fd[1], &work, sizeof(&work));
+
+	dbus_bard_complete_disable_unit(obj, inv);
+
+	return true;
+}
+
+static gboolean on_handle_enable_unit(dbusBard* obj, GDBusMethodInvocation* inv, char* name, int32_t monitor, gpointer userdata) {
+	struct Dbus* dbus = (struct Dbus*)userdata;
+
+	log_write(LEVEL_INFO, "Dbus told us to enable %s, on %d", name, monitor);
+
+	struct DbusWork* work = malloc(sizeof(struct DbusWork));
+	work->command = DC_ENABLEUNIT;
+	work->endis.unitName = malloc(strlen(name) * sizeof(char));
+	strcpy(work->endis.unitName, name);
+	work->endis.monitor = monitor;
+
+	//Should be atomic according to POSIX spec, assuming that PIPE_BUF > 4
+	write(dbus->fd[1], &work, sizeof(&work));
+
+	dbus_bard_complete_enable_unit(obj, inv);
 
 	return true;
 }
 
 static void on_bus_aquired(GDBusConnection* conn, const gchar* name, gpointer userdata) {
+	struct Dbus* dbus = (struct Dbus*)userdata;
 	dbusBard* bardbus = dbus_bard_skeleton_new();
 	GError* error = NULL;
 	if (!g_dbus_interface_skeleton_export (G_DBUS_INTERFACE_SKELETON (bardbus),
@@ -57,6 +98,18 @@ static void on_bus_aquired(GDBusConnection* conn, const gchar* name, gpointer us
 			"handle-reload",
 			G_CALLBACK(on_handle_reload),
 			userdata);
+
+	g_signal_connect(G_DBUS_INTERFACE_SKELETON(bardbus),
+			"handle-disable-unit",
+			G_CALLBACK(on_handle_disable_unit),
+			userdata);
+
+	g_signal_connect(G_DBUS_INTERFACE_SKELETON(bardbus),
+			"handle-enable-unit",
+			G_CALLBACK(on_handle_enable_unit),
+			userdata);
+
+	dbus_bard_set_config_path(bardbus, dbus->configPath);
 }
 
 static void on_name_aquired(GDBusConnection* conn, const gchar* name, gpointer userdata) {
@@ -86,11 +139,11 @@ static void* workThread(void* userdata) {
 	return NULL;
 }
 
-void dbus_start(struct Dbus* dbus, char* name) {
+void dbus_start(struct Dbus* dbus, char* name, char* configPath) {
 	pipe(dbus->fd);
+	dbus->configPath = configPath;
 	if(pthread_create(&dbus->thread, NULL, workThread, dbus) != 0)
-		//VTHROW_NEW("Failed creating dbus thread");
-		return;
+		VTHROW_NEW("Failed creating dbus thread");
 }
 
 void dbus_stop(struct Dbus* dbus) {

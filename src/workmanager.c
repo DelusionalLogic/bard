@@ -167,6 +167,7 @@ enum WorkType workmanager_next(struct WorkManager* manager, struct Dbus* dbus, u
 			log_write(LEVEL_INFO, "%d events fired", ready);
 			//Check for dbus event
 			if(FD_ISSET(dbus_getfd(dbus), &newSet)) {
+				log_write(LEVEL_INFO, "Dbus work!");
 				struct DbusWork* dwork = NULL;
 				read(dbus_getfd(dbus), &dwork, sizeof(struct DbusWork*));
 				work->dbus = dwork;

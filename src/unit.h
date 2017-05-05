@@ -59,6 +59,8 @@ struct Unit {
 	size_t lEnvKey;
 	Pvoid_t envMap; // str -> str
 
+	Pvoid_t disabledMonitors;
+
 	char* delimiter;
 
 	/* Processing info */
