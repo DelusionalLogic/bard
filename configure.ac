@@ -1,6 +1,10 @@
 AC_INIT([bard], [1.0], [https://github.com/DelusionalLogic/bard/issues])
+AC_CONFIG_MACRO_DIRS([m4])
+AM_PROG_AR()
+LT_INIT()
 AM_INIT_AUTOMAKE([foreign -Wall -Werror subdir-objects])
-AC_CONFIG_SRCDIR([src/xlib_color.c])
+AC_CONFIG_SRCDIR([bard_src/xlib_color.c])
+AC_CONFIG_SRCDIR([sharedlib_src/myerror.c])
 AC_PROG_CC
 AX_CHECK_COMPILE_FLAG([-std=gnu11],,[AC_MSG_FAILURE([no acceptable C11 compiler found.])])
 AC_PROG_CC_STDC
@@ -19,7 +23,8 @@ fi
 
 AC_CONFIG_FILES([
 Makefile
-src/Makefile
+bard_src/Makefile
+sharedlib_src/Makefile
 docs/Makefile
 docs/bard.txt
 ])
