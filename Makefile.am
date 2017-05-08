@@ -4,6 +4,7 @@ endif
 SUBDIRS = \
 		  sharedlib_src \
 		  bard_src \
+		  barctl_src \
 		  $(MAYBE_DOC)
 
 ACLOCAL_AMFLAGS = -I m4
