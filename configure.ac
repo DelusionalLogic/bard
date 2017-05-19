@@ -10,12 +10,25 @@ AC_CONFIG_HEADERS([config.h])
 # Check for glib
 PKG_CHECK_MODULES([GIO], [gio-unix-2.0 >= 2.0])
 
-# Check for asciidoc
-AC_PATH_PROG(A2X, a2x, no)
+AC_ARG_ENABLE(
+			  [documentation],
+			  AS_HELP_STRING([--disable-documentation], [Disable documentation])
+)
+
+AS_IF([test "x$enable_documentation" != "xno"], [
+	# Check for asciidoc
+	AC_PATH_PROG(A2X, a2x, no)
+	AS_IF(
+		[test "x$A2X" != xyes],
+		[enable_documentation=yes],
+		[AC_MSG_ERROR([Asciidoc is required to build documentation])]
+	)
+])
+
 AM_CONDITIONAL(HAVE_A2X, test "x$A2X" != "xno")
-if test x"$A2X" = x"no"; then
-	AC_MSG_ERROR([Asciidoc is required to build documentation])
-fi
+AM_CONDITIONAL(WANT_DOC, test "x$enable_documentation" != "xno")
+
+
 
 AC_CONFIG_FILES([
 Makefile

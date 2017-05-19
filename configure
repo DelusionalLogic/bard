@@ -626,6 +626,8 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+WANT_DOC_FALSE
+WANT_DOC_TRUE
 HAVE_A2X_FALSE
 HAVE_A2X_TRUE
 A2X
@@ -724,6 +726,7 @@ ac_user_opts='
 enable_option_checking
 enable_silent_rules
 enable_dependency_tracking
+enable_documentation
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1359,6 +1362,8 @@ Optional Features:
                           do not reject slow dependency extractors
   --disable-dependency-tracking
                           speeds up one-time build
+  --disable-documentation Disable documentation
+
 
 Some influential environment variables:
   CC          C compiler command
@@ -4651,8 +4656,16 @@ $as_echo "yes" >&6; }
 
 fi
 
-# Check for asciidoc
-# Extract the first word of "a2x", so it can be a program name with args.
+# Check whether --enable-documentation was given.
+if test "${enable_documentation+set}" = set; then :
+  enableval=$enable_documentation;
+fi
+
+
+if test "x$enable_documentation" != "xno"; then :
+
+	# Check for asciidoc
+	# Extract the first word of "a2x", so it can be a program name with args.
 set dummy a2x; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
@@ -4693,6 +4706,15 @@ $as_echo "no" >&6; }
 fi
 
 
+	if test "x$A2X" != xyes; then :
+  enable_documentation=yes
+else
+  as_fn_error $? "Asciidoc is required to build documentation" "$LINENO" 5
+
+fi
+
+fi
+
  if test "x$A2X" != "xno"; then
   HAVE_A2X_TRUE=
   HAVE_A2X_FALSE='#'
@@ -4701,9 +4723,16 @@ else
   HAVE_A2X_FALSE=
 fi
 
-if test x"$A2X" = x"no"; then
-	as_fn_error $? "Asciidoc is required to build documentation" "$LINENO" 5
+ if test "x$enable_documentation" != "xno"; then
+  WANT_DOC_TRUE=
+  WANT_DOC_FALSE='#'
+else
+  WANT_DOC_TRUE='#'
+  WANT_DOC_FALSE=
 fi
+
+
+
 
 ac_config_files="$ac_config_files Makefile src/Makefile docs/Makefile docs/bard.txt"
 
@@ -4843,6 +4872,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_A2X_TRUE}" && test -z "${HAVE_A2X_FALSE}"; then
   as_fn_error $? "conditional \"HAVE_A2X\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${WANT_DOC_TRUE}" && test -z "${WANT_DOC_FALSE}"; then
+  as_fn_error $? "conditional \"WANT_DOC\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 

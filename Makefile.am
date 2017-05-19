@@ -1,3 +1,6 @@
+if WANT_DOC
+  MAYBE_DOC = docs
+endif
 SUBDIRS = \
-		  src \
-		  docs
+		  src\
+		  $(MAYBE_DOC)
