@@ -159,7 +159,7 @@ am__define_uniq_tagged_files = \
 ETAGS = etags
 CTAGS = ctags
 CSCOPE = cscope
-DIST_SUBDIRS = src docs
+DIST_SUBDIRS = sharedlib_src bard_src barctl_src docs
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in COPYING \
 	ar-lib compile config.guess config.sub depcomp install-sh \
 	ltmain.sh missing
