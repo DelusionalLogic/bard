@@ -20,6 +20,8 @@ void cmd_global(int argc, char**argv);
 void cmd_config_path(struct argp_state* state);
 void cmd_hide_unit(struct argp_state* state);
 void cmd_show_unit(struct argp_state* state);
+void cmd_reload(struct argp_state* state);
+void cmd_bar_reload(struct argp_state* state);
 
 const char* argp_program_version = PACKAGE_STRING;
 const char* argp_program_bug_address = PACKAGE_BUGREPORT;
@@ -44,7 +46,9 @@ static char doc_global[] =
 "Supported commands are:\n"
 "  config-path    Show the config path.\n"
 "  hide-unit      Hide a unit on a monitor.\n"
-"  show-unit      Show a unit on a monitor."
+"  show-unit      Show a unit on a monitor.\n"
+"  reload         Reload all units from disk.\n"
+"  bar-reload     Reload lemonbar."
 ;
 
 static error_t parse_global(int key, char* arg, struct argp_state* state)
@@ -74,6 +78,10 @@ static error_t parse_global(int key, char* arg, struct argp_state* state)
 				cmd_hide_unit(state);
 			}else if(strcmp(arg, "show-unit") == 0) {
 				cmd_show_unit(state);
+			}else if(strcmp(arg, "reload") == 0) {
+				cmd_reload(state);
+			}else if(strcmp(arg, "bar-reload") == 0) {
+				cmd_bar_reload(state);
 			}else{
 				argp_error(state, "%s is not a valid command", arg);
 			}
@@ -369,6 +377,179 @@ void cmd_show_unit(struct argp_state* state)
 
 	return;
 }
+
+
+// Reload {{{
+struct arg_reload
+{
+	struct arg_global* global;
+};
+
+static struct argp_option opt_reload[] =
+{
+	{ 0 }
+};
+
+static char doc_reload[] = "";
+
+static error_t parse_reload(int key, char* arg, struct argp_state* state)
+{
+	struct arg_reload* reload = state->input;
+
+	assert(reload);
+	assert(reload->global);
+
+	switch(key)
+	{
+		case ARGP_KEY_ARG:
+			argp_usage(state);
+			break;
+		case ARGP_KEY_END:
+			if (state->arg_num != 0)
+				argp_usage (state);
+			break;
+		default:
+			return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
+}
+
+static struct argp argp_reload =
+{
+	opt_reload,
+	parse_reload,
+	"",
+	doc_reload
+};
+
+void cmd_reload(struct argp_state* state)
+{
+	struct arg_reload reload = { 0, };
+	int    argc = state->argc - state->next + 1;
+	char** argv = &state->argv[state->next - 1];
+
+	char*  argv0 =  argv[0];
+
+	reload.global = state->input;
+
+	argv[0] = malloc(strlen(state->name) + strlen(" reload") + 1);
+	if(!argv[0])
+		argp_failure(state, 1, ENOMEM, 0);
+	sprintf(argv[0], "%s reload", state->name);
+
+	argp_parse(&argp_reload, argc, argv, ARGP_IN_ORDER, &argc, &reload);
+
+	free(argv[0]);
+	argv[0] = argv0;
+
+	state->next += argc - 1;
+
+	GDBusConnection* connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+	dbusBard* dbus = dbus_bard_proxy_new_sync(
+			connection,
+			G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
+			"dk.slashwin.bard",
+			"/dk/slashwin/bard",
+			NULL,
+			NULL
+	);
+
+	dbus_bard_call_reload_sync(
+			dbus,
+			NULL,
+			NULL
+	);
+
+	return;
+}
+// }}}
+
+// Bar_Reload {{{
+struct arg_bar_reload
+{
+	struct arg_global* global;
+};
+
+static struct argp_option opt_bar_reload[] =
+{
+	{ 0 }
+};
+
+static char doc_bar_reload[] = "";
+
+static error_t parse_bar_reload(int key, char* arg, struct argp_state* state)
+{
+	struct arg_bar_reload* bar_reload = state->input;
+
+	assert(bar_reload);
+	assert(bar_reload->global);
+
+	switch(key)
+	{
+		case ARGP_KEY_ARG:
+			argp_usage(state);
+			break;
+		case ARGP_KEY_END:
+			if (state->arg_num != 0)
+				argp_usage (state);
+			break;
+		default:
+			return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
+}
+
+static struct argp argp_bar_reload =
+{
+	opt_bar_reload,
+	parse_bar_reload,
+	"",
+	doc_bar_reload
+};
+
+void cmd_bar_reload(struct argp_state* state)
+{
+	struct arg_bar_reload bar_reload = { 0, };
+	int    argc = state->argc - state->next + 1;
+	char** argv = &state->argv[state->next - 1];
+
+	char*  argv0 =  argv[0];
+
+	bar_reload.global = state->input;
+
+	argv[0] = malloc(strlen(state->name) + strlen(" bar-reload") + 1);
+	if(!argv[0])
+		argp_failure(state, 1, ENOMEM, 0);
+	sprintf(argv[0], "%s bar-reload", state->name);
+
+	argp_parse(&argp_bar_reload, argc, argv, ARGP_IN_ORDER, &argc, &bar_reload);
+
+	free(argv[0]);
+	argv[0] = argv0;
+
+	state->next += argc - 1;
+
+	GDBusConnection* connection = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+	dbusBard* dbus = dbus_bard_proxy_new_sync(
+			connection,
+			G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
+			"dk.slashwin.bard",
+			"/dk/slashwin/bard",
+			NULL,
+			NULL
+	);
+
+	dbus_bard_call_bar_reload_sync(
+			dbus,
+			NULL,
+			NULL
+	);
+
+	return;
+}
+// }}}
 
 /** Main **/
 
